@@ -1,0 +1,8 @@
+{
+  "sceneSeconds": 20,
+  "telegraphLeadBeatsMin": 2,
+  "hitOnGridToleranceMs": 1,
+  "gridSubdivision": 2,
+  "dodgeTimeMarginRatio": 0.2,
+  "determinism": { "sameInputSameLogHash": true }
+}
