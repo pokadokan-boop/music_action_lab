@@ -1,6 +1,6 @@
 // Canvas 2D で四角と線だけで描く。位置は正規化座標 → 16:9 の描画領域へ変換する
 import type { Config } from '../config';
-import { hitboxAt, pathPosAt, type Attack, type Choreo } from '../core/choreo';
+import { aimLine, attackMotion, easeFor, hitboxAt, pathPosAt, type Attack, type Choreo, type Motion } from '../core/choreo';
 import type { Grid } from '../core/grid';
 import type { SimState } from '../core/sim';
 import { easeOut, type Vec } from '../core/vec';
@@ -26,6 +26,7 @@ const COLOR = {
   telegraph: 'rgba(255, 200, 80, 0.55)',
   telegraphStrong: 'rgba(255, 220, 120, 0.95)',
   hitbox: 'rgba(255, 70, 70, 0.45)',
+  hitboxStrong: 'rgba(255, 120, 120, 0.9)',
   hpOk: '#6aa0ff',
   hpLow: '#ff5a5a',
   on: '#ffe066',
@@ -64,16 +65,29 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
 
   drawBeatTicks(ctx, vp, grid, beat);
 
-  for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, cfg);
+  for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, cfg, attackMotion(choreo, atk));
 
   for (const atk of choreo.attacks) {
-    const c = hitboxAt(atk, beat, grid.beatSec, cfg);
-    if (!c) continue;
-    const p = px(c);
-    ctx.fillStyle = COLOR.hitbox;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, pr(c.r), 0, Math.PI * 2);
-    ctx.fill();
+    const h = hitboxAt(atk, beat, grid.beatSec, cfg, attackMotion(choreo, atk));
+    if (!h) continue;
+    if (h.kind === 'circle') {
+      const p = px(h);
+      ctx.fillStyle = COLOR.hitbox;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, pr(h.r), 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      const a = px(h.a);
+      const b = px(h.b);
+      ctx.strokeStyle = COLOR.hitboxStrong;
+      ctx.lineWidth = Math.max(2, pr(h.r * 2));
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
   }
 
   // 敵: 拍の頭で明るく、イージングアウトで戻る
@@ -131,14 +145,16 @@ function drawTelegraph(
   atk: Attack,
   beat: number,
   cfg: Config,
+  motion: Motion,
 ): void {
   if (beat < atk.telegraphBeat || beat >= atk.hitBeat) return;
   const lead = atk.hitBeat - atk.telegraphBeat;
   const elapsed = beat - atk.telegraphBeat;
   const rings = Math.max(1, Math.round(lead));
-  const impact = atk.type === 'burst' ? atk.path[atk.path.length - 1] : pathPosAt(atk.path, atk.hitBeat);
+  const impact = atk.type === 'burst' ? atk.path[atk.path.length - 1] : pathPosAt(atk.path, atk.hitBeat, motion);
   const ip = px(impact);
   const maxR = atk.type === 'burst' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
+  const ease = easeFor(motion);
 
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = COLOR.telegraph;
@@ -148,7 +164,7 @@ function drawTelegraph(
     ctx.stroke();
   }
   const k = Math.floor(elapsed);
-  const frac = easeOut(elapsed - k);
+  const frac = ease(elapsed - k);
   const moving = (maxR * Math.min(rings, k + frac)) / rings;
   ctx.lineWidth = 3;
   ctx.strokeStyle = COLOR.telegraphStrong;
@@ -167,16 +183,16 @@ function drawTelegraph(
       else ctx.lineTo(q.x, q.y);
     });
     ctx.stroke();
-  } else if (atk.type === 'shot' && atk.target) {
-    const origin = px(pathPosAt(atk.path, atk.hitBeat));
-    const far = {
-      x: origin.x + (px(atk.target).x - origin.x) * 4,
-      y: origin.y + (px(atk.target).y - origin.y) * 4,
-    };
-    ctx.beginPath();
-    ctx.moveTo(origin.x, origin.y);
-    ctx.lineTo(far.x, far.y);
-    ctx.stroke();
+  } else {
+    const line = aimLine(atk, motion);
+    if (line) {
+      const origin = px(line.origin);
+      const end = px(line.end);
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    }
   }
   ctx.setLineDash([]);
 }

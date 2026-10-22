@@ -1,6 +1,6 @@
 // ゲームの状態遷移。純粋に state と入力と dt だけで進み、同じ入力列なら同じ記録になる。
 import type { Config } from '../config';
-import { enemyPosAt, hitboxAt, type Acceptance, type Choreo } from './choreo';
+import { attackMotion, enemyPosAt, hitDistance, hitboxAt, type Acceptance, type Choreo } from './choreo';
 import { phraseAt, type Grid } from './grid';
 import { GameLog, type BeatClass } from './log';
 import { clamp, dist, type Vec } from './vec';
@@ -114,9 +114,9 @@ function checkDamage(state: SimState, deps: SimDeps): void {
   const { cfg, grid, choreo } = deps;
   choreo.attacks.forEach((atk, idx) => {
     if (state.damagedBy.has(idx)) return;
-    const c = hitboxAt(atk, state.beat, grid.beatSec, cfg);
+    const c = hitboxAt(atk, state.beat, grid.beatSec, cfg, attackMotion(choreo, atk));
     if (!c) return;
-    if (dist(state.player, c) <= c.r + cfg.playerRadius) {
+    if (hitDistance(state.player, c) <= c.r + cfg.playerRadius) {
       state.damagedBy.add(idx);
       state.player.hp = Math.max(0, state.player.hp - 1);
       state.lastDamage = true;
