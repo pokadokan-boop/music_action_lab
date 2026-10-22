@@ -8,6 +8,8 @@
 - docs/plan/v0-phase1.md: v0 の目的とタスク一覧 (承認済み)。docs/plan/v0-phase2-core.md がセッション A (T0〜T1)、docs/plan/v0-phase2-game.md がセッション B (T7〜T5) の詳細
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
 - docs/decisions/: 曲の選択、合否条件ガードの確認など、実験中の決定の記録
+- README.md: 遊び方、不満の書き方、次のセッション (v1) の手順、開発コマンド
+- 不満の受け口: vault:音楽アクション/v0 不満.md。v1 を作るセッションは docs/concept.md → このノート → 貼られた結果の要約、の順に読む
 
 ## vault の参照
 - vault ルートの絶対パスは `CLAUDE.local.md` (git 未追跡) に書く。公開リポジトリにローカルのパスを置かないため
