@@ -1,0 +1,96 @@
+{
+  "id": "a",
+  "song": "candidate-2",
+  "intent": "音の高低に敵の上下を合わせる。X(68→65) は上から落ちる dash、Y(63→65) は低く沈んでから上がり shot、Z(72→68→休み) は高く振りかぶって落ちる burst",
+  "idle": { "amplitude": 0.02 },
+  "attacks": [
+    {
+      "phrase": 1, "type": "shot",
+      "telegraphBeat": 4, "hitBeat": 6, "activeBeats": 0,
+      "path": [
+        { "beat": 4, "x": 0.75, "y": 0.5 },
+        { "beat": 4.5, "x": 0.72, "y": 0.78 },
+        { "beat": 6, "x": 0.68, "y": 0.55 },
+        { "beat": 6.5, "x": 0.68, "y": 0.52 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 },
+      "target": { "x": 0.2, "y": 0.43 }
+    },
+    {
+      "phrase": 2, "type": "burst",
+      "telegraphBeat": 8, "hitBeat": 12, "activeBeats": 0.5,
+      "path": [
+        { "beat": 8, "x": 0.6, "y": 0.2 },
+        { "beat": 10.5, "x": 0.55, "y": 0.35 },
+        { "beat": 12, "x": 0.4, "y": 0.7 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.22 }
+    },
+    {
+      "phrase": 3, "type": "dash",
+      "telegraphBeat": 16, "hitBeat": 18, "activeBeats": 0.5,
+      "path": [
+        { "beat": 16, "x": 0.75, "y": 0.35 },
+        { "beat": 18, "x": 0.72, "y": 0.3 },
+        { "beat": 18.5, "x": 0.3, "y": 0.55 },
+        { "beat": 19, "x": 0.24, "y": 0.57 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.06 }
+    },
+    {
+      "phrase": 4, "type": "shot",
+      "telegraphBeat": 20, "hitBeat": 22, "activeBeats": 0,
+      "path": [
+        { "beat": 20, "x": 0.3, "y": 0.6 },
+        { "beat": 20.5, "x": 0.5, "y": 0.78 },
+        { "beat": 22, "x": 0.68, "y": 0.55 },
+        { "beat": 22.5, "x": 0.68, "y": 0.52 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 },
+      "target": { "x": 0.2, "y": 0.43 }
+    },
+    {
+      "phrase": 5, "type": "burst",
+      "telegraphBeat": 24, "hitBeat": 28, "activeBeats": 0.5,
+      "path": [
+        { "beat": 24, "x": 0.6, "y": 0.2 },
+        { "beat": 26.5, "x": 0.55, "y": 0.35 },
+        { "beat": 28, "x": 0.4, "y": 0.7 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.22 }
+    },
+    {
+      "phrase": 6, "type": "dash",
+      "telegraphBeat": 32, "hitBeat": 34, "activeBeats": 0.5,
+      "path": [
+        { "beat": 32, "x": 0.75, "y": 0.35 },
+        { "beat": 34, "x": 0.72, "y": 0.3 },
+        { "beat": 34.5, "x": 0.3, "y": 0.55 },
+        { "beat": 35, "x": 0.24, "y": 0.57 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.06 }
+    },
+    {
+      "phrase": 7, "type": "shot",
+      "telegraphBeat": 36, "hitBeat": 38, "activeBeats": 0,
+      "path": [
+        { "beat": 36, "x": 0.3, "y": 0.6 },
+        { "beat": 36.5, "x": 0.5, "y": 0.78 },
+        { "beat": 38, "x": 0.68, "y": 0.55 },
+        { "beat": 38.5, "x": 0.68, "y": 0.52 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 },
+      "target": { "x": 0.2, "y": 0.43 }
+    },
+    {
+      "phrase": 8, "type": "burst",
+      "telegraphBeat": 40, "hitBeat": 44, "activeBeats": 0.5,
+      "path": [
+        { "beat": 40, "x": 0.6, "y": 0.2 },
+        { "beat": 42.5, "x": 0.55, "y": 0.35 },
+        { "beat": 44, "x": 0.4, "y": 0.7 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.22 }
+    }
+  ]
+}

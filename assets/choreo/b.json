@@ -1,0 +1,96 @@
+{
+  "id": "b",
+  "song": "candidate-2",
+  "intent": "表拍の音は dash、裏拍の音は shot。モチーフ Z の休みの小節は burst の長い予告に使う。上下は控えめに、左右の間合いの詰め・引きで見せる",
+  "idle": { "amplitude": 0.02 },
+  "attacks": [
+    {
+      "phrase": 1, "type": "shot",
+      "telegraphBeat": 4.5, "hitBeat": 6.5, "activeBeats": 0,
+      "path": [
+        { "beat": 4.5, "x": 0.6, "y": 0.5 },
+        { "beat": 6.5, "x": 0.764, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 },
+      "target": { "x": 0.25, "y": 0.5 }
+    },
+    {
+      "phrase": 2, "type": "burst",
+      "telegraphBeat": 10, "hitBeat": 14, "activeBeats": 0.5,
+      "path": [
+        { "beat": 10, "x": 0.72, "y": 0.5 },
+        { "beat": 11, "x": 0.65, "y": 0.5 },
+        { "beat": 12, "x": 0.58, "y": 0.5 },
+        { "beat": 13, "x": 0.51, "y": 0.5 },
+        { "beat": 14, "x": 0.44, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.2 }
+    },
+    {
+      "phrase": 3, "type": "dash",
+      "telegraphBeat": 16, "hitBeat": 18, "activeBeats": 0.25,
+      "path": [
+        { "beat": 16, "x": 0.75, "y": 0.5 },
+        { "beat": 17.5, "x": 0.84, "y": 0.5 },
+        { "beat": 18, "x": 0.32, "y": 0.5 },
+        { "beat": 18.5, "x": 0.26, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.06 }
+    },
+    {
+      "phrase": 4, "type": "shot",
+      "telegraphBeat": 20.5, "hitBeat": 22.5, "activeBeats": 0,
+      "path": [
+        { "beat": 20.5, "x": 0.6, "y": 0.5 },
+        { "beat": 22.5, "x": 0.764, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 },
+      "target": { "x": 0.25, "y": 0.5 }
+    },
+    {
+      "phrase": 5, "type": "burst",
+      "telegraphBeat": 26, "hitBeat": 30, "activeBeats": 0.5,
+      "path": [
+        { "beat": 26, "x": 0.72, "y": 0.5 },
+        { "beat": 27, "x": 0.65, "y": 0.5 },
+        { "beat": 28, "x": 0.58, "y": 0.5 },
+        { "beat": 29, "x": 0.51, "y": 0.5 },
+        { "beat": 30, "x": 0.44, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.2 }
+    },
+    {
+      "phrase": 6, "type": "dash",
+      "telegraphBeat": 32, "hitBeat": 34, "activeBeats": 0.25,
+      "path": [
+        { "beat": 32, "x": 0.75, "y": 0.5 },
+        { "beat": 33.5, "x": 0.84, "y": 0.5 },
+        { "beat": 34, "x": 0.32, "y": 0.5 },
+        { "beat": 34.5, "x": 0.26, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.06 }
+    },
+    {
+      "phrase": 7, "type": "shot",
+      "telegraphBeat": 36.5, "hitBeat": 38.5, "activeBeats": 0,
+      "path": [
+        { "beat": 36.5, "x": 0.6, "y": 0.5 },
+        { "beat": 38.5, "x": 0.764, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 },
+      "target": { "x": 0.25, "y": 0.5 }
+    },
+    {
+      "phrase": 8, "type": "burst",
+      "telegraphBeat": 42, "hitBeat": 46, "activeBeats": 0.5,
+      "path": [
+        { "beat": 42, "x": 0.72, "y": 0.5 },
+        { "beat": 43, "x": 0.65, "y": 0.5 },
+        { "beat": 44, "x": 0.58, "y": 0.5 },
+        { "beat": 45, "x": 0.51, "y": 0.5 },
+        { "beat": 46, "x": 0.44, "y": 0.5 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.2 }
+    }
+  ]
+}
