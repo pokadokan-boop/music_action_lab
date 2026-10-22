@@ -1,7 +1,7 @@
 {
   "id": "a2",
   "song": "candidate-2",
-  "intent": "A と同じ振り付けで、補間を snap (拍の頭に向けて加速) に、弾をレーザーに変えただけ (v1 の比較用)",
+  "intent": "A を元に、補間を snap に、弾をレーザーに、範囲攻撃を「最初の音で上に構え、無音で止まり、最後の音で叩きつける」に変えた (v1 の比較用)",
   "idle": { "amplitude": 0.02 },
   "motion": "snap",
   "attacks": [
@@ -19,11 +19,14 @@
     },
     {
       "phrase": 2, "type": "burst",
-      "telegraphBeat": 8, "hitBeat": 12, "activeBeats": 0.5,
+      "telegraphBeat": 8, "hitBeat": 10.5, "activeBeats": 0.5,
       "path": [
-        { "beat": 8, "x": 0.6, "y": 0.2 },
-        { "beat": 10.5, "x": 0.55, "y": 0.35 },
-        { "beat": 12, "x": 0.4, "y": 0.7 }
+        { "beat": 8, "x": 0.68, "y": 0.52 },
+        { "beat": 8.25, "x": 0.4, "y": 0.45 },
+        { "beat": 10.25, "x": 0.4, "y": 0.45 },
+        { "beat": 10.5, "x": 0.4, "y": 0.7 },
+        { "beat": 12, "x": 0.4, "y": 0.7 },
+        { "beat": 12.5, "x": 0.75, "y": 0.35 }
       ],
       "hitbox": { "shape": "circle", "r": 0.22 }
     },
@@ -52,11 +55,14 @@
     },
     {
       "phrase": 5, "type": "burst",
-      "telegraphBeat": 24, "hitBeat": 28, "activeBeats": 0.5,
+      "telegraphBeat": 24, "hitBeat": 26.5, "activeBeats": 0.5,
       "path": [
-        { "beat": 24, "x": 0.6, "y": 0.2 },
-        { "beat": 26.5, "x": 0.55, "y": 0.35 },
-        { "beat": 28, "x": 0.4, "y": 0.7 }
+        { "beat": 24, "x": 0.68, "y": 0.52 },
+        { "beat": 24.25, "x": 0.4, "y": 0.45 },
+        { "beat": 26.25, "x": 0.4, "y": 0.45 },
+        { "beat": 26.5, "x": 0.4, "y": 0.7 },
+        { "beat": 28, "x": 0.4, "y": 0.7 },
+        { "beat": 28.5, "x": 0.75, "y": 0.35 }
       ],
       "hitbox": { "shape": "circle", "r": 0.22 }
     },
@@ -85,11 +91,14 @@
     },
     {
       "phrase": 8, "type": "burst",
-      "telegraphBeat": 40, "hitBeat": 44, "activeBeats": 0.5,
+      "telegraphBeat": 40, "hitBeat": 42.5, "activeBeats": 0.5,
       "path": [
-        { "beat": 40, "x": 0.6, "y": 0.2 },
-        { "beat": 42.5, "x": 0.55, "y": 0.35 },
-        { "beat": 44, "x": 0.4, "y": 0.7 }
+        { "beat": 40, "x": 0.68, "y": 0.52 },
+        { "beat": 40.25, "x": 0.4, "y": 0.45 },
+        { "beat": 42.25, "x": 0.4, "y": 0.45 },
+        { "beat": 42.5, "x": 0.4, "y": 0.7 },
+        { "beat": 44, "x": 0.4, "y": 0.7 },
+        { "beat": 44.5, "x": 0.75, "y": 0.35 }
       ],
       "hitbox": { "shape": "circle", "r": 0.22 }
     }
