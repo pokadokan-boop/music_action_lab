@@ -7,7 +7,7 @@ export const config = {
   enemyRadius: 0.05,
   meleeRange: 0.12,
   rangeAssist: 0.06,
-  shotSpeed: 0.8,
+  shotSpeed: 2.4, // v0 の 0.8 は「判定がだらだら残る」(docs/decisions/v0-feedback.md 不満 2)
   shotRadius: 0.03,
   onBeatWindowBeats: 0.125,
   enemyRestPos: { x: 0.75, y: 0.5 },
