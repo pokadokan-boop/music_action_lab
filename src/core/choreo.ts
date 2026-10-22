@@ -178,8 +178,9 @@ export function hitboxAt(attack: Attack, beat: number, beatSec: number, cfg: Con
       return { kind: 'circle', x: p.x, y: p.y, r: attack.hitbox.r };
     }
     case 'burst': {
-      const last = attack.path[attack.path.length - 1];
-      return { kind: 'circle', x: last.x, y: last.y, r: attack.hitbox.r };
+      // 当たり拍の時点の位置で発生する (path の最後ではない。叩きつけた後に戻る動きを path に書けるように)
+      const p = pathPosAt(attack.path, attack.hitBeat, motion);
+      return { kind: 'circle', x: p.x, y: p.y, r: attack.hitbox.r };
     }
     case 'shot': {
       const origin = pathPosAt(attack.path, attack.hitBeat, motion);

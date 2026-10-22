@@ -24,13 +24,20 @@
 ## 項目
 - 位置は正規化座標 (x, y ∈ 0..1、y = 0 が上)。時刻は拍番号 (小数可)。拍の長さは曲の BPM から決まる
 - `phrase`: 攻撃を割り当てるフレーズ番号 (`buildGrid` が切ったもの)。`hitBeat` はそのフレーズの音か、拍・半拍に乗っていること
-- `type`: `dash` は本体が path を動き、active 区間の本体が当たり。`burst` は path 終点の円が hitBeat で発生し、予告は中心 → 中間 → 外側の同心円を拍ごとに出す。`shot` は hitBeat に `target` へ向けて弾を出し、予告は射線。`laser` は hitBeat に `target` 方向へ画面端まで伸びる線 (太さ `hitbox.r`) が `activeBeats` の間だけ判定になり、予告は射線。shot / laser は `target` 必須
+- `type`: `dash` は本体が path を動き、active 区間の本体が当たり。`burst` は hitBeat 時点の敵位置に円が発生し、予告は中心 → 中間 → 外側の同心円を拍ごとに出す (hitBeat の後に戻りのキーフレームを置いてよい)。`shot` は hitBeat に `target` へ向けて弾を出し、予告は射線。`laser` は hitBeat に `target` 方向へ画面端まで伸びる線 (太さ `hitbox.r`) が `activeBeats` の間だけ判定になり、予告は射線。shot / laser は `target` 必須
 - `telegraphBeat`: 予告を出し始める拍。`hitBeat` より `telegraphLeadBeatsMin` (acceptance.json) 以上前
 - `activeBeats`: 当たりが続く拍数 (dash / burst / laser)。shot は弾が画面外に出るまで。laser で 0 なら 0.25 拍とみなす
 - `path`: 敵の移動キーフレーム。beat は単調増加。path の外側では端に留まる
 - `motion` (振り付け全体、攻撃ごとに上書き可): 区間の補間。`easeOut` = 区間の最初が速い (`1 - (1 - t)^3`、v0 の既定)。`snap` = 拍の頭に向けて加速する (`t^3`)。3 拍の移動なら最後の 1 拍で 70% 動く (v1。docs/decisions/v0-feedback.md 不満 1)。予告の動く輪も同じ補間に従う
 - `idle.amplitude`: 攻撃していない間、拍の頭で持ち上がって戻る上下の幅。拍を示すためのもの
 - 攻撃と攻撃の間は、前の終点から次の始点へ振り付けの `motion` で移る
+
+## 書き方の指針 (機械検査しない。v1 の不満から)
+- キーフレームは曲の音の位置に置く。動きは音と同時に始め、0.25〜0.5 拍で終える
+- 音の無いところでは止まる。音の無い間に滑らかに移動し続けると、曲と合っていないと感じる
+- 「p-- p」のようなフレーズなら: 最初の音で最終地点の少し上まで動き、無音は止まり、最後の音で叩きつけて、その瞬間に当たりを出す
+- 当たりは最後の音に置く。音の無い拍 (キックだけの拍など) に置くとずれて感じる
+- 元の位置に戻る動きも音の位置 (次の小節頭のキックなど) に合わせ、burst なら hitBeat の後のキーフレームとして書く
 
 ## 機械検査 (`validateChoreo`)
 acceptance.json の値を読む。違反は `Violation { attackIndex, rule, message }` で返る。

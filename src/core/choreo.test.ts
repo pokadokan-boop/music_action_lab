@@ -40,6 +40,20 @@ describe('hitboxAt', () => {
     expect(hitboxAt(atk, 10.3, grid.beatSec, config)).toBeNull();
   });
 
+  it('burst は当たり拍の時点の位置で発生し、その後の戻りのキーフレームに影響されない', () => {
+    const atk = burstAttack({
+      hitBeat: 18,
+      path: [
+        { beat: 16, x: 0.2, y: 0.5 },
+        { beat: 18, x: 0.5, y: 0.7 },
+        { beat: 20, x: 0.8, y: 0.3 }, // 叩きつけた後に戻る
+      ],
+    });
+    const h = hitboxAt(atk, 18.1, grid.beatSec, config) as CircleHit;
+    expect(h.x).toBeCloseTo(0.5, 2);
+    expect(h.y).toBeCloseTo(0.7, 2);
+  });
+
   it('shot は hitBeat から target へ進み、画面外で消える', () => {
     const atk = shotAttack();
     const c0 = hitboxAt(atk, 26, grid.beatSec, config) as CircleHit;

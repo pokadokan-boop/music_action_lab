@@ -151,7 +151,7 @@ function drawTelegraph(
   const lead = atk.hitBeat - atk.telegraphBeat;
   const elapsed = beat - atk.telegraphBeat;
   const rings = Math.max(1, Math.round(lead));
-  const impact = atk.type === 'burst' ? atk.path[atk.path.length - 1] : pathPosAt(atk.path, atk.hitBeat, motion);
+  const impact = pathPosAt(atk.path, atk.hitBeat, motion);
   const ip = px(impact);
   const maxR = atk.type === 'burst' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
   const ease = easeFor(motion);
