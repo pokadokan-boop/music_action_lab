@@ -17,6 +17,8 @@ export interface SummaryMeta {
   choreoId: string;
   song: string;
   date: string;
+  // 要約の先頭に添える補足 (出力遅延の補正値など)
+  extra?: string;
 }
 
 export class GameLog {
@@ -47,7 +49,7 @@ export class GameLog {
     const sd = offsets.length ? Math.sqrt(offsets.reduce((a, b) => a + (b - mean) ** 2, 0) / offsets.length) : 0;
     const side = mean > 0 ? '遅い側' : mean < 0 ? '早い側' : 'ちょうど';
     const lines = [
-      `振り付け ${meta.choreoId} / 曲 ${meta.song} / ${meta.date}`,
+      `振り付け ${meta.choreoId} / 曲 ${meta.song} / ${meta.date}${meta.extra ? ` / ${meta.extra}` : ''}`,
       `攻撃 ${attacks.length} 回 (表 ${count('on')}, 裏 ${count('off')}, 外 ${count('miss')}) 命中 ${hits.length}`,
       `拍とのズレ 平均 ${mean.toFixed(0)} ms (${side}) 標準偏差 ${sd.toFixed(0)} ms`,
       `被弾 ${damages.length} 回: ${damages.map((d) => `攻撃${d.attackIndex ?? '?'}(phrase ${d.phrase ?? '?'})`).join(', ') || 'なし'}`,

@@ -25,6 +25,9 @@ export interface Attack {
   target?: Vec;
   // 攻撃ごとの補間の上書き
   motion?: Motion;
+  // 当たりの発生を hitBeat (音のアンカー) から遅らせる拍数。音のアタックが立ち上がりきった瞬間に当てるためのもの。
+  // 検査 (hit-on-grid) は hitBeat で見る。実際の判定と叩きつけの着地は hitBeat + impactDelayBeats
+  impactDelayBeats?: number;
 }
 
 export interface Choreo {
@@ -46,7 +49,17 @@ export interface Acceptance {
   determinism: { sameInputSameLogHash: boolean };
 }
 
-export type ViolationRule = 'path-order' | 'phrase-range' | 'telegraph-lead' | 'hit-on-grid' | 'dodgeable' | 'shot-target';
+export type ViolationRule =
+  | 'path-order'
+  | 'phrase-range'
+  | 'telegraph-lead'
+  | 'hit-on-grid'
+  | 'dodgeable'
+  | 'shot-target'
+  | 'impact-delay';
+
+// impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
+export const IMPACT_DELAY_MAX_BEATS = 0.25;
 
 export interface Violation {
   attackIndex: number;
@@ -76,6 +89,11 @@ export function easeFor(motion: Motion): (t: number) => number {
 
 export function attackMotion(choreo: Choreo, attack: Attack): Motion {
   return attack.motion ?? choreo.motion ?? 'easeOut';
+}
+
+// 実際に当たりが発生する拍 (音のアンカー + 立ち上がりの遅れ)
+export function impactBeat(attack: Attack): number {
+  return attack.hitBeat + (attack.impactDelayBeats ?? 0);
 }
 
 // 点から当たり判定の芯 (円の中心、線分) までの距離。当たりは hitDistance <= r + プレイヤー半径
@@ -139,16 +157,17 @@ export interface ActiveWindow {
 }
 
 export function activeWindow(attack: Attack, beatSec: number, cfg: Config, motion: Motion = 'easeOut'): ActiveWindow {
+  const start = impactBeat(attack);
   if (attack.type === 'shot') {
-    const origin = pathPosAt(attack.path, attack.hitBeat, motion);
+    const origin = pathPosAt(attack.path, start, motion);
     const lifetimeSec = exitDistance(origin, shotDir(attack, origin), cfg.shotRadius) / cfg.shotSpeed;
-    return { startBeat: attack.hitBeat, endBeat: attack.hitBeat + lifetimeSec / beatSec };
+    return { startBeat: start, endBeat: start + lifetimeSec / beatSec };
   }
   if (attack.type === 'laser') {
     const active = attack.activeBeats > 0 ? attack.activeBeats : LASER_DEFAULT_ACTIVE_BEATS;
-    return { startBeat: attack.hitBeat, endBeat: attack.hitBeat + active };
+    return { startBeat: start, endBeat: start + active };
   }
-  return { startBeat: attack.hitBeat, endBeat: attack.hitBeat + attack.activeBeats };
+  return { startBeat: start, endBeat: start + attack.activeBeats };
 }
 
 function shotDir(attack: Attack, origin: Vec): Vec {
@@ -178,18 +197,18 @@ export function hitboxAt(attack: Attack, beat: number, beatSec: number, cfg: Con
       return { kind: 'circle', x: p.x, y: p.y, r: attack.hitbox.r };
     }
     case 'burst': {
-      // 当たり拍の時点の位置で発生する (path の最後ではない。叩きつけた後に戻る動きを path に書けるように)
-      const p = pathPosAt(attack.path, attack.hitBeat, motion);
+      // 当たりが発生する時点の位置で発生する (path の最後ではない。叩きつけた後に戻る動きを path に書けるように)
+      const p = pathPosAt(attack.path, w.startBeat, motion);
       return { kind: 'circle', x: p.x, y: p.y, r: attack.hitbox.r };
     }
     case 'shot': {
-      const origin = pathPosAt(attack.path, attack.hitBeat, motion);
+      const origin = pathPosAt(attack.path, w.startBeat, motion);
       const dir = shotDir(attack, origin);
-      const s = (beat - attack.hitBeat) * beatSec * cfg.shotSpeed;
+      const s = (beat - w.startBeat) * beatSec * cfg.shotSpeed;
       return { kind: 'circle', x: origin.x + dir.x * s, y: origin.y + dir.y * s, r: attack.hitbox.r };
     }
     case 'laser': {
-      const origin = pathPosAt(attack.path, attack.hitBeat, motion);
+      const origin = pathPosAt(attack.path, w.startBeat, motion);
       const dir = shotDir(attack, origin);
       const s = exitDistance(origin, dir, attack.hitbox.r);
       return { kind: 'segment', a: origin, b: { x: origin.x + dir.x * s, y: origin.y + dir.y * s }, r: attack.hitbox.r };
@@ -200,7 +219,7 @@ export function hitboxAt(attack: Attack, beat: number, beatSec: number, cfg: Con
 // 予告の線 (shot / laser の射線) の始点と向き先。描画用
 export function aimLine(attack: Attack, motion: Motion = 'easeOut'): { origin: Vec; end: Vec } | null {
   if ((attack.type !== 'shot' && attack.type !== 'laser') || !attack.target) return null;
-  const origin = pathPosAt(attack.path, attack.hitBeat, motion);
+  const origin = pathPosAt(attack.path, impactBeat(attack), motion);
   const dir = shotDir(attack, origin);
   const s = exitDistance(origin, dir, attack.hitbox.r);
   return { origin, end: { x: origin.x + dir.x * s, y: origin.y + dir.y * s } };
@@ -236,6 +255,10 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
     }
     if ((atk.type === 'shot' || atk.type === 'laser') && !atk.target) {
       out.push({ attackIndex: i, rule: 'shot-target', message: `${atk.type} には target が要る` });
+    }
+    const delay = atk.impactDelayBeats ?? 0;
+    if (delay < 0 || delay > IMPACT_DELAY_MAX_BEATS) {
+      out.push({ attackIndex: i, rule: 'impact-delay', message: `impactDelayBeats ${delay} は 0〜${IMPACT_DELAY_MAX_BEATS} 拍の範囲` });
     }
   });
 

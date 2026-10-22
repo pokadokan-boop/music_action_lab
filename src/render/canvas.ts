@@ -1,6 +1,6 @@
 // Canvas 2D で四角と線だけで描く。位置は正規化座標 → 16:9 の描画領域へ変換する
 import type { Config } from '../config';
-import { aimLine, attackMotion, easeFor, hitboxAt, pathPosAt, type Attack, type Choreo, type Motion } from '../core/choreo';
+import { aimLine, attackMotion, easeFor, hitboxAt, impactBeat, pathPosAt, type Attack, type Choreo, type Motion } from '../core/choreo';
 import type { Grid } from '../core/grid';
 import type { SimState } from '../core/sim';
 import { easeOut, type Vec } from '../core/vec';
@@ -147,11 +147,12 @@ function drawTelegraph(
   cfg: Config,
   motion: Motion,
 ): void {
-  if (beat < atk.telegraphBeat || beat >= atk.hitBeat) return;
+  // 予告は音のアンカー (hitBeat) で輪が外側に届き、実際の当たり (impactBeat) まで出しておく
+  if (beat < atk.telegraphBeat || beat >= impactBeat(atk)) return;
   const lead = atk.hitBeat - atk.telegraphBeat;
   const elapsed = beat - atk.telegraphBeat;
   const rings = Math.max(1, Math.round(lead));
-  const impact = pathPosAt(atk.path, atk.hitBeat, motion);
+  const impact = pathPosAt(atk.path, impactBeat(atk), motion);
   const ip = px(impact);
   const maxR = atk.type === 'burst' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
   const ease = easeFor(motion);

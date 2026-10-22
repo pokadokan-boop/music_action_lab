@@ -35,6 +35,7 @@ let deps: SimDeps | null = null;
 let loaded: LoadedSong | null = null;
 let clock = new GameClock(config.fixedDt);
 let startAt = 0;
+let latencySec = 0;
 let fedSec = 0;
 const flash: FlashState = { attackClass: null, enemyHit: 0, damaged: 0 };
 let flashTimer = 0;
@@ -85,7 +86,9 @@ async function startGame(index: number): Promise<void> {
   flash.damaged = 0;
   title?.destroy();
   title = null;
-  startAt = engine.start(loaded.song, engine.now() + 0.5);
+  // 音の出力遅延ぶんゲーム時計を遅らせ、絵と判定を「聞こえる音」に合わせる
+  latencySec = engine.outputLatency();
+  startAt = engine.start(loaded.song, engine.now() + 0.5) + latencySec;
   phase = 'playing';
 }
 
@@ -96,6 +99,7 @@ function enterResult(): void {
     choreoId: deps.choreo.id,
     song: deps.choreo.song,
     date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    extra: `音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms`,
   });
   result = showResult(overlay, { text, onRetry: () => enterTitle() });
 }

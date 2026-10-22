@@ -54,6 +54,24 @@ describe('hitboxAt', () => {
     expect(h.y).toBeCloseTo(0.7, 2);
   });
 
+  it('impactDelayBeats があると、当たりと burst の位置は hitBeat + 遅れの時点になる', () => {
+    const atk = burstAttack({
+      hitBeat: 18,
+      impactDelayBeats: 0.125,
+      path: [
+        { beat: 16, x: 0.2, y: 0.5 },
+        { beat: 18, x: 0.5, y: 0.4 }, // 音のなり始め: まだ上にいる
+        { beat: 18.125, x: 0.5, y: 0.7 }, // 立ち上がりきった瞬間に着地
+      ],
+    });
+    expect(hitboxAt(atk, 18.05, grid.beatSec, config)).toBeNull();
+    const h = hitboxAt(atk, 18.2, grid.beatSec, config) as CircleHit;
+    expect(h.y).toBeCloseTo(0.7, 9);
+    expect(validateChoreo(makeChoreo([atk]), grid, acceptance, config)).toEqual([]);
+    const v = validateChoreo(makeChoreo([burstAttack({ impactDelayBeats: 0.5 })]), grid, acceptance, config);
+    expect(v.map((x) => x.rule)).toContain('impact-delay');
+  });
+
   it('shot は hitBeat から target へ進み、画面外で消える', () => {
     const atk = shotAttack();
     const c0 = hitboxAt(atk, 26, grid.beatSec, config) as CircleHit;

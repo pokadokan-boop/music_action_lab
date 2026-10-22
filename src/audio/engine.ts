@@ -43,6 +43,14 @@ export class AudioEngine {
     return this.ctx.currentTime;
   }
 
+  // 予約した時刻から実際に音が出るまでの遅れ (秒)。絵をこの分だけ遅らせると、聞こえる音に合う。
+  // outputLatency は Chrome 等が持つ。無ければ baseLatency、それも無ければ 0
+  outputLatency(): number {
+    const ctx = this.ctx as AudioContext & { outputLatency?: number };
+    const v = ctx.outputLatency ?? ctx.baseLatency ?? 0;
+    return Number.isFinite(v) && v >= 0 && v < 1 ? v : 0;
+  }
+
   async resume(): Promise<void> {
     if (this.ctx.state !== 'running') await this.ctx.resume();
   }
