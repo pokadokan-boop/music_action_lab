@@ -1,6 +1,6 @@
 // 曲候補を聴くページ。人間が 1 つ選び、番号と理由を一言返す (docs/plan/v0-phase2-core.md T1)
-import { Midi } from '@tonejs/midi';
 import { AudioEngine, type Song } from './audio/engine';
+import { loadSong as loadMidiSong } from './song';
 import candidate1 from '../assets/midi/candidate-1.mid?url';
 import candidate2 from '../assets/midi/candidate-2.mid?url';
 import candidate3 from '../assets/midi/candidate-3.mid?url';
@@ -25,12 +25,7 @@ const songCache = new Map<string, Song>();
 async function loadSong(c: CandidateInfo): Promise<Song> {
   const cached = songCache.get(c.id);
   if (cached) return cached;
-  const buf = await (await fetch(c.url)).arrayBuffer();
-  const midi = new Midi(buf);
-  const song: Song = {
-    duration: midi.duration,
-    tracks: midi.tracks.map((t) => ({ name: t.name, notes: t.notes.map((n) => ({ time: n.time, duration: n.duration, midi: n.midi })) })),
-  };
+  const { song } = await loadMidiSong(c.url);
   songCache.set(c.id, song);
   return song;
 }
