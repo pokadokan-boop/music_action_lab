@@ -37,6 +37,10 @@ let clock = new GameClock(config.fixedDt);
 let startAt = 0;
 let latencySec = 0;
 let fedSec = 0;
+// 当たりの処理の遅れ: 当たりが有効になる sim 時刻と、それを処理したフレームの音の時刻との差 (ms)。
+// 表示はさらに次の描画まで (1 フレーム以内) 遅れる
+const impactLagsMs: number[] = [];
+const impactLagSeen = new Set<number>();
 const flash: FlashState = { attackClass: null, enemyHit: 0, damaged: 0 };
 let flashTimer = 0;
 const songCache = new Map<string, LoadedSong>();
@@ -81,6 +85,8 @@ async function startGame(index: number): Promise<void> {
   sim = createSim(deps);
   clock = new GameClock(config.fixedDt);
   fedSec = 0;
+  impactLagsMs.length = 0;
+  impactLagSeen.clear();
   flash.attackClass = null;
   flash.enemyHit = 0;
   flash.damaged = 0;
@@ -99,9 +105,16 @@ function enterResult(): void {
     choreoId: deps.choreo.id,
     song: deps.choreo.song,
     date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-    extra: `音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms`,
+    extra: `音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms / 当たりの処理遅れ ${lagSummary()}`,
   });
   result = showResult(overlay, { text, onRetry: () => enterTitle() });
+}
+
+function lagSummary(): string {
+  if (impactLagsMs.length === 0) return 'なし';
+  const mean = impactLagsMs.reduce((a, b) => a + b, 0) / impactLagsMs.length;
+  const max = Math.max(...impactLagsMs);
+  return `平均 ${mean.toFixed(0)} ms 最大 ${max.toFixed(0)} ms (表示はさらに 1 フレーム以内)`;
 }
 
 function handleTitleInput(now: InputSnapshot): void {
@@ -129,6 +142,11 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
       }
       if (sim.lastHit) flash.enemyHit = 0.1;
       if (sim.lastDamage) flash.damaged = 0.2;
+    }
+    for (const [idx, t] of sim.impactAt) {
+      if (impactLagSeen.has(idx)) continue;
+      impactLagSeen.add(idx);
+      impactLagsMs.push((elapsed - t) * 1000);
     }
   }
   flashTimer -= frameDt;

@@ -17,6 +17,8 @@ export interface SimState {
   enemy: { x: number; y: number; hp: number };
   attackLatch: boolean;
   damagedBy: Set<number>;
+  // 各攻撃の当たりが最初に有効になった sim 時刻 (処理の遅れの計測用)
+  impactAt: Map<number, number>;
   log: GameLog;
   finished: boolean;
   // 直前の step で起きたこと (描画・効果音用。記録は log が持つ)
@@ -42,6 +44,7 @@ export function createSim(deps: SimDeps): SimState {
     enemy: { x: enemy.x, y: enemy.y, hp: cfg.enemyHp },
     attackLatch: false,
     damagedBy: new Set(),
+    impactAt: new Map(),
     log: new GameLog(),
     finished: false,
     lastAttackClass: null,
@@ -113,9 +116,10 @@ function playerAttack(state: SimState, deps: SimDeps): void {
 function checkDamage(state: SimState, deps: SimDeps): void {
   const { cfg, grid, choreo } = deps;
   choreo.attacks.forEach((atk, idx) => {
-    if (state.damagedBy.has(idx)) return;
     const c = hitboxAt(atk, state.beat, grid.beatSec, cfg, attackMotion(choreo, atk));
     if (!c) return;
+    if (!state.impactAt.has(idx)) state.impactAt.set(idx, state.t);
+    if (state.damagedBy.has(idx)) return;
     if (hitDistance(state.player, c) <= c.r + cfg.playerRadius) {
       state.damagedBy.add(idx);
       state.player.hp = Math.max(0, state.player.hp - 1);
