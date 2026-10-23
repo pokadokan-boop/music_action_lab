@@ -19,12 +19,12 @@
     },
     {
       "phrase": 2, "type": "burst",
-      "telegraphBeat": 8, "hitBeat": 10.5, "impactDelayBeats": 0.125, "activeBeats": 0.5,
+      "telegraphBeat": 8, "hitBeat": 10.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
       "path": [
         { "beat": 8, "x": 0.68, "y": 0.52 },
         { "beat": 8.25, "x": 0.4, "y": 0.45 },
         { "beat": 10.5, "x": 0.4, "y": 0.45 },
-        { "beat": 10.625, "x": 0.4, "y": 0.7 },
+        { "beat": 10.6875, "x": 0.4, "y": 0.7 },
         { "beat": 12, "x": 0.4, "y": 0.7 },
         { "beat": 12.5, "x": 0.75, "y": 0.35 }
       ],
@@ -55,12 +55,12 @@
     },
     {
       "phrase": 5, "type": "burst",
-      "telegraphBeat": 24, "hitBeat": 26.5, "impactDelayBeats": 0.125, "activeBeats": 0.5,
+      "telegraphBeat": 24, "hitBeat": 26.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
       "path": [
         { "beat": 24, "x": 0.68, "y": 0.52 },
         { "beat": 24.25, "x": 0.4, "y": 0.45 },
         { "beat": 26.5, "x": 0.4, "y": 0.45 },
-        { "beat": 26.625, "x": 0.4, "y": 0.7 },
+        { "beat": 26.6875, "x": 0.4, "y": 0.7 },
         { "beat": 28, "x": 0.4, "y": 0.7 },
         { "beat": 28.5, "x": 0.75, "y": 0.35 }
       ],
@@ -91,12 +91,12 @@
     },
     {
       "phrase": 8, "type": "burst",
-      "telegraphBeat": 40, "hitBeat": 42.5, "impactDelayBeats": 0.125, "activeBeats": 0.5,
+      "telegraphBeat": 40, "hitBeat": 42.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
       "path": [
         { "beat": 40, "x": 0.68, "y": 0.52 },
         { "beat": 40.25, "x": 0.4, "y": 0.45 },
         { "beat": 42.5, "x": 0.4, "y": 0.45 },
-        { "beat": 42.625, "x": 0.4, "y": 0.7 },
+        { "beat": 42.6875, "x": 0.4, "y": 0.7 },
         { "beat": 44, "x": 0.4, "y": 0.7 },
         { "beat": 44.5, "x": 0.75, "y": 0.35 }
       ],
