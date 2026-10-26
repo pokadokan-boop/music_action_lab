@@ -12,7 +12,7 @@
 - docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細 (3 セッションに分ける)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
-- docs/decisions/: 曲の選択、合否条件ガードの確認など、実験中の決定の記録
+- docs/decisions/: 曲の選択、合否条件ガードの確認、v2 の当たりの時刻の基準の検証 (仮説は外れた) など、実験中の決定の記録
 - README.md: 遊び方、不満の書き方、開発コマンド
 - 不満の受け口: vault:音楽アクション/v0 不満.md。v1 を作るセッションは docs/concept.md → このノート → 貼られた結果の要約、の順に読む
 
