@@ -2,9 +2,12 @@
 // ここでは型、時刻ごとの敵位置・当たり範囲、合否条件に照らした検査を持つ。DOM・Audio には触らない。
 import type { Config } from '../config';
 import type { Grid } from './grid';
-import { dist, distToSegment, easeIn, easeOut, lerpVec, type Vec } from './vec';
+import { clamp, dist, distToSegment, easeIn, easeOut, lerpVec, type Vec } from './vec';
 
 export type AttackType = 'dash' | 'burst' | 'shot' | 'laser';
+
+// 狙い。fixed = データに書いた位置そのまま。player = 予告開始 (telegraphBeat) の瞬間のプレイヤー位置を狙う (v2 T4。追尾はしない)
+export type Aim = 'fixed' | 'player';
 
 // 移動と予告の補間。easeOut = 区間の最初が速い (v0)。snap = 拍の頭に向けて加速し、3 拍の移動なら最後の 1 拍で 70% 動く (v1)
 export type Motion = 'easeOut' | 'snap';
@@ -28,6 +31,8 @@ export interface Attack {
   // 当たりの発生を hitBeat (音のアンカー) から遅らせる拍数。音のアタックが立ち上がりきった瞬間に当てるためのもの。
   // 検査 (hit-on-grid) は hitBeat で見る。実際の判定と叩きつけの着地は hitBeat + impactDelayBeats
   impactDelayBeats?: number;
+  // 省略時 fixed。player なら sim が予告開始時に resolveAttack で幾何を置き換える
+  aim?: Aim;
 }
 
 export interface Choreo {
@@ -225,6 +230,31 @@ export function aimLine(attack: Attack, motion: Motion = 'easeOut'): { origin: V
   return { origin, end: { x: origin.x + dir.x * s, y: origin.y + dir.y * s } };
 }
 
+// 自機狙い (aim: player) の攻撃を、target (予告開始時のプレイヤー位置) を狙う形に置き換えた Attack を返す。純粋関数。
+// dash / burst は基準点 (dash = 突進の終点、burst = 発生点) が target に重なるよう、telegraphBeat より後のキーフレームを
+// 平行移動する。telegraphBeat 以前の点は変えないので、予告開始時点の敵の位置は飛ばない。移動後の点は画面内に収める。
+// laser / shot は本体を動かさず、狙い先 target を置き換える。fixed はそのまま返す
+export function resolveAttack(attack: Attack, target: Vec, cfg: Config, motion: Motion = 'easeOut'): Attack {
+  if ((attack.aim ?? 'fixed') === 'fixed') return attack;
+  if (attack.type === 'laser' || attack.type === 'shot') return { ...attack, target: { x: target.x, y: target.y } };
+  const anchor = attack.type === 'dash' ? dashEnd(attack) : pathPosAt(attack.path, impactBeat(attack), motion);
+  const dx = target.x - anchor.x;
+  const dy = target.y - anchor.y;
+  const lo = cfg.enemyRadius;
+  const hi = 1 - cfg.enemyRadius;
+  const path = attack.path.map((p) =>
+    p.beat <= attack.telegraphBeat ? p : { beat: p.beat, x: clamp(p.x + dx, lo, hi), y: clamp(p.y + dy, lo, hi) },
+  );
+  return { ...attack, path };
+}
+
+// dash の突進の終点: hitBeat より後の最初のキーフレーム。無ければ最後のキーフレーム
+function dashEnd(attack: Attack): Vec {
+  const after = attack.path.find((p) => p.beat > attack.hitBeat);
+  const p = after ?? attack.path[attack.path.length - 1];
+  return { x: p.x, y: p.y };
+}
+
 const DODGE_GRID = 12;
 const DODGE_SAMPLE_DT_SEC = 1 / 120;
 
@@ -278,7 +308,21 @@ function checkDodgeable(choreo: Choreo, grid: Grid, acceptance: Acceptance, cfg:
   for (const idx of order) {
     const atk = choreo.attacks[idx];
     const motion = attackMotion(choreo, atk);
-    const safe = points.filter((p) => !everHit(p, atk, grid.beatSec, cfg, motion));
+    let safe: Vec[];
+    if ((atk.aim ?? 'fixed') === 'player') {
+      const r = playerAimedSafe(atk, points, grid, acceptance, cfg, motion);
+      if (r.failedAt) {
+        out.push({
+          attackIndex: idx,
+          rule: 'dodgeable',
+          message: `自機狙い: 予告開始時に (${r.failedAt.x.toFixed(3)}, ${r.failedAt.y.toFixed(3)}) にいると ${r.reach.toFixed(3)} 以内に安全位置が無い`,
+        });
+      }
+      safe = r.union;
+    } else {
+      const samples = hitboxSamples(atk, grid.beatSec, cfg, motion);
+      safe = points.filter((p) => !everHit(p, samples, cfg));
+    }
     if (safe.length === 0) {
       out.push({ attackIndex: idx, rule: 'dodgeable', message: '当たらない位置が無い' });
     } else if (prevSafe) {
@@ -305,12 +349,48 @@ function gridPoints(): Vec[] {
   return pts;
 }
 
-function everHit(p: Vec, atk: Attack, beatSec: number, cfg: Config, motion: Motion): boolean {
+// 自機狙いの攻撃の安全位置。予告開始時のプレイヤー位置は遊ぶまで分からないので、格子点 p の全てを候補にする:
+// p ごとに p を狙った形に解決し、予告の間 (telegraphBeat → impactBeat) に余裕を残して走れる距離の内に、
+// その攻撃で一度も当たらない格子点があること。1 つでも成り立たない p があれば failedAt にその例を返す。
+// union は全 p の安全位置の和集合。次の攻撃への連鎖 (prevSafe) にはこれを使う。実際の p によっては
+// 和集合の一部しか安全でないので緩い側の割り切り (v0 の「同時回避は見ない」と同じ扱い。docs/choreo-format.md)
+function playerAimedSafe(
+  atk: Attack,
+  points: Vec[],
+  grid: Grid,
+  acceptance: Acceptance,
+  cfg: Config,
+  motion: Motion,
+): { union: Vec[]; reach: number; failedAt: Vec | null } {
+  const reach = cfg.playerSpeed * (impactBeat(atk) - atk.telegraphBeat) * grid.beatSec * (1 - acceptance.dodgeTimeMarginRatio);
+  const union = new Set<Vec>();
+  let failedAt: Vec | null = null;
+  for (const p of points) {
+    const resolved = resolveAttack(atk, p, cfg, motion);
+    const samples = hitboxSamples(resolved, grid.beatSec, cfg, motion);
+    let found = false;
+    for (const q of points) {
+      if (dist(p, q) > reach || everHit(q, samples, cfg)) continue;
+      union.add(q);
+      found = true;
+    }
+    if (!found && !failedAt) failedAt = p;
+  }
+  return { union: [...union], reach, failedAt };
+}
+
+// active 区間を 1/120 秒刻みで走査した当たりの形の列。格子点ごとに hitboxAt を呼び直さないための前計算
+function hitboxSamples(atk: Attack, beatSec: number, cfg: Config, motion: Motion): Hitbox[] {
   const w = activeWindow(atk, beatSec, cfg, motion);
   const dtBeat = DODGE_SAMPLE_DT_SEC / beatSec;
+  const out: Hitbox[] = [];
   for (let b = w.startBeat; b <= w.endBeat + 1e-9; b += dtBeat) {
     const h = hitboxAt(atk, b, beatSec, cfg, motion);
-    if (h && hitDistance(p, h) <= h.r + cfg.playerRadius) return true;
+    if (h) out.push(h);
   }
-  return false;
+  return out;
+}
+
+function everHit(p: Vec, samples: Hitbox[], cfg: Config): boolean {
+  return samples.some((h) => hitDistance(p, h) <= h.r + cfg.playerRadius);
 }

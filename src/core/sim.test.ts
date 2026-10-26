@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import acceptance from '../../acceptance.json';
 import { config } from '../config';
 import { GameClock } from './clock';
-import { classifyBeat, createSim, step, type InputState, type SimDeps } from './sim';
-import { makeChoreo, makeGrid } from './test-fixtures';
+import { hitboxAt, type CircleHit } from './choreo';
+import { classifyBeat, createSim, effectiveChoreo, step, type InputState, type SimDeps } from './sim';
+import { burstAttack, makeChoreo, makeGrid } from './test-fixtures';
 
 const deps: SimDeps = { choreo: makeChoreo(), grid: makeGrid(), cfg: config, acceptance };
 
@@ -143,6 +144,52 @@ describe('sim', () => {
     while (state.beat < 19.5) step(state, stay, config.fixedDt, deps);
     expect(state.log.events.filter((e) => e.kind === 'damage' && e.attackIndex === 1)).toHaveLength(1);
     expect(state.player.hp).toBe(config.playerHp - 1);
+  });
+});
+
+describe('自機狙い (aim: player)', () => {
+  // burst (telegraph 16、hitBeat 19、半径 0.2) だけの振り付け。元データの発生点は (0.5, 0.5)
+  const aimedDeps: SimDeps = { choreo: makeChoreo([burstAttack({ aim: 'player' })]), grid: makeGrid(), cfg: config, acceptance };
+  const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
+
+  function untilTelegraph() {
+    const state = createSim(aimedDeps);
+    state.player.x = 0.6;
+    state.player.y = 0.3;
+    while (state.beat < 16) step(state, stay, config.fixedDt, aimedDeps);
+    return state;
+  }
+
+  it('予告開始時のプレイヤー位置を狙い、その後の移動には追尾しない', () => {
+    const state = untilTelegraph();
+    expect(state.resolved.has(0)).toBe(true);
+    const resolved = effectiveChoreo(state, aimedDeps.choreo).attacks[0];
+    const h = hitboxAt(resolved, 19.1, aimedDeps.grid.beatSec, config) as CircleHit;
+    expect(h.x).toBeCloseTo(0.6, 9);
+    expect(h.y).toBeCloseTo(0.3, 9);
+
+    // 左下へ逃げ続ける。狙いは固定されたままで、離れていれば当たらない
+    const away: InputState = { move: { x: -1, y: 1 }, attackPressed: false };
+    while (state.beat < 19.5) step(state, away, config.fixedDt, aimedDeps);
+    expect(effectiveChoreo(state, aimedDeps.choreo).attacks[0]).toBe(resolved);
+    expect(state.player.hp).toBe(config.playerHp);
+    // 元の振り付けデータは変わらない
+    expect(aimedDeps.choreo.attacks[0].path[1]).toEqual({ beat: 18, x: 0.5, y: 0.5 });
+  });
+
+  it('立ち止まっていると狙われた位置で当たり、敵も解決済みの path を動く', () => {
+    const state = untilTelegraph();
+    while (state.beat < 18) step(state, stay, config.fixedDt, aimedDeps);
+    expect(state.enemy.x).toBeCloseTo(0.6, 2);
+    while (state.beat < 19.5) step(state, stay, config.fixedDt, aimedDeps);
+    expect(state.player.hp).toBe(config.playerHp - 1);
+  });
+
+  it('予告が始まる前は解決されず、幾何は元のまま', () => {
+    const state = createSim(aimedDeps);
+    while (state.beat < 15.5) step(state, stay, config.fixedDt, aimedDeps);
+    expect(state.resolved.size).toBe(0);
+    expect(effectiveChoreo(state, aimedDeps.choreo)).toBe(aimedDeps.choreo);
   });
 });
 

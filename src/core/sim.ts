@@ -1,6 +1,6 @@
 // ゲームの状態遷移。純粋に state と入力と dt だけで進み、同じ入力列なら同じ記録になる。
 import type { Config } from '../config';
-import { attackMotion, enemyPosAt, hitDistance, hitboxAt, type Acceptance, type Choreo } from './choreo';
+import { attackMotion, enemyPosAt, hitDistance, hitboxAt, resolveAttack, type Acceptance, type Attack, type Choreo } from './choreo';
 import { phraseAt, type Grid } from './grid';
 import { GameLog, type BeatClass } from './log';
 import { angleBetweenDeg, angleDeg, clamp, dist, inFan, normalize, type Vec } from './vec';
@@ -19,6 +19,9 @@ export interface SimState {
   damagedBy: Set<number>;
   // 各攻撃の当たりが最初に有効になった sim 時刻 (処理の遅れの計測用)
   impactAt: Map<number, number>;
+  // 予告が始まった攻撃を、その瞬間のプレイヤー位置で解決した形 (attackIndex → Attack)。自機狙いはここで狙いが固定され、以後追尾しない。
+  // fixed の攻撃も入るが幾何は元と同じ。入力列から決まるので決定性を壊さない
+  resolved: Map<number, Attack>;
   log: GameLog;
   finished: boolean;
   // 直前の step で起きたこと (描画・効果音用。記録は log が持つ)
@@ -47,6 +50,7 @@ export function createSim(deps: SimDeps): SimState {
     attackLatch: false,
     damagedBy: new Set(),
     impactAt: new Map(),
+    resolved: new Map(),
     log: new GameLog(),
     finished: false,
     lastAttackClass: null,
@@ -68,8 +72,9 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   state.beat = state.t / grid.beatSec;
 
   movePlayer(state, input, dt, cfg);
+  resolveStarted(state, choreo, cfg);
 
-  const enemyPos = enemyPosAt(choreo, state.beat, cfg.enemyRestPos);
+  const enemyPos = enemyPosAt(effectiveChoreo(state, choreo), state.beat, cfg.enemyRestPos);
   state.enemy.x = enemyPos.x;
   state.enemy.y = enemyPos.y;
 
@@ -79,6 +84,21 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   checkDamage(state, deps);
 
   if (state.t >= acceptance.sceneSeconds) state.finished = true;
+}
+
+// 予告が始まった (beat >= telegraphBeat) 未解決の攻撃を、この瞬間のプレイヤー位置で解決して固定する。
+// 移動の後に行うので「予告開始時点で見えている位置」を狙う。以後プレイヤーが動いても狙いは変わらない
+function resolveStarted(state: SimState, choreo: Choreo, cfg: Config): void {
+  choreo.attacks.forEach((atk, idx) => {
+    if (state.resolved.has(idx) || state.beat < atk.telegraphBeat) return;
+    state.resolved.set(idx, resolveAttack(atk, state.player, cfg, attackMotion(choreo, atk)));
+  });
+}
+
+// resolved で置き換えた攻撃一覧を持つ振り付け。当たり・敵位置・描画はこれを使う。未解決の攻撃は元のまま (まだ始まっていない)
+export function effectiveChoreo(state: SimState, choreo: Choreo): Choreo {
+  if (state.resolved.size === 0) return choreo;
+  return { ...choreo, attacks: choreo.attacks.map((atk, idx) => state.resolved.get(idx) ?? atk) };
 }
 
 function movePlayer(state: SimState, input: InputState, dt: number, cfg: Config): void {
@@ -134,7 +154,8 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps): void {
 }
 
 function checkDamage(state: SimState, deps: SimDeps): void {
-  const { cfg, grid, choreo } = deps;
+  const { cfg, grid } = deps;
+  const choreo = effectiveChoreo(state, deps.choreo);
   choreo.attacks.forEach((atk, idx) => {
     const c = hitboxAt(atk, state.beat, grid.beatSec, cfg, attackMotion(choreo, atk));
     if (!c) return;

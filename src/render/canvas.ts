@@ -2,7 +2,7 @@
 import type { Config } from '../config';
 import { aimLine, attackMotion, easeFor, hitboxAt, impactBeat, pathPosAt, type Attack, type Choreo, type Motion } from '../core/choreo';
 import type { Grid } from '../core/grid';
-import type { SimState } from '../core/sim';
+import { effectiveChoreo, type SimState } from '../core/sim';
 import { easeOut, type Vec } from '../core/vec';
 
 export interface Viewport {
@@ -50,7 +50,9 @@ export function fitViewport(canvas: HTMLCanvasElement): Viewport {
 }
 
 export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimState, deps: RenderDeps, flash: FlashState): void {
-  const { choreo, grid, cfg } = deps;
+  const { grid, cfg } = deps;
+  // 予告・当たりは解決済みの攻撃 (自機狙いなら狙った位置) から描く。判定 (sim) と同じ幾何を見せるため
+  const choreo = effectiveChoreo(state, deps.choreo);
   ctx.fillStyle = COLOR.bg;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.save();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import acceptance from '../../acceptance.json';
 import { config } from '../config';
-import { enemyPosAt, hitboxAt, pathPosAt, validateChoreo, type CircleHit, type SegmentHit } from './choreo';
+import { enemyPosAt, hitboxAt, pathPosAt, resolveAttack, validateChoreo, type CircleHit, type SegmentHit } from './choreo';
 import { distToSegment, easeIn } from './vec';
 import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
 
@@ -134,6 +134,75 @@ describe('laser', () => {
   it('target の無い laser は shot-target', () => {
     const v = validateChoreo(makeChoreo([shotAttack({ type: 'laser', target: undefined })]), grid, acceptance, config);
     expect(v.map((x) => x.rule)).toContain('shot-target');
+  });
+});
+
+describe('resolveAttack (自機狙い)', () => {
+  it('burst の発生点が target になり、telegraphBeat 時点の位置は変わらず、戻りも同じだけ平行移動する', () => {
+    const atk = burstAttack({
+      aim: 'player',
+      hitBeat: 18,
+      path: [
+        { beat: 16, x: 0.2, y: 0.5 },
+        { beat: 18, x: 0.5, y: 0.5 },
+        { beat: 20, x: 0.8, y: 0.3 },
+      ],
+    });
+    const r = resolveAttack(atk, { x: 0.3, y: 0.7 }, config);
+    const h = hitboxAt(r, 18.1, grid.beatSec, config) as CircleHit;
+    expect(h.x).toBeCloseTo(0.3, 9);
+    expect(h.y).toBeCloseTo(0.7, 9);
+    expect(r.path[0]).toEqual({ beat: 16, x: 0.2, y: 0.5 });
+    expect(r.path[2].x).toBeCloseTo(0.6, 9);
+    expect(r.path[2].y).toBeCloseTo(0.5, 9);
+    // 元の攻撃は変えない (純粋関数)
+    expect(atk.path[1]).toEqual({ beat: 18, x: 0.5, y: 0.5 });
+  });
+
+  it('dash は突進の終点 (hitBeat の後の最初のキーフレーム) が target になり、予告開始時点の位置は変わらない', () => {
+    const atk = dashAttack({ aim: 'player' });
+    const r = resolveAttack(atk, { x: 0.5, y: 0.8 }, config);
+    expect(pathPosAt(r.path, 8)).toEqual({ x: 0.75, y: 0.5 });
+    expect(r.path[2].x).toBeCloseTo(0.5, 9);
+    expect(r.path[2].y).toBeCloseTo(0.8, 9);
+    // hitBeat の点も同じ delta (0.3, 0.3) で動く
+    expect(r.path[1].x).toBeCloseTo(0.6, 9);
+    expect(r.path[1].y).toBeCloseTo(0.8, 9);
+  });
+
+  it('laser / shot は本体を動かさず target だけ置き換わる', () => {
+    const atk = shotAttack({ type: 'laser', activeBeats: 0.25, aim: 'player' });
+    const r = resolveAttack(atk, { x: 0.1, y: 0.9 }, config);
+    expect(r.target).toEqual({ x: 0.1, y: 0.9 });
+    expect(r.path).toBe(atk.path);
+    const h = hitboxAt(r, 26.1, grid.beatSec, config) as SegmentHit;
+    expect(h.a.x).toBeCloseTo(0.8, 9);
+    expect(h.b.y).toBeGreaterThan(h.a.y); // 下 (y が大きい側) へ向かう
+  });
+
+  it('画面外にはみ出す狙いは [enemyRadius, 1 - enemyRadius] に収まる', () => {
+    const r = resolveAttack(burstAttack({ aim: 'player', hitBeat: 18 }), { x: 0, y: 1 }, config);
+    expect(r.path[1].x).toBeCloseTo(config.enemyRadius, 9);
+    expect(r.path[1].y).toBeCloseTo(1 - config.enemyRadius, 9);
+  });
+
+  it('fixed (省略) は同じものを返す', () => {
+    const atk = dashAttack();
+    expect(resolveAttack(atk, { x: 0.1, y: 0.1 }, config)).toBe(atk);
+    expect(resolveAttack(burstAttack({ aim: 'fixed' }), { x: 0.1, y: 0.1 }, config).path).toEqual(burstAttack().path);
+  });
+
+  it('自機狙いの検査: 予告が十分なら通る', () => {
+    const choreo = makeChoreo([dashAttack({ aim: 'player' }), burstAttack({ aim: 'player' }), shotAttack({ aim: 'player' })]);
+    expect(validateChoreo(choreo, grid, acceptance, config)).toEqual([]);
+  });
+
+  it('自機狙いの検査: 予告が短すぎて逃げ場に届かないと dodgeable (成り立たない位置の例つき)', () => {
+    // 0.5 拍の予告では走れる距離 0.12 < 当たりの半径 0.2 + プレイヤー半径
+    const v = validateChoreo(makeChoreo([burstAttack({ aim: 'player', telegraphBeat: 18.5 })]), grid, acceptance, config);
+    const d = v.filter((x) => x.rule === 'dodgeable');
+    expect(d).toHaveLength(1);
+    expect(d[0].message).toMatch(/自機狙い: 予告開始時に \(\d\.\d{3}, \d\.\d{3}\) にいると/);
   });
 });
 

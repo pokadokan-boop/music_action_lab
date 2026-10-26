@@ -28,6 +28,7 @@
 - `telegraphBeat`: 予告を出し始める拍。`hitBeat` より `telegraphLeadBeatsMin` (acceptance.json) 以上前
 - `activeBeats`: 当たりが続く拍数 (dash / burst / laser)。shot は弾が画面外に出るまで。laser で 0 なら 0.25 拍とみなす
 - `impactDelayBeats` (省略時 0、上限 0.25): 当たりの発生を `hitBeat` から遅らせる拍数。`hitBeat` は音のアンカーで検査に使い、実際の判定は `hitBeat + impactDelayBeats` に出る。音のアタックが立ち上がりきった瞬間に当てるためのもの (v1 の不満 3)。叩きつけなら、動き出しを hitBeat、着地のキーフレームを hitBeat + impactDelayBeats に置く
+- `aim` (省略時 `fixed`): `player` なら予告開始 (`telegraphBeat`) の瞬間のプレイヤー位置を狙う (v2 T4)。その瞬間に 1 回だけ狙いを決め、以後は追尾しない。型ごとの置き換え方 (`resolveAttack`): `dash` は突進の終点 (`hitBeat` より後の最初のキーフレーム。無ければ最後) が、`burst` は発生点 (`hitBeat + impactDelayBeats` 時点の位置) がプレイヤー位置に重なるよう、`telegraphBeat` より後のキーフレームを平行移動する (`telegraphBeat` 以前の点は変えないので予告開始時の敵は飛ばない。戻りのキーフレームも同じだけ動く)。移動後の点は x, y とも `[enemyRadius, 1 - enemyRadius]` に収める。`shot` / `laser` は本体を動かさず `target` をプレイヤー位置に置き換える。通り過ぎる突進は、終点の後にキーフレームを足して書く (仕組みに通り過ぎ量は持たせない。docs/plan/v2-phase2.md「既定値の決め」)
 - `path`: 敵の移動キーフレーム。beat は単調増加。path の外側では端に留まる
 - `motion` (振り付け全体、攻撃ごとに上書き可): 区間の補間。`easeOut` = 区間の最初が速い (`1 - (1 - t)^3`、v0 の既定)。`snap` = 拍の頭に向けて加速する (`t^3`)。3 拍の移動なら最後の 1 拍で 70% 動く (v1。docs/decisions/v0-feedback.md 不満 1)。予告の動く輪も同じ補間に従う
 - `idle.amplitude`: 攻撃していない間、拍の頭で持ち上がって戻る上下の幅。拍を示すためのもの
@@ -47,6 +48,7 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - `telegraph-lead`: 予告の先行拍数
 - `hit-on-grid`: hitBeat が 1/gridSubdivision 拍か、そのフレーズの音に `hitOnGridToleranceMs` 以内で一致
 - `dodgeable`: 12×12 の格子点のうち、その攻撃の active 区間で一度も当たらない点があり、前の攻撃の安全な点から `playerSpeed × 間隔 × (1 - dodgeTimeMarginRatio)` 以内にある。playerSpeed は src/config.ts。active 区間が重なる攻撃どうしの同時回避は見ていない (v0 の割り切り)
+  - `aim: "player"` の攻撃は予告開始時のプレイヤー位置で形が決まるので、12×12 の格子点 p の全てについて、p を狙った形に解決し、p から `playerSpeed × (impactBeat − telegraphBeat) × beatSec × (1 - dodgeTimeMarginRatio)` 以内に一度も当たらない格子点があることを見る。1 つでも成り立たない p があれば違反で、メッセージにその p の例を入れる。次の攻撃への連鎖 (前の攻撃の安全な点) には全 p の安全な点の和集合を使う。実際の p によっては和集合の一部しか安全でないので緩い側の割り切り (同時回避を見ないのと同じ扱い)
 - `shot-target`: shot / laser に target がある
 - `impact-delay`: impactDelayBeats が 0〜0.25 拍
 
