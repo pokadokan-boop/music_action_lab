@@ -9,7 +9,7 @@
 - docs/plan/v1-phase1.md: v1 (曲に乗っている感じ)。完了記録あり
 - docs/NEXT.md: 次のセッションへの引き継ぎ (次の 1 手、今の状態、本人に聞きたいこと)。セッションはここから始める
 - docs/plan/loop-phase1.md: 回す仕組みの段階 1 (NEXT.md とセッション規律)。承認済み、実装済み
-- docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」)
+- docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細 (3 セッションに分ける)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
 - docs/decisions/: 曲の選択、合否条件ガードの確認など、実験中の決定の記録
