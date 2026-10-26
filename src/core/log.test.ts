@@ -23,5 +23,16 @@ describe('GameLog', () => {
     expect(text).toContain('向き 扇内 1 / 扇外 1');
     expect(text).toContain('平均 -10 ms (早い側)');
     expect(text).toContain('被弾 1 回: 攻撃0(phrase 1)');
+    expect(text).toContain('相殺 0 回、失敗 0 回 (タイミング 0 / 届かず 0 / 向き 0)');
+  });
+
+  it('要約に相殺の回数と失敗の理由の内訳が入る', () => {
+    const log = new GameLog();
+    log.push({ t: 5, beat: 10, kind: 'cancel', attackIndex: 0, phrase: 1 });
+    log.push({ t: 9, beat: 18, kind: 'cancel-miss', attackIndex: 1, phrase: 2, reason: 'timing' });
+    log.push({ t: 9.5, beat: 19, kind: 'cancel-miss', attackIndex: 1, phrase: 2, reason: 'angle' });
+    log.push({ t: 13, beat: 26, kind: 'cancel-miss', attackIndex: 2, phrase: 3, reason: 'reach' });
+    const text = log.summary({ choreoId: 'a', song: 'c1', date: '2026-10-27' });
+    expect(text).toContain('相殺 1 回、失敗 3 回 (タイミング 1 / 届かず 1 / 向き 1)');
   });
 });

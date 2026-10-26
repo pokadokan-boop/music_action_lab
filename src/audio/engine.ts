@@ -3,7 +3,9 @@
 // 音色は拍とタイミングが分かる最低限。melody = 矩形波、bass = 三角波、drums = ノイズと短いサイン。
 
 export type VoiceName = 'melody' | 'bass' | 'drums';
-export type SfxKind = 'on' | 'off' | 'miss';
+// cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す
+export type SfxKind = 'on' | 'off' | 'miss' | 'cancel';
+const CANCEL_DEFAULT_MIDI = 72;
 
 export interface SongNote {
   time: number;
@@ -84,7 +86,8 @@ export class AudioEngine {
     this.active = [];
   }
 
-  scheduleSfx(kind: SfxKind, atSec: number): void {
+  // midi は cancel のときだけ使う (相殺した拍に最も近いメロディ音の 1 オクターブ上。docs/plan/v2-phase2.md「既定値の決め」)
+  scheduleSfx(kind: SfxKind, atSec: number, midi: number = CANCEL_DEFAULT_MIDI): void {
     switch (kind) {
       case 'on':
         this.tone('square', 880, atSec, 0.06, 0.25);
@@ -94,6 +97,9 @@ export class AudioEngine {
         break;
       case 'miss':
         this.tone('sine', 110, atSec, 0.12, 0.3);
+        break;
+      case 'cancel':
+        this.tone('square', midiToHz(midi), atSec, 0.1, 0.3);
         break;
     }
   }

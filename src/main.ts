@@ -4,10 +4,11 @@ import { AudioEngine } from './audio/engine';
 import { config } from './config';
 import type { Choreo } from './core/choreo';
 import { GameClock } from './core/clock';
+import { phraseAt, type Grid } from './core/grid';
 import { createSim, renderToText, step, type SimDeps, type SimState } from './core/sim';
 import { buildSummary } from './core/summary';
 import { InputManager, type InputSnapshot } from './input';
-import { fitViewport, render, type FlashState } from './render/canvas';
+import { CANCEL_FLASH_SEC, fitViewport, render, type FlashState } from './render/canvas';
 import { loadSong, type LoadedSong } from './song';
 import { showResult, type ResultView } from './ui/result';
 import { showTitle, type TitleView } from './ui/title';
@@ -41,9 +42,24 @@ let fedSec = 0;
 // 表示はさらに次の描画まで (1 フレーム以内) 遅れる
 const impactLagsMs: number[] = [];
 const impactLagSeen = new Set<number>();
-const flash: FlashState = { attackClass: null, aim: null, enemyHit: 0, damaged: 0 };
+const flash: FlashState = { attackClass: null, aim: null, enemyHit: 0, damaged: 0, cancel: null };
 let flashTimer = 0;
 const songCache = new Map<string, LoadedSong>();
+// 相殺の音の音高が決まらないとき (フレーズの外) の既定 (C5)
+const CANCEL_FALLBACK_MIDI = 72;
+
+// 相殺の音の音高: その拍のフレーズの音のうち最も近いものの 1 オクターブ上 (docs/plan/v2-phase2.md「既定値の決め」)。
+// noteBeats は同時刻を 1 つにまとめてあるので、同時に鳴る音 (和音) があると notePitches と添字がずれる。曲は単音なので許容
+function cancelPitch(grid: Grid, beat: number): number {
+  const phrase = phraseAt(grid, beat);
+  if (!phrase || phrase.noteBeats.length === 0) return CANCEL_FALLBACK_MIDI;
+  let nearest = 0;
+  phrase.noteBeats.forEach((nb, i) => {
+    if (Math.abs(nb - beat) < Math.abs(phrase.noteBeats[nearest] - beat)) nearest = i;
+  });
+  const pitch = phrase.notePitches[Math.min(nearest, phrase.notePitches.length - 1)];
+  return pitch === undefined ? CANCEL_FALLBACK_MIDI : pitch + 12;
+}
 
 function songName(): string {
   return choreos[0]?.song ?? 'candidate-2';
@@ -91,6 +107,7 @@ async function startGame(index: number): Promise<void> {
   flash.enemyHit = 0;
   flash.damaged = 0;
   flash.aim = null;
+  flash.cancel = null;
   title?.destroy();
   title = null;
   // 音の出力遅延ぶんゲーム時計を遅らせ、絵と判定を「聞こえる音」に合わせる
@@ -144,6 +161,10 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
       }
       if (sim.lastHit) flash.enemyHit = 0.1;
       if (sim.lastDamage) flash.damaged = 0.2;
+      if (sim.lastCancel) {
+        engine.scheduleSfx('cancel', engine.now(), cancelPitch(deps.grid, sim.beat));
+        flash.cancel = { pos: sim.lastCancel.pos, t: CANCEL_FLASH_SEC };
+      }
     }
     for (const [idx, t] of sim.impactAt) {
       if (impactLagSeen.has(idx)) continue;
@@ -155,6 +176,10 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
   if (flashTimer <= 0) flash.attackClass = null;
   flash.enemyHit = Math.max(0, flash.enemyHit - frameDt);
   flash.damaged = Math.max(0, flash.damaged - frameDt);
+  if (flash.cancel) {
+    flash.cancel.t -= frameDt;
+    if (flash.cancel.t <= 0) flash.cancel = null;
+  }
   if (sim.finished) enterResult();
 }
 

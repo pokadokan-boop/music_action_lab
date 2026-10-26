@@ -32,6 +32,7 @@ const COLOR = {
   on: '#ffe066',
   off: '#66e0ff',
   miss: '#8a8a8a',
+  cancel: '#ffffff',
 };
 
 export function fitViewport(canvas: HTMLCanvasElement): Viewport {
@@ -69,7 +70,9 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
 
   for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, cfg, attackMotion(choreo, atk));
 
-  for (const atk of choreo.attacks) {
+  for (const [idx, atk] of choreo.attacks.entries()) {
+    // 相殺された当たりは消えている (sim.checkDamage と同じ)。本体は path どおり動き続ける
+    if (state.cancelled.has(idx)) continue;
     const h = hitboxAt(atk, beat, grid.beatSec, cfg, attackMotion(choreo, atk));
     if (!h) continue;
     if (h.kind === 'circle') {
@@ -107,9 +110,11 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   ctx.fillStyle = pc;
   ctx.fillRect(p.x - prr, p.y - prr, prr * 2, prr * 2);
   if (flash.attackClass) {
-    // 攻撃の瞬間: 向いた方向へ meleeRange の扇 (塗り + 縁) を出す。向きが無い (古い状態) なら円で代える
-    ctx.strokeStyle = pc;
-    ctx.fillStyle = pc;
+    // 攻撃の瞬間: 向いた方向へ meleeRange の扇 (塗り + 縁) を出す。向きが無い (古い状態) なら円で代える。
+    // 相殺が成立した押下なら扇は白 (拍の色より「捌けた」を優先して見せる)
+    const fanColor = flash.cancel ? COLOR.cancel : pc;
+    ctx.strokeStyle = fanColor;
+    ctx.fillStyle = fanColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
     if (flash.aim) {
@@ -133,9 +138,24 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
     ctx.stroke();
   }
 
+  if (flash.cancel) {
+    // 相殺の閃光: 消した当たりの位置に白い円。残り時間に比例して縮み、薄くなる
+    const c = px(flash.cancel.pos);
+    const k = Math.max(0, Math.min(1, flash.cancel.t / CANCEL_FLASH_SEC));
+    ctx.fillStyle = COLOR.cancel;
+    ctx.globalAlpha = k;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, pr(cfg.enemyRadius * (0.6 + 0.8 * k)), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
   drawHp(ctx, vp, state, cfg);
   ctx.restore();
 }
+
+// 相殺の閃光の長さ (秒)。main.ts が立て、毎フレーム減らす
+export const CANCEL_FLASH_SEC = 0.15;
 
 export interface FlashState {
   attackClass: 'on' | 'off' | 'miss' | null;
@@ -143,6 +163,8 @@ export interface FlashState {
   aim: Vec | null;
   enemyHit: number;
   damaged: number;
+  // 相殺の閃光。pos は消した当たりの位置 (sim.lastCancel.pos)、t は残り秒
+  cancel: { pos: Vec; t: number } | null;
 }
 
 function drawBeatTicks(ctx: CanvasRenderingContext2D, vp: Viewport, grid: Grid, beat: number): void {

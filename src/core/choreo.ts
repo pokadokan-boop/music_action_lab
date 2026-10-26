@@ -2,7 +2,7 @@
 // ここでは型、時刻ごとの敵位置・当たり範囲、合否条件に照らした検査を持つ。DOM・Audio には触らない。
 import type { Config } from '../config';
 import type { Grid } from './grid';
-import { clamp, dist, distToSegment, easeIn, easeOut, lerpVec, type Vec } from './vec';
+import { clamp, dist, distToSegment, easeIn, easeOut, lerpVec, normalize, type Vec } from './vec';
 
 export type AttackType = 'dash' | 'burst' | 'shot' | 'laser';
 
@@ -33,6 +33,8 @@ export interface Attack {
   impactDelayBeats?: number;
   // 省略時 fixed。player なら sim が予告開始時に resolveAttack で幾何を置き換える
   aim?: Aim;
+  // 省略時 false。true なら相殺 (v2 T5) の対象にならず、避けるしかない
+  uncancelable?: boolean;
 }
 
 export interface Choreo {
@@ -87,6 +89,8 @@ export interface SegmentHit {
 export type Hitbox = CircleHit | SegmentHit;
 
 const LASER_DEFAULT_ACTIVE_BEATS = 0.25;
+// dash の進行方向を取るときに見る時間差 (sim の固定ステップと同じ 1/120 秒)
+const INCOMING_DIR_DT_SEC = 1 / 120;
 
 export function easeFor(motion: Motion): (t: number) => number {
   return motion === 'snap' ? easeIn : easeOut;
@@ -175,7 +179,8 @@ export function activeWindow(attack: Attack, beatSec: number, cfg: Config, motio
   return { startBeat: start, endBeat: start + attack.activeBeats };
 }
 
-function shotDir(attack: Attack, origin: Vec): Vec {
+// shot / laser の射線の向き (単位ベクトル)。target が無ければ左へ
+export function shotDir(attack: Attack, origin: Vec): Vec {
   const target = attack.target ?? { x: 0, y: origin.y };
   const d = dist(origin, target);
   if (d === 0) return { x: -1, y: 0 };
@@ -217,6 +222,31 @@ export function hitboxAt(attack: Attack, beat: number, beatSec: number, cfg: Con
       const dir = shotDir(attack, origin);
       const s = exitDistance(origin, dir, attack.hitbox.r);
       return { kind: 'segment', a: origin, b: { x: origin.x + dir.x * s, y: origin.y + dir.y * s }, r: attack.hitbox.r };
+    }
+  }
+}
+
+// 相殺 (v2 T5) で使う「攻撃が来る方向」(単位ベクトル)。プレイヤーはこの逆を向いていれば相殺できる。型ごとに:
+// dash = その拍の敵の進行方向 (1/120 秒前との差)。止まっていればプレイヤーから当たりの中心への向きで代える。
+// laser = 射線の向き。burst / shot = 当たりの中心からプレイヤーへの向き。向きが定まらなければ零ベクトル
+export function incomingDir(attack: Attack, beat: number, playerPos: Vec, beatSec: number, cfg: Config, motion: Motion = 'easeOut'): Vec {
+  const w = activeWindow(attack, beatSec, cfg, motion);
+  const origin = pathPosAt(attack.path, w.startBeat, motion);
+  switch (attack.type) {
+    case 'dash': {
+      const now = pathPosAt(attack.path, beat, motion);
+      const before = pathPosAt(attack.path, beat - INCOMING_DIR_DT_SEC / beatSec, motion);
+      const v = normalize({ x: now.x - before.x, y: now.y - before.y });
+      if (v.x !== 0 || v.y !== 0) return v;
+      return normalize({ x: now.x - playerPos.x, y: now.y - playerPos.y });
+    }
+    case 'laser':
+      return shotDir(attack, origin);
+    case 'burst':
+    case 'shot': {
+      const h = hitboxAt(attack, beat, beatSec, cfg, motion);
+      const c = h && h.kind === 'circle' ? h : origin;
+      return normalize({ x: playerPos.x - c.x, y: playerPos.y - c.y });
     }
   }
 }

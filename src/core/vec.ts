@@ -59,12 +59,37 @@ export function inFan(origin: Vec, aim: Vec, halfDeg: number, range: number, p: 
   return angleBetweenDeg(aim, { x: p.x - origin.x, y: p.y - origin.y }) <= halfDeg;
 }
 
-// 点 p から線分 ab までの距離
-export function distToSegment(p: Vec, a: Vec, b: Vec): number {
+// 線分 ab 上で点 p に最も近い点
+export function closestPointOnSegment(p: Vec, a: Vec, b: Vec): Vec {
   const abx = b.x - a.x;
   const aby = b.y - a.y;
   const len2 = abx * abx + aby * aby;
-  if (len2 === 0) return dist(p, a);
+  if (len2 === 0) return { x: a.x, y: a.y };
   const t = clamp(((p.x - a.x) * abx + (p.y - a.y) * aby) / len2, 0, 1);
-  return dist(p, { x: a.x + abx * t, y: a.y + aby * t });
+  return { x: a.x + abx * t, y: a.y + aby * t };
+}
+
+// 点 p から線分 ab までの距離
+export function distToSegment(p: Vec, a: Vec, b: Vec): number {
+  return dist(p, closestPointOnSegment(p, a, b));
+}
+
+// 扇 (origin から aim 方向、半角 halfDeg、半径 range) と円 (中心 c、半径 r) が重なるか。
+// 中心までの距離 ≤ range + r、かつ角度差 ≤ halfDeg + atan(r / 距離)。距離 0 なら重なるとみなす (T5 の相殺)
+export function fanOverlapsCircle(origin: Vec, aim: Vec, halfDeg: number, range: number, c: Vec, r: number): boolean {
+  const d = dist(origin, c);
+  if (d > range + r) return false;
+  if (d === 0) return true;
+  const widen = (Math.atan(r / d) * 180) / Math.PI;
+  return angleBetweenDeg(aim, { x: c.x - origin.x, y: c.y - origin.y }) <= halfDeg + widen;
+}
+
+// 扇と太さ r の線分 ab が重なるか。線分上を r / 2 刻みで取った点を半径 r の円に見立て、1 つでも扇と重なれば重なる。
+// 「最も近い点が扇内」だと、線に沿って (来る方向の逆を) 向いたときに重ならないので、線の延びる先も見る (T5 の laser)
+export function fanOverlapsSegment(origin: Vec, aim: Vec, halfDeg: number, range: number, a: Vec, b: Vec, r: number): boolean {
+  const n = Math.max(1, Math.ceil(dist(a, b) / Math.max(r / 2, 1e-3)));
+  for (let i = 0; i <= n; i++) {
+    if (fanOverlapsCircle(origin, aim, halfDeg, range, lerpVec(a, b, i / n), r)) return true;
+  }
+  return false;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import acceptance from '../../acceptance.json';
 import { config } from '../config';
-import { enemyPosAt, hitboxAt, pathPosAt, resolveAttack, validateChoreo, type CircleHit, type SegmentHit } from './choreo';
+import { enemyPosAt, hitboxAt, incomingDir, pathPosAt, resolveAttack, validateChoreo, type CircleHit, type SegmentHit } from './choreo';
 import { distToSegment, easeIn } from './vec';
 import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
 
@@ -134,6 +134,32 @@ describe('laser', () => {
   it('target の無い laser は shot-target', () => {
     const v = validateChoreo(makeChoreo([shotAttack({ type: 'laser', target: undefined })]), grid, acceptance, config);
     expect(v.map((x) => x.rule)).toContain('shot-target');
+  });
+});
+
+describe('incomingDir (相殺の「来る方向」)', () => {
+  it('dash はその拍の進行方向。右から左へ突進していれば (-1, 0)', () => {
+    const v = incomingDir(dashAttack(), 10.1, { x: 0.1, y: 0.5 }, grid.beatSec, config);
+    expect(v.x).toBeCloseTo(-1, 9);
+    expect(v.y).toBeCloseTo(0, 9);
+  });
+
+  it('dash が止まっていれば、プレイヤーから当たりの中心への向きで代える', () => {
+    const stopped = dashAttack({ path: [{ beat: 8, x: 0.75, y: 0.5 }, { beat: 10, x: 0.3, y: 0.5 }] });
+    const v = incomingDir(stopped, 10.2, { x: 0.3, y: 0.8 }, grid.beatSec, config);
+    expect(v.x).toBeCloseTo(0, 9);
+    expect(v.y).toBeCloseTo(-1, 9);
+  });
+
+  it('laser は射線の向き (プレイヤーの位置に依らない)', () => {
+    const laser = shotAttack({ type: 'laser', activeBeats: 0.25 });
+    expect(incomingDir(laser, 26.1, { x: 0.4, y: 0.9 }, grid.beatSec, config)).toEqual({ x: -1, y: 0 });
+  });
+
+  it('burst は中心からプレイヤーへの向き', () => {
+    const v = incomingDir(burstAttack(), 19.1, { x: 0.5, y: 0.7 }, grid.beatSec, config);
+    expect(v.x).toBeCloseTo(0, 9);
+    expect(v.y).toBeCloseTo(1, 9);
   });
 });
 

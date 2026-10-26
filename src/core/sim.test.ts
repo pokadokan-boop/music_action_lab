@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import acceptance from '../../acceptance.json';
 import { config } from '../config';
 import { GameClock } from './clock';
-import { hitboxAt, type CircleHit } from './choreo';
-import { classifyBeat, createSim, effectiveChoreo, step, type InputState, type SimDeps } from './sim';
-import { burstAttack, makeChoreo, makeGrid } from './test-fixtures';
+import { hitboxAt, type Attack, type CircleHit } from './choreo';
+import type { EventKind } from './log';
+import { classifyBeat, createSim, effectiveChoreo, step, type InputState, type SimDeps, type SimState } from './sim';
+import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
 
 const deps: SimDeps = { choreo: makeChoreo(), grid: makeGrid(), cfg: config, acceptance };
 
@@ -190,6 +191,158 @@ describe('自機狙い (aim: player)', () => {
     while (state.beat < 15.5) step(state, stay, config.fixedDt, aimedDeps);
     expect(state.resolved.size).toBe(0);
     expect(effectiveChoreo(state, aimedDeps.choreo)).toBe(aimedDeps.choreo);
+  });
+});
+
+describe('相殺 (cancel)', () => {
+  const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
+  const pressRight: InputState = { move: { x: 1, y: 0 }, attackPressed: true };
+  const pressLeft: InputState = { move: { x: -1, y: 0 }, attackPressed: true };
+  const events = (state: SimState, kind: EventKind) => state.log.events.filter((e) => e.kind === kind);
+
+  // dash だけの振り付け。敵は beat 10 に (0.3, 0.5) に着き、10.5 まで左 (0.2, 0.5) へ抜ける (右から来る)。当たりの窓は 10〜10.25
+  function dashDeps(over: Partial<Attack> = {}): SimDeps {
+    return { choreo: makeChoreo([dashAttack(over)]), grid: makeGrid(), cfg: config, acceptance };
+  }
+  // プレイヤーを (x, y) に置き、「次の step で beat が targetBeat に達する」直前まで進める。
+  // 押下をその step に乗せると、当たりの窓に入った最初の step で相殺を試せる (step と同じ計算で次の beat を出す)
+  function runTo(d: SimDeps, x: number, targetBeat: number, y = 0.5): SimState {
+    const state = createSim(d);
+    state.player.x = x;
+    state.player.y = y;
+    while ((state.t + config.fixedDt) / d.grid.beatSec < targetBeat) step(state, stay, config.fixedDt, d);
+    return state;
+  }
+
+  it('対照: 何もしなければ dash に当たる', () => {
+    const d = dashDeps();
+    const state = runTo(d, 0.15, 10.5);
+    expect(state.player.hp).toBe(config.playerHp - 1);
+    expect(events(state, 'cancel')).toHaveLength(0);
+  });
+
+  it('右から来る dash に右向きの攻撃で相殺が成立し、以後その攻撃で被弾しない', () => {
+    const d = dashDeps();
+    const state = runTo(d, 0.15, 10);
+    step(state, pressRight, config.fixedDt, d);
+    expect(state.cancelled.has(0)).toBe(true);
+    expect(state.lastCancel?.attackIndex).toBe(0);
+    // 閃光の位置は当たりの中心 (= dash の本体)
+    expect(state.lastCancel?.pos.x).toBeCloseTo(state.enemy.x, 9);
+    expect(state.lastCancel?.pos.y).toBeCloseTo(state.enemy.y, 9);
+    expect(events(state, 'cancel')).toHaveLength(1);
+    expect(events(state, 'cancel')[0]).toMatchObject({ attackIndex: 0, phrase: 1 });
+    expect(events(state, 'cancel-miss')).toHaveLength(0);
+
+    while (state.beat < 10.5) step(state, stay, config.fixedDt, d);
+    expect(state.player.hp).toBe(config.playerHp);
+    expect(events(state, 'damage')).toHaveLength(0);
+    expect(state.lastCancel).toBeNull(); // 次の step で消える
+    // 本体の動きは path どおり続く
+    expect(state.enemy.x).toBeCloseTo(0.2, 9);
+  });
+
+  it('向きが合わない (扇は重なるが来る方向の逆から 50 度ずれ) と cancel-miss angle', () => {
+    const d = dashDeps();
+    const state = runTo(d, 0.15, 10);
+    const rad = (50 * Math.PI) / 180;
+    step(state, { move: { x: Math.cos(rad), y: Math.sin(rad) }, attackPressed: true }, config.fixedDt, d);
+    expect(state.cancelled.size).toBe(0);
+    expect(events(state, 'cancel-miss')).toHaveLength(1);
+    expect(events(state, 'cancel-miss')[0]).toMatchObject({ attackIndex: 0, phrase: 1, reason: 'angle' });
+  });
+
+  it('左向き (敵に背を向ける) は扇と重ならないので reach', () => {
+    const d = dashDeps();
+    const state = runTo(d, 0.15, 10);
+    step(state, pressLeft, config.fixedDt, d);
+    expect(state.cancelled.size).toBe(0);
+    expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'reach' });
+  });
+
+  it('窓の前 (予告中) に押すと cancel-miss timing', () => {
+    const d = dashDeps();
+    const state = runTo(d, 0.15, 9);
+    step(state, pressRight, config.fixedDt, d);
+    expect(state.cancelled.size).toBe(0);
+    expect(events(state, 'cancel-miss')).toHaveLength(1);
+    expect(events(state, 'cancel-miss')[0]).toMatchObject({ attackIndex: 0, reason: 'timing' });
+  });
+
+  it('予告の前や窓の終わり + 0.25 拍より後の押下は相殺の試みとみなさない (記録なし)', () => {
+    const d = dashDeps();
+    const early = runTo(d, 0.15, 5);
+    step(early, pressRight, config.fixedDt, d);
+    expect(events(early, 'cancel-miss')).toHaveLength(0);
+    const late = runTo(d, 0.1, 10.6);
+    step(late, pressRight, config.fixedDt, d);
+    expect(events(late, 'cancel-miss')).toHaveLength(0);
+  });
+
+  it('届かない距離だと cancel-miss reach', () => {
+    const d = dashDeps();
+    const state = runTo(d, 0.04, 10);
+    step(state, pressRight, config.fixedDt, d);
+    expect(state.cancelled.size).toBe(0);
+    expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'reach' });
+  });
+
+  it('uncancelable は相殺されず、cancel-miss も記録されない', () => {
+    const d = dashDeps({ uncancelable: true });
+    const state = runTo(d, 0.15, 10);
+    step(state, pressRight, config.fixedDt, d);
+    expect(state.cancelled.size).toBe(0);
+    expect(state.lastCancel).toBeNull();
+    expect(events(state, 'cancel')).toHaveLength(0);
+    expect(events(state, 'cancel-miss')).toHaveLength(0);
+    while (state.beat < 10.5) step(state, stay, config.fixedDt, d);
+    expect(state.player.hp).toBe(config.playerHp - 1);
+  });
+
+  describe('laser', () => {
+    // 右 (0.8, 0.3) から左へ y = 0.3 を走る線。窓は 26〜26.25。プレイヤーは線の 0.05 下 (太さ 0.03 + 半径 0.04 の内なので当たる)
+    const laserDeps = (): SimDeps => ({
+      choreo: makeChoreo([shotAttack({ type: 'laser', activeBeats: 0.25 })]),
+      grid: makeGrid(),
+      cfg: config,
+      acceptance,
+    });
+
+    it('対照: 何もしなければ当たる', () => {
+      const d = laserDeps();
+      const state = runTo(d, 0.4, 26.3, 0.35);
+      expect(state.player.hp).toBe(config.playerHp - 1);
+    });
+
+    it('射線の逆 (右) を向けば相殺でき、閃光は線上の最も近い点', () => {
+      const d = laserDeps();
+      const state = runTo(d, 0.4, 26, 0.35);
+      step(state, pressRight, config.fixedDt, d);
+      expect(state.cancelled.has(0)).toBe(true);
+      expect(state.lastCancel?.pos.x).toBeCloseTo(state.player.x, 9);
+      expect(state.lastCancel?.pos.y).toBeCloseTo(0.3, 9);
+      while (state.beat < 26.3) step(state, stay, config.fixedDt, d);
+      expect(state.player.hp).toBe(config.playerHp);
+    });
+
+    it('射線と同じ向き (左) では向きが合わず angle', () => {
+      const d = laserDeps();
+      const state = runTo(d, 0.4, 26, 0.35);
+      step(state, pressLeft, config.fixedDt, d);
+      expect(state.cancelled.size).toBe(0);
+      expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'angle' });
+    });
+  });
+
+  it('決定性: 同じ入力なら同じハッシュで、相殺の有無でハッシュが変わる', () => {
+    const run = (d: SimDeps) => {
+      const state = runTo(d, 0.15, 10);
+      step(state, pressRight, config.fixedDt, d);
+      while (state.beat < 10.5) step(state, stay, config.fixedDt, d);
+      return state.log.hash();
+    };
+    expect(run(dashDeps())).toBe(run(dashDeps()));
+    expect(run(dashDeps())).not.toBe(run(dashDeps({ uncancelable: true })));
   });
 });
 
