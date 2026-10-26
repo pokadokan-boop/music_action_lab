@@ -75,11 +75,12 @@ export function distToSegment(p: Vec, a: Vec, b: Vec): number {
 }
 
 // 扇 (origin から aim 方向、半角 halfDeg、半径 range) と円 (中心 c、半径 r) が重なるか。
-// 中心までの距離 ≤ range + r、かつ角度差 ≤ halfDeg + atan(r / 距離)。距離 0 なら重なるとみなす (T5 の相殺)
+// 中心までの距離 ≤ range + r、かつ角度差 ≤ halfDeg + atan(r / 距離)。
+// origin が円の内側 (距離 ≤ r) なら向きに関係なく重なる (背を向けていても扇は円の中にある。reach と誤記録しないため) (T5 の相殺)
 export function fanOverlapsCircle(origin: Vec, aim: Vec, halfDeg: number, range: number, c: Vec, r: number): boolean {
   const d = dist(origin, c);
   if (d > range + r) return false;
-  if (d === 0) return true;
+  if (d <= r) return true;
   const widen = (Math.atan(r / d) * 180) / Math.PI;
   return angleBetweenDeg(aim, { x: c.x - origin.x, y: c.y - origin.y }) <= halfDeg + widen;
 }

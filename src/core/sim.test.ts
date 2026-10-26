@@ -22,11 +22,11 @@ function scriptedInput(t: number): InputState {
   return { move, attackPressed };
 }
 
-function runScripted(seconds: number) {
-  const state = createSim(deps);
+function runScripted(seconds: number, d: SimDeps = deps) {
+  const state = createSim(d);
   const clock = new GameClock(config.fixedDt);
   for (let i = 0; i < seconds * 60; i++) {
-    for (const t of clock.advanceTime(1000 / 60)) step(state, scriptedInput(t), config.fixedDt, deps);
+    for (const t of clock.advanceTime(1000 / 60)) step(state, scriptedInput(t), config.fixedDt, d);
   }
   return state;
 }
@@ -37,6 +37,17 @@ describe('sim', () => {
     const a = runScripted(20);
     const b = runScripted(20);
     expect(a.log.events.length).toBeGreaterThan(0);
+    expect(a.log.hash()).toBe(b.log.hash());
+  });
+
+  it('自機狙い (aim: player) を含む振り付けでも、同じ入力列なら同じハッシュになる', () => {
+    const aimed: SimDeps = {
+      ...deps,
+      choreo: makeChoreo([dashAttack({ aim: 'player' }), burstAttack({ aim: 'player' }), shotAttack({ aim: 'player' })]),
+    };
+    const a = runScripted(20, aimed);
+    const b = runScripted(20, aimed);
+    expect(a.resolved.size).toBe(3); // 3 攻撃とも予告開始時のプレイヤー位置で解決されている
     expect(a.log.hash()).toBe(b.log.hash());
   });
 

@@ -6,9 +6,9 @@
 
 ```json
 {
-  "id": "v2",
+  "id": "example",
   "song": "candidate-2",
-  "intent": "音の高低に合わせて敵が上下する",
+  "intent": "形式の例 (実物は assets/choreo/v2.json)",
   "idle": { "amplitude": 0.02 },
   "attacks": [
     {

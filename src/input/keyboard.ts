@@ -1,4 +1,4 @@
-// キーボード入力。WASD と矢印で移動、Space と J で攻撃、Enter で決定、A / B で振り付け選択
+// キーボード入力。WASD と矢印で移動、Space と J で攻撃、Enter で決定。振り付けが 2 本以上あるときだけ A / D か ←→ で選択 (v2 は 1 本)
 export class KeyboardInput {
   private readonly down = new Set<string>();
   // 1 フレームより短い押下 (keydown と keyup が同じフレームに入る) を取りこぼさないため、
