@@ -1,5 +1,5 @@
 # v2 計画 Phase 1: 当たりの時刻の基準と「捌く」
-作成 2026-10-27。前提は docs/concept.md (保護対象)、docs/decisions/v0-feedback.md と v1-feedback.md (不満の分解)、docs/choreo-format.md (振り付け形式)。v1 の到達点は docs/plan/v1-phase1.md「完了記録」と、その後の 3 回の修正 (叩きつけを音に合わせる → 立ち上がり遅れ → 80 ms)。
+作成 2026-10-27。承認済み 2026-10-27 (Phase 2 と一括)。前提は docs/concept.md (保護対象)、docs/decisions/v0-feedback.md と v1-feedback.md (不満の分解)、docs/choreo-format.md (振り付け形式)。v1 の到達点は docs/plan/v1-phase1.md「完了記録」と、その後の 3 回の修正 (叩きつけを音に合わせる → 立ち上がり遅れ → 80 ms)。
 
 ## 新しいセッションの始め方
 docs/NEXT.md の「次の 1 手」に従う (読む順と現状確認の手順はそちらに書く。ここには重複して書かない)。Phase 2 (各タスクの詳細) は docs/plan/v2-phase2.md。

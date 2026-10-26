@@ -1,8 +1,8 @@
 # v2 計画 Phase 2: 各タスクの詳細
-作成 2026-10-27。Phase 1 は docs/plan/v2-phase1.md。前提は docs/choreo-format.md (振り付け形式と検査) と、現在のコード: src/core/choreo.ts (型・幾何・検査)、src/core/sim.ts (状態遷移)、src/audio/engine.ts (合成器)、src/render/canvas.ts (描画)、src/input/ (入力)。
+作成 2026-10-27。承認済み 2026-10-27 (Phase 1 と一括)。Phase 1 は docs/plan/v2-phase1.md。前提は docs/choreo-format.md (振り付け形式と検査) と、現在のコード: src/core/choreo.ts (型・幾何・検査)、src/core/sim.ts (状態遷移)、src/audio/engine.ts (合成器)、src/render/canvas.ts (描画)、src/input/ (入力)。
 
 ## セッションの切り方
-3 セッションに分ける。各セッションは 1 つの区切りで終わり、docs/NEXT.md を書いて止まる (CLAUDE.md「セッションの終わり方」)。
+当初は 3 セッションに分ける案。2026-10-27 に本人の指示で、分けずに 1 セッション内で並列のサブエージェント (ultracode) により通すことにした。S1〜S3 の区切りは commit とレビューの区切りとしてだけ残す。T2 の測定値の読み取り (Chrome) と基準の採否の確認は本体の Claude が行う。
 
 | セッション | タスク | 終わりの区切り |
 |---|---|---|
