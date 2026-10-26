@@ -2,9 +2,7 @@
 作成 2026-10-27。前提は docs/concept.md (保護対象)、docs/decisions/v0-feedback.md と v1-feedback.md (不満の分解)、docs/choreo-format.md (振り付け形式)。v1 の到達点は docs/plan/v1-phase1.md「完了記録」と、その後の 3 回の修正 (叩きつけを音に合わせる → 立ち上がり遅れ → 80 ms)。
 
 ## 新しいセッションの始め方
-1. docs/concept.md → この文書 → docs/choreo-format.md → docs/decisions/v1-feedback.md の順に読む
-2. 現状の確認: `npm test` (43 件)、`npx tsx scripts/sync-report.ts assets/choreo/a2.json`
-3. 本人から Phase 1 の承認を取ってから Phase 2 (各タスクの詳細) を書く。承認前に実装コードを書かない
+docs/NEXT.md の「次の 1 手」に従う (読む順と現状確認の手順はそちらに書く。ここには重複して書かない)。Phase 1 の承認を取ってから Phase 2 (各タスクの詳細) を書き、承認前に実装コードを書かない。
 
 ## 2026-10-27 までに決まったこと
 - A' (a2) の叩きつけは、動き出しを最後の音のなり始め (10.5 拍目)、当たりをその 80 ms 後 (impactDelayBeats 0.1875) にして「ぴったり合っている」と判定された
