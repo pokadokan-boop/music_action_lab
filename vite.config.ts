@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         candidates: 'candidates.html',
+        measure: 'measure.html',
       },
     },
   },

@@ -27,12 +27,13 @@ const DRUM_SNARE = 38;
 const DRUM_HAT = 42;
 
 export class AudioEngine {
-  readonly ctx: AudioContext;
+  // BaseAudioContext にしてあるのは、測定 (src/measure.ts) が OfflineAudioContext で同じ合成器を動かすため
+  readonly ctx: BaseAudioContext;
   private readonly master: GainNode;
   private noiseBuffer: AudioBuffer | null = null;
   private active: AudioScheduledSourceNode[] = [];
 
-  constructor(ctx?: AudioContext) {
+  constructor(ctx?: BaseAudioContext) {
     this.ctx = ctx ?? new AudioContext();
     this.master = this.ctx.createGain();
     this.master.gain.value = MASTER_GAIN;
@@ -44,15 +45,22 @@ export class AudioEngine {
   }
 
   // 予約した時刻から実際に音が出るまでの遅れ (秒)。絵をこの分だけ遅らせると、聞こえる音に合う。
-  // outputLatency は Chrome 等が持つ。無ければ baseLatency、それも無ければ 0
+  // outputLatency は Chrome 等が持つ。無ければ baseLatency、それも無ければ 0。
+  // OfflineAudioContext はスピーカーに出さないので 0
   outputLatency(): number {
+    if (!this.isRealtime()) return 0;
     const ctx = this.ctx as AudioContext & { outputLatency?: number };
     const v = ctx.outputLatency ?? ctx.baseLatency ?? 0;
     return Number.isFinite(v) && v >= 0 && v < 1 ? v : 0;
   }
 
+  // OfflineAudioContext では何もしない (描画は startRendering() で進む)
   async resume(): Promise<void> {
-    if (this.ctx.state !== 'running') await this.ctx.resume();
+    if (this.isRealtime() && this.ctx.state !== 'running') await this.ctx.resume();
+  }
+
+  private isRealtime(): this is { ctx: AudioContext } {
+    return typeof AudioContext !== 'undefined' && this.ctx instanceof AudioContext;
   }
 
   // 曲を atSec (絶対時刻) から再生する。戻り値は開始時刻
