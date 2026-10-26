@@ -6,6 +6,9 @@
 - docs/concept.md: 最初の実験で扱うゲームの範囲。保護対象
 - docs/feasibility.md: 音楽とゲームの技術調査と実現可能性
 - docs/plan/v0-phase1.md: v0 の目的とタスク一覧 (承認済み)。docs/plan/v0-phase2-core.md がセッション A (T0〜T1)、docs/plan/v0-phase2-game.md がセッション B (T7〜T5) の詳細
+- docs/plan/v1-phase1.md: v1 (曲に乗っている感じ)。完了記録あり
+- docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」)。次のセッションはここから始める。「新しいセッションの始め方」の節に読む順がある
+- docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
 - docs/decisions/: 曲の選択、合否条件ガードの確認など、実験中の決定の記録
 - README.md: 遊び方、不満の書き方、次のセッション (v1) の手順、開発コマンド
