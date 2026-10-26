@@ -11,6 +11,9 @@ export interface LogEvent {
   cls?: BeatClass;
   attackIndex?: number;
   phrase?: number;
+  // attack のみ: 攻撃の向き (度。0 = 右、90 = 下、時計回り) と、その向きの扇の角度内に敵がいたか
+  aimDeg?: number;
+  enemyInFan?: boolean;
 }
 
 export interface SummaryMeta {
@@ -48,9 +51,12 @@ export class GameLog {
     const mean = offsets.length ? offsets.reduce((a, b) => a + b, 0) / offsets.length : 0;
     const sd = offsets.length ? Math.sqrt(offsets.reduce((a, b) => a + (b - mean) ** 2, 0) / offsets.length) : 0;
     const side = mean > 0 ? '遅い側' : mean < 0 ? '早い側' : 'ちょうど';
+    const inFan = attacks.filter((e) => e.enemyInFan === true).length;
+    const outFan = attacks.filter((e) => e.enemyInFan === false).length;
     const lines = [
       `振り付け ${meta.choreoId} / 曲 ${meta.song} / ${meta.date}${meta.extra ? ` / ${meta.extra}` : ''}`,
       `攻撃 ${attacks.length} 回 (表 ${count('on')}, 裏 ${count('off')}, 外 ${count('miss')}) 命中 ${hits.length}`,
+      `向き 扇内 ${inFan} / 扇外 ${outFan}`,
       `拍とのズレ 平均 ${mean.toFixed(0)} ms (${side}) 標準偏差 ${sd.toFixed(0)} ms`,
       `被弾 ${damages.length} 回: ${damages.map((d) => `攻撃${d.attackIndex ?? '?'}(phrase ${d.phrase ?? '?'})`).join(', ') || 'なし'}`,
     ];

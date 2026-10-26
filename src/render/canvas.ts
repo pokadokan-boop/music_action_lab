@@ -105,10 +105,29 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   ctx.fillStyle = pc;
   ctx.fillRect(p.x - prr, p.y - prr, prr * 2, prr * 2);
   if (flash.attackClass) {
+    // 攻撃の瞬間: 向いた方向へ meleeRange の扇 (塗り + 縁) を出す。向きが無い (古い状態) なら円で代える
     ctx.strokeStyle = pc;
+    ctx.fillStyle = pc;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, pr(cfg.meleeRange), 0, Math.PI * 2);
+    if (flash.aim) {
+      // 判定は正規化座標 (x, y とも 0..1) で行われ、画面は 16:9 なので、正規化空間で扇を作ってから画面へ写す。
+      // ピクセル空間で角度を取ると向きが最大 16 度ずれ、「向きを合わせたのに外れた」と見える
+      const half = ((cfg.attackFanDeg / 2) * Math.PI) / 180;
+      const center = Math.atan2(flash.aim.y, flash.aim.x);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(vp.w, vp.h);
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, cfg.meleeRange, center - half, center + half);
+      ctx.closePath();
+      ctx.restore();
+      ctx.globalAlpha = 0.25;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.arc(p.x, p.y, pr(cfg.meleeRange), 0, Math.PI * 2);
+    }
     ctx.stroke();
   }
 
@@ -118,6 +137,8 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
 
 export interface FlashState {
   attackClass: 'on' | 'off' | 'miss' | null;
+  // attackClass が立っている間に描く扇の向き (sim.lastAim を写す)
+  aim: Vec | null;
   enemyHit: number;
   damaged: number;
 }

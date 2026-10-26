@@ -3,7 +3,7 @@ import type { Config } from '../config';
 import { attackMotion, enemyPosAt, hitDistance, hitboxAt, type Acceptance, type Choreo } from './choreo';
 import { phraseAt, type Grid } from './grid';
 import { GameLog, type BeatClass } from './log';
-import { clamp, dist, type Vec } from './vec';
+import { angleBetweenDeg, angleDeg, clamp, dist, inFan, normalize, type Vec } from './vec';
 
 export interface InputState {
   move: Vec;
@@ -25,6 +25,8 @@ export interface SimState {
   lastAttackClass: BeatClass | null;
   lastHit: boolean;
   lastDamage: boolean;
+  // 直前の step で攻撃したときの向き (単位ベクトル)。描画が扇を出すために使う
+  lastAim: Vec | null;
 }
 
 export interface SimDeps {
@@ -50,6 +52,7 @@ export function createSim(deps: SimDeps): SimState {
     lastAttackClass: null,
     lastHit: false,
     lastDamage: false,
+    lastAim: null,
   };
 }
 
@@ -58,6 +61,7 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   state.lastAttackClass = null;
   state.lastHit = false;
   state.lastDamage = false;
+  state.lastAim = null;
   if (state.finished) return;
 
   state.t += dt;
@@ -69,7 +73,7 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   state.enemy.x = enemyPos.x;
   state.enemy.y = enemyPos.y;
 
-  if (input.attackPressed && !state.attackLatch) playerAttack(state, deps);
+  if (input.attackPressed && !state.attackLatch) playerAttack(state, input, deps);
   state.attackLatch = input.attackPressed;
 
   checkDamage(state, deps);
@@ -94,14 +98,30 @@ export function classifyBeat(beat: number, windowBeats: number): { cls: BeatClas
   return { cls: 'miss', offsetBeats };
 }
 
-function playerAttack(state: SimState, deps: SimDeps): void {
+function playerAttack(state: SimState, input: InputState, deps: SimDeps): void {
   const { cfg, grid } = deps;
   const { cls, offsetBeats } = classifyBeat(state.beat, cfg.onBeatWindowBeats);
   state.lastAttackClass = cls;
-  state.log.push({ t: state.t, beat: state.beat, kind: 'attack', cls, offsetMs: offsetBeats * grid.beatSec * 1000 });
 
+  // 攻撃の向き: 移動入力があればその向き (丸めない)、無ければ敵の方向 (docs/plan/v2-phase2.md「既定値の決め」)
+  const toEnemy: Vec = { x: state.enemy.x - state.player.x, y: state.enemy.y - state.player.y };
+  const aim = Math.hypot(input.move.x, input.move.y) > 0 ? normalize(input.move) : normalize(toEnemy);
+  state.lastAim = aim;
+  // 扇の角度の条件だけを記録する (距離込みだと命中と同じ値になり、「向きが合っていたか」が読めなくなる)
+  const enemyInFan = angleBetweenDeg(aim, toEnemy) <= cfg.attackFanDeg / 2;
+  state.log.push({
+    t: state.t,
+    beat: state.beat,
+    kind: 'attack',
+    cls,
+    offsetMs: offsetBeats * grid.beatSec * 1000,
+    aimDeg: angleDeg(aim),
+    enemyInFan,
+  });
+
+  // 命中: 射程 + 補正距離の内、かつ扇の中 (inFan は T5 の相殺と共用)。扇の外なら寄せもしない
+  if (!inFan(state.player, aim, cfg.attackFanDeg / 2, cfg.meleeRange + cfg.rangeAssist, state.enemy)) return;
   const d = dist(state.player, state.enemy);
-  if (d > cfg.meleeRange + cfg.rangeAssist) return;
   if (d > cfg.meleeRange && d > 0) {
     // 射程内なら当たるように少し寄せる (concept.md「初期案」)
     const pull = (d - cfg.meleeRange) / d;

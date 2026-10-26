@@ -76,6 +76,64 @@ describe('sim', () => {
     expect(far.enemy.hp).toBe(config.enemyHp);
   });
 
+  // 敵の左 (同じ高さ) に距離 d で立った状態を作る。敵は右 (角度 0 度) にいる
+  function leftOfEnemy(d: number) {
+    const state = createSim(deps);
+    state.player.x = state.enemy.x - d;
+    state.player.y = state.enemy.y;
+    return state;
+  }
+  const attackEvents = (state: ReturnType<typeof createSim>) => state.log.events.filter((e) => e.kind === 'attack');
+
+  it('扇の中 (角度差 30 度) の敵に当たる', () => {
+    const state = leftOfEnemy(config.meleeRange * 0.7);
+    step(state, { move: { x: Math.cos(Math.PI / 6), y: -Math.sin(Math.PI / 6) }, attackPressed: true }, config.fixedDt, deps);
+    expect(state.lastHit).toBe(true);
+    expect(state.enemy.hp).toBe(config.enemyHp - 1);
+    expect(attackEvents(state)[0].enemyInFan).toBe(true);
+  });
+
+  it('同じ距離でも角度差が 45 度を超えると外れる', () => {
+    const state = leftOfEnemy(config.meleeRange * 0.7);
+    step(state, { move: { x: Math.cos(Math.PI / 3), y: -Math.sin(Math.PI / 3) }, attackPressed: true }, config.fixedDt, deps);
+    expect(state.lastHit).toBe(false);
+    expect(state.enemy.hp).toBe(config.enemyHp);
+    expect(attackEvents(state)[0].enemyInFan).toBe(false);
+  });
+
+  it('移動入力が無ければ敵の方向を向いて当たる', () => {
+    const state = createSim(deps);
+    state.player.x = state.enemy.x - config.meleeRange * 0.5;
+    state.player.y = state.enemy.y - config.meleeRange * 0.5;
+    step(state, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
+    expect(state.lastHit).toBe(true);
+    const toEnemy = { x: state.enemy.x - state.player.x, y: state.enemy.y - state.player.y };
+    const expectedDeg = (Math.atan2(toEnemy.y, toEnemy.x) * 180) / Math.PI;
+    expect(attackEvents(state)[0].aimDeg).toBeCloseTo(expectedDeg, 6);
+    expect(state.lastAim).not.toBeNull();
+  });
+
+  it('射程内補正 (寄せ) は扇の中だけ。扇の外では位置が動かない', () => {
+    const state = leftOfEnemy(config.meleeRange + config.rangeAssist * 0.5);
+    const x0 = state.player.x;
+    // 真上を向く: 移動で y は動くが、寄せが無ければ x は変わらない
+    step(state, { move: { x: 0, y: -1 }, attackPressed: true }, config.fixedDt, deps);
+    expect(state.lastHit).toBe(false);
+    expect(state.player.x).toBe(x0);
+    expect(Math.abs(state.enemy.x - state.player.x)).toBeGreaterThan(config.meleeRange);
+  });
+
+  it('attack イベントに aimDeg と enemyInFan が入り、lastAim は次の step で消える', () => {
+    const state = leftOfEnemy(config.meleeRange * 0.5);
+    step(state, { move: { x: 1, y: 0 }, attackPressed: true }, config.fixedDt, deps);
+    const [ev] = attackEvents(state);
+    expect(ev.aimDeg).toBeCloseTo(0, 9);
+    expect(ev.enemyInFan).toBe(true);
+    expect(state.lastAim).toEqual({ x: 1, y: 0 });
+    step(state, { move: { x: 1, y: 0 }, attackPressed: false }, config.fixedDt, deps);
+    expect(state.lastAim).toBeNull();
+  });
+
   it('当たり範囲に入ると 1 攻撃につき 1 回だけ被弾する', () => {
     const state = createSim(deps);
     // burst (phrase 2) の中心 (0.5, 0.5) に立ち、hitBeat 19 まで進める

@@ -31,6 +31,34 @@ export function easeIn(t: number): number {
   return c ** 3;
 }
 
+// 単位ベクトル。長さ 0 なら零ベクトルのまま (向きが定まらないため)
+export function normalize(v: Vec): Vec {
+  const len = Math.hypot(v.x, v.y);
+  return len === 0 ? { x: 0, y: 0 } : { x: v.x / len, y: v.y / len };
+}
+
+// 向きを度にする。画面座標 (y が下向き) なので 0 = 右、90 = 下、時計回り。範囲は [0, 360)
+export function angleDeg(v: Vec): number {
+  const deg = (Math.atan2(v.y, v.x) * 180) / Math.PI;
+  return deg < 0 ? deg + 360 : deg;
+}
+
+// 2 つの向きの差の絶対値 (度、0〜180)。長さは見ない。どちらかが零ベクトルなら 0
+export function angleBetweenDeg(a: Vec, b: Vec): number {
+  const cross = a.x * b.y - a.y * b.x;
+  const dot = a.x * b.x + a.y * b.y;
+  return Math.abs((Math.atan2(cross, dot) * 180) / Math.PI);
+}
+
+// 点 p が、origin から aim 方向に開く扇 (半角 halfDeg、半径 range) に入るか。
+// 攻撃の命中 (T3) と相殺の重なり (T5) で共用する。origin と p が同じ点なら入っているとみなす
+export function inFan(origin: Vec, aim: Vec, halfDeg: number, range: number, p: Vec): boolean {
+  const d = dist(origin, p);
+  if (d > range) return false;
+  if (d === 0) return true;
+  return angleBetweenDeg(aim, { x: p.x - origin.x, y: p.y - origin.y }) <= halfDeg;
+}
+
 // 点 p から線分 ab までの距離
 export function distToSegment(p: Vec, a: Vec, b: Vec): number {
   const abx = b.x - a.x;

@@ -41,7 +41,7 @@ let fedSec = 0;
 // 表示はさらに次の描画まで (1 フレーム以内) 遅れる
 const impactLagsMs: number[] = [];
 const impactLagSeen = new Set<number>();
-const flash: FlashState = { attackClass: null, enemyHit: 0, damaged: 0 };
+const flash: FlashState = { attackClass: null, aim: null, enemyHit: 0, damaged: 0 };
 let flashTimer = 0;
 const songCache = new Map<string, LoadedSong>();
 
@@ -90,6 +90,7 @@ async function startGame(index: number): Promise<void> {
   flash.attackClass = null;
   flash.enemyHit = 0;
   flash.damaged = 0;
+  flash.aim = null;
   title?.destroy();
   title = null;
   // 音の出力遅延ぶんゲーム時計を遅らせ、絵と判定を「聞こえる音」に合わせる
@@ -138,6 +139,7 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
       if (sim.lastAttackClass) {
         engine.scheduleSfx(sim.lastAttackClass, engine.now());
         flash.attackClass = sim.lastAttackClass;
+        flash.aim = sim.lastAim;
         flashTimer = 0.12;
       }
       if (sim.lastHit) flash.enemyHit = 0.1;
