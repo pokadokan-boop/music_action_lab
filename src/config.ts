@@ -10,6 +10,7 @@ export const config = {
   shotSpeed: 2.4, // v0 の 0.8 は「判定がだらだら残る」(docs/decisions/v0-feedback.md 不満 2)
   shotRadius: 0.03,
   onBeatWindowBeats: 0.125,
+  attackFanDeg: 90, // 攻撃の扇の全角 (度)。向き (aim) の前方 ±45 度に敵がいれば当たる (docs/plan/v2-phase2.md「既定値の決め」)
   enemyRestPos: { x: 0.75, y: 0.5 },
   playerStartPos: { x: 0.25, y: 0.5 },
   playerHp: 5,
