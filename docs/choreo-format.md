@@ -6,7 +6,7 @@
 
 ```json
 {
-  "id": "a",
+  "id": "v2",
   "song": "candidate-2",
   "intent": "音の高低に合わせて敵が上下する",
   "idle": { "amplitude": 0.02 },

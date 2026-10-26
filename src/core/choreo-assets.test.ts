@@ -13,8 +13,8 @@ const choreoDir = resolve(root, 'assets', 'choreo');
 const files = existsSync(choreoDir) ? readdirSync(choreoDir).filter((f) => f.endsWith('.json')) : [];
 
 describe('振り付けデータ', () => {
-  it('A と A\' (a2) がある (B は 2026-10-27 に外した)', () => {
-    expect(files.sort()).toEqual(['a.json', 'a2.json']);
+  it('v2 の 1 本だけ (A と A\' は 2026-10-27 に外した)', () => {
+    expect(files.sort()).toEqual(['v2.json']);
   });
 
   it.each(files)('%s は合否条件を満たす', (file) => {

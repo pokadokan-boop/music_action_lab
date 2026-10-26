@@ -1,5 +1,5 @@
 // 振り付け JSON を合否条件に照らして検査する。曲は choreo.song から assets/midi/<song>.mid を読む。
-// 実行: npx tsx scripts/validate-choreo.ts assets/choreo/a.json
+// 実行: npx tsx scripts/validate-choreo.ts assets/choreo/v2.json
 // 終了コード: 違反なし 0 / 違反あり 1 / 読み込み失敗 2
 import midiPkg from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
