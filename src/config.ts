@@ -11,6 +11,7 @@ export const config = {
   shotRadius: 0.03,
   onBeatWindowBeats: 0.125,
   attackFanDeg: 90, // 攻撃の扇の全角 (度)。向き (aim) の前方 ±45 度に敵がいれば当たる (docs/plan/v2-phase2.md「既定値の決め」)
+  cancelFacingDeg: 60, // 相殺の向きの許容角 (度)。来る方向の逆から ±30 度以内を向いていれば相殺できる (同「既定値の決め」)
   enemyRestPos: { x: 0.75, y: 0.5 },
   playerStartPos: { x: 0.25, y: 0.5 },
   playerHp: 5,
