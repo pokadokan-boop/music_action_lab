@@ -6,6 +6,8 @@ import { hitboxAt, type Attack, type CircleHit } from './choreo';
 import type { EventKind } from './log';
 import { classifyBeat, createSim, effectiveChoreo, step, type InputState, type SimDeps, type SimState } from './sim';
 import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
+import { dist } from './vec';
+import { WORLD } from './world';
 
 const deps: SimDeps = { choreo: makeChoreo(), grid: makeGrid(), cfg: config, acceptance };
 
@@ -58,11 +60,29 @@ describe('sim', () => {
     expect(state.t).toBeLessThan(acceptance.sceneSeconds + 0.02);
   });
 
-  it('プレイヤーは画面内に留まる', () => {
+  it('プレイヤーは世界 (幅 1 × 高さ 9/16) の中に留まる', () => {
     const state = createSim(deps);
     for (let i = 0; i < 600; i++) step(state, { move: { x: -1, y: -1 }, attackPressed: false }, config.fixedDt, deps);
     expect(state.player.x).toBeCloseTo(config.playerRadius, 9);
     expect(state.player.y).toBeCloseTo(config.playerRadius, 9);
+    for (let i = 0; i < 600; i++) step(state, { move: { x: 1, y: 1 }, attackPressed: false }, config.fixedDt, deps);
+    expect(state.player.x).toBeCloseTo(WORLD.w - config.playerRadius, 9);
+    expect(state.player.y).toBeCloseTo(WORLD.h - config.playerRadius, 9);
+  });
+
+  it('等方座標: 画面上の斜め 45 度の入力は、斜め 45 度にいる敵をまっすぐ向く (角度差 0)', () => {
+    const state = createSim(deps);
+    state.player.x = state.enemy.x - 0.03;
+    state.player.y = state.enemy.y + 0.03; // 敵は右上 45 度
+    step(state, { move: { x: 1, y: -1 }, attackPressed: true }, config.fixedDt, deps);
+    const ev = state.log.events.find((e) => e.kind === 'attack')!;
+    expect(ev.aimDeg).toBeCloseTo(315, 9);
+    expect(ev.enemyInFan).toBe(true);
+    expect(state.lastHit).toBe(true);
+    // 上下左右に同じ距離の点は、判定でも同じ距離 (縦が 9/16 に潰れない)
+    const o = { x: 0.5, y: 0.3 };
+    const d = 0.05;
+    expect(dist(o, { x: o.x, y: o.y - d })).toBeCloseTo(dist(o, { x: o.x + d, y: o.y }), 12);
   });
 
   it('攻撃は押した瞬間だけ記録され、拍の位置で分類される', () => {
@@ -73,14 +93,16 @@ describe('sim', () => {
     expect(state.log.events[0].cls).toBe('on');
   });
 
-  it('射程 + 補正距離の内なら寄せて命中、外なら外れ', () => {
+  it('扇の半径の内なら接触する距離まで寄せて命中、外なら外れ', () => {
     const near = createSim(deps);
-    near.player.x = near.enemy.x - (config.meleeRange + config.rangeAssist * 0.5);
+    // 接触距離 (0.054) と扇の半径 (0.0576) の間に立つ
+    near.player.x = near.enemy.x - (config.playerRadius + config.enemyRadius + config.attackRadius) / 2;
     near.player.y = near.enemy.y;
     step(near, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
     expect(near.lastHit).toBe(true);
     expect(near.enemy.hp).toBe(config.enemyHp - 1);
-    expect(Math.abs(near.enemy.x - near.player.x)).toBeLessThanOrEqual(config.meleeRange + 1e-9);
+    // 敵は拍の揺れ (idle) で少し上にいるので、距離で見る
+    expect(dist(near.player, near.enemy)).toBeCloseTo(config.playerRadius + config.enemyRadius, 9);
 
     const far = createSim(deps);
     far.player.x = 0.1;
@@ -99,7 +121,7 @@ describe('sim', () => {
   const attackEvents = (state: ReturnType<typeof createSim>) => state.log.events.filter((e) => e.kind === 'attack');
 
   it('扇の中 (角度差 30 度) の敵に当たる', () => {
-    const state = leftOfEnemy(config.meleeRange * 0.7);
+    const state = leftOfEnemy(config.attackRadius * 0.7);
     step(state, { move: { x: Math.cos(Math.PI / 6), y: -Math.sin(Math.PI / 6) }, attackPressed: true }, config.fixedDt, deps);
     expect(state.lastHit).toBe(true);
     expect(state.enemy.hp).toBe(config.enemyHp - 1);
@@ -107,7 +129,7 @@ describe('sim', () => {
   });
 
   it('同じ距離でも角度差が 45 度を超えると外れる', () => {
-    const state = leftOfEnemy(config.meleeRange * 0.7);
+    const state = leftOfEnemy(config.attackRadius * 0.7);
     step(state, { move: { x: Math.cos(Math.PI / 3), y: -Math.sin(Math.PI / 3) }, attackPressed: true }, config.fixedDt, deps);
     expect(state.lastHit).toBe(false);
     expect(state.enemy.hp).toBe(config.enemyHp);
@@ -116,8 +138,8 @@ describe('sim', () => {
 
   it('移動入力が無ければ敵の方向を向いて当たる', () => {
     const state = createSim(deps);
-    state.player.x = state.enemy.x - config.meleeRange * 0.5;
-    state.player.y = state.enemy.y - config.meleeRange * 0.5;
+    state.player.x = state.enemy.x - config.attackRadius * 0.5;
+    state.player.y = state.enemy.y - config.attackRadius * 0.5;
     step(state, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
     expect(state.lastHit).toBe(true);
     const toEnemy = { x: state.enemy.x - state.player.x, y: state.enemy.y - state.player.y };
@@ -126,18 +148,18 @@ describe('sim', () => {
     expect(state.lastAim).not.toBeNull();
   });
 
-  it('射程内補正 (寄せ) は扇の中だけ。扇の外では位置が動かない', () => {
-    const state = leftOfEnemy(config.meleeRange + config.rangeAssist * 0.5);
+  it('寄せは扇の中だけ。扇の外では位置が動かない', () => {
+    const state = leftOfEnemy((config.playerRadius + config.enemyRadius + config.attackRadius) / 2);
     const x0 = state.player.x;
     // 真上を向く: 移動で y は動くが、寄せが無ければ x は変わらない
     step(state, { move: { x: 0, y: -1 }, attackPressed: true }, config.fixedDt, deps);
     expect(state.lastHit).toBe(false);
     expect(state.player.x).toBe(x0);
-    expect(Math.abs(state.enemy.x - state.player.x)).toBeGreaterThan(config.meleeRange);
+    expect(Math.abs(state.enemy.x - state.player.x)).toBeGreaterThan(config.playerRadius + config.enemyRadius);
   });
 
   it('attack イベントに aimDeg と enemyInFan が入り、lastAim は次の step で消える', () => {
-    const state = leftOfEnemy(config.meleeRange * 0.5);
+    const state = leftOfEnemy(config.attackRadius * 0.5);
     step(state, { move: { x: 1, y: 0 }, attackPressed: true }, config.fixedDt, deps);
     const [ev] = attackEvents(state);
     expect(ev.aimDeg).toBeCloseTo(0, 9);
@@ -211,7 +233,8 @@ describe('相殺 (cancel)', () => {
   const pressLeft: InputState = { move: { x: -1, y: 0 }, attackPressed: true };
   const events = (state: SimState, kind: EventKind) => state.log.events.filter((e) => e.kind === kind);
 
-  // dash だけの振り付け。敵は beat 10 に (0.3, 0.5) に着き、10.5 まで左 (0.2, 0.5) へ抜ける (右から来る)。当たりの窓は 10〜10.25
+  // dash だけの振り付け。敵は beat 10 に (0.3, 0.5) に着き、10.5 まで左 (0.2, 0.5) へ抜ける (右から来る)。当たりの窓は 10〜10.25。
+  // プレイヤー (x 0.15) から見て、本体 (r 0.06) が扇 (半径 attackRadius ≈ 0.058) に重なるのは 10.06 拍以降、接触 (r + 自機の半径) は 10.15 拍
   function dashDeps(over: Partial<Attack> = {}): SimDeps {
     return { choreo: makeChoreo([dashAttack(over)]), grid: makeGrid(), cfg: config, acceptance };
   }
@@ -234,7 +257,7 @@ describe('相殺 (cancel)', () => {
 
   it('右から来る dash に右向きの攻撃で相殺が成立し、以後その攻撃で被弾しない', () => {
     const d = dashDeps();
-    const state = runTo(d, 0.15, 10);
+    const state = runTo(d, 0.15, 10.1);
     step(state, pressRight, config.fixedDt, d);
     expect(state.cancelled.has(0)).toBe(true);
     expect(state.lastCancel?.attackIndex).toBe(0);
@@ -255,7 +278,7 @@ describe('相殺 (cancel)', () => {
 
   it('向きが合わない (扇は重なるが来る方向の逆から 50 度ずれ) と cancel-miss angle', () => {
     const d = dashDeps();
-    const state = runTo(d, 0.15, 10);
+    const state = runTo(d, 0.15, 10.1);
     const rad = (50 * Math.PI) / 180;
     step(state, { move: { x: Math.cos(rad), y: Math.sin(rad) }, attackPressed: true }, config.fixedDt, d);
     expect(state.cancelled.size).toBe(0);
@@ -265,7 +288,7 @@ describe('相殺 (cancel)', () => {
 
   it('左向き (敵に背を向ける) は扇と重ならないので reach', () => {
     const d = dashDeps();
-    const state = runTo(d, 0.15, 10);
+    const state = runTo(d, 0.15, 10.1);
     step(state, pressLeft, config.fixedDt, d);
     expect(state.cancelled.size).toBe(0);
     expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'reach' });
@@ -347,7 +370,7 @@ describe('相殺 (cancel)', () => {
 
   it('決定性: 同じ入力なら同じハッシュで、相殺の有無でハッシュが変わる', () => {
     const run = (d: SimDeps) => {
-      const state = runTo(d, 0.15, 10);
+      const state = runTo(d, 0.15, 10.1);
       step(state, pressRight, config.fixedDt, d);
       while (state.beat < 10.5) step(state, stay, config.fixedDt, d);
       return state.log.hash();

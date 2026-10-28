@@ -1,4 +1,5 @@
-// Canvas 2D で四角と線だけで描く。位置は正規化座標 → 16:9 の描画領域へ変換する
+// Canvas 2D で四角と線だけで描く。位置は世界座標 (等方。単位は画面の幅。src/core/world.ts) → 16:9 の描画領域へ、x も y も幅を掛けて写す。
+// 規律 (v3 T1): 描画は判定の値をそのまま使う。判定に無い大きさを描かず、判定にある大きさを描き落とさない
 import type { Config } from '../config';
 import { aimLine, attackMotion, easeFor, hitboxAt, impactBeat, pathPosAt, type Attack, type Choreo, type Motion } from '../core/choreo';
 import type { Grid } from '../core/grid';
@@ -61,7 +62,8 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   ctx.rect(vp.ox, vp.oy, vp.w, vp.h);
   ctx.clip();
 
-  const px = (v: Vec) => ({ x: vp.ox + v.x * vp.w, y: vp.oy + v.y * vp.h });
+  // 世界座標は等方なので、y も幅を掛ける (世界の高さ 9/16 × 幅 = 描画領域の高さ)
+  const px = (v: Vec) => ({ x: vp.ox + v.x * vp.w, y: vp.oy + v.y * vp.w });
   const pr = (r: number) => r * vp.w;
   const beat = state.beat;
   const pulse = 1 - easeOut(beat - Math.floor(beat));
@@ -110,7 +112,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   ctx.fillStyle = pc;
   ctx.fillRect(p.x - prr, p.y - prr, prr * 2, prr * 2);
   if (flash.attackClass) {
-    // 攻撃の瞬間: 向いた方向へ meleeRange の扇 (塗り + 縁) を出す。向きが無い (古い状態) なら円で代える。
+    // 攻撃の瞬間: 向いた方向へ attackRadius の扇 (塗り + 縁) を出す。判定と同じ半径・同じ角度。向きが無い (古い状態) なら円で代える。
     // 相殺が成立した押下なら扇は白 (拍の色より「捌けた」を優先して見せる)
     const fanColor = flash.cancel ? COLOR.cancel : pc;
     ctx.strokeStyle = fanColor;
@@ -118,22 +120,17 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
     ctx.lineWidth = 2;
     ctx.beginPath();
     if (flash.aim) {
-      // 判定は正規化座標 (x, y とも 0..1) で行われ、画面は 16:9 なので、正規化空間で扇を作ってから画面へ写す。
-      // ピクセル空間で角度を取ると向きが最大 16 度ずれ、「向きを合わせたのに外れた」と見える
+      // 世界座標は等方なので、ピクセル空間の角度は判定の角度と同じ
       const half = ((cfg.attackFanDeg / 2) * Math.PI) / 180;
       const center = Math.atan2(flash.aim.y, flash.aim.x);
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.scale(vp.w, vp.h);
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, cfg.meleeRange, center - half, center + half);
+      ctx.moveTo(p.x, p.y);
+      ctx.arc(p.x, p.y, pr(cfg.attackRadius), center - half, center + half);
       ctx.closePath();
-      ctx.restore();
       ctx.globalAlpha = 0.25;
       ctx.fill();
       ctx.globalAlpha = 1;
     } else {
-      ctx.arc(p.x, p.y, pr(cfg.meleeRange), 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, pr(cfg.attackRadius), 0, Math.PI * 2);
     }
     ctx.stroke();
   }

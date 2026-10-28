@@ -1,0 +1,106 @@
+{
+  "id": "v3",
+  "song": "candidate-2",
+  "intent": "v2 (自機狙いと相殺) と同じ振り付けを等方座標に写し、相殺が成立するようにした版。自機との接触の前後で相殺でき、範囲攻撃だけは相殺できず避けるしかない",
+  "idle": { "amplitude": 0.02 },
+  "motion": "snap",
+  "attacks": [
+    {
+      "phrase": 1, "type": "laser", "aim": "player",
+      "telegraphBeat": 4, "hitBeat": 6, "activeBeats": 0.25,
+      "path": [
+        { "beat": 4, "x": 0.75, "y": 0.28125 },
+        { "beat": 4.5, "x": 0.72, "y": 0.43875 },
+        { "beat": 6, "x": 0.68, "y": 0.30938 },
+        { "beat": 6.5, "x": 0.68, "y": 0.2925 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.02 },
+      "target": { "x": 0.2, "y": 0.24188 }
+    },
+    {
+      "phrase": 2, "type": "burst", "aim": "player", "uncancelable": true,
+      "telegraphBeat": 8, "hitBeat": 10.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
+      "path": [
+        { "beat": 8, "x": 0.68, "y": 0.2925 },
+        { "beat": 8.25, "x": 0.4, "y": 0.25313 },
+        { "beat": 10.5, "x": 0.4, "y": 0.25313 },
+        { "beat": 10.6875, "x": 0.4, "y": 0.39375 },
+        { "beat": 12, "x": 0.4, "y": 0.39375 },
+        { "beat": 12.5, "x": 0.75, "y": 0.19688 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.16 }
+    },
+    {
+      "phrase": 3, "type": "dash", "aim": "player",
+      "telegraphBeat": 16, "hitBeat": 18, "activeBeats": 0.5,
+      "path": [
+        { "beat": 16, "x": 0.75, "y": 0.19688 },
+        { "beat": 18, "x": 0.72, "y": 0.16875 },
+        { "beat": 18.5, "x": 0.3, "y": 0.30938 },
+        { "beat": 19, "x": 0.24, "y": 0.32063 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 }
+    },
+    {
+      "phrase": 4, "type": "laser", "aim": "player",
+      "telegraphBeat": 20, "hitBeat": 22, "activeBeats": 0.25,
+      "path": [
+        { "beat": 20, "x": 0.3, "y": 0.3375 },
+        { "beat": 20.5, "x": 0.5, "y": 0.43875 },
+        { "beat": 22, "x": 0.68, "y": 0.30938 },
+        { "beat": 22.5, "x": 0.68, "y": 0.2925 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.02 },
+      "target": { "x": 0.2, "y": 0.24188 }
+    },
+    {
+      "phrase": 5, "type": "burst", "aim": "player", "uncancelable": true,
+      "telegraphBeat": 24, "hitBeat": 26.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
+      "path": [
+        { "beat": 24, "x": 0.68, "y": 0.2925 },
+        { "beat": 24.25, "x": 0.4, "y": 0.25313 },
+        { "beat": 26.5, "x": 0.4, "y": 0.25313 },
+        { "beat": 26.6875, "x": 0.4, "y": 0.39375 },
+        { "beat": 28, "x": 0.4, "y": 0.39375 },
+        { "beat": 28.5, "x": 0.75, "y": 0.19688 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.16 }
+    },
+    {
+      "phrase": 6, "type": "dash", "aim": "player",
+      "telegraphBeat": 32, "hitBeat": 34, "activeBeats": 0.5,
+      "path": [
+        { "beat": 32, "x": 0.75, "y": 0.19688 },
+        { "beat": 34, "x": 0.72, "y": 0.16875 },
+        { "beat": 34.5, "x": 0.3, "y": 0.30938 },
+        { "beat": 35, "x": 0.24, "y": 0.32063 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.03 }
+    },
+    {
+      "phrase": 7, "type": "laser", "aim": "player",
+      "telegraphBeat": 36, "hitBeat": 38, "activeBeats": 0.25,
+      "path": [
+        { "beat": 36, "x": 0.3, "y": 0.3375 },
+        { "beat": 36.5, "x": 0.5, "y": 0.43875 },
+        { "beat": 38, "x": 0.68, "y": 0.30938 },
+        { "beat": 38.5, "x": 0.68, "y": 0.2925 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.02 },
+      "target": { "x": 0.2, "y": 0.24188 }
+    },
+    {
+      "phrase": 8, "type": "burst", "aim": "player", "uncancelable": true,
+      "telegraphBeat": 40, "hitBeat": 42.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
+      "path": [
+        { "beat": 40, "x": 0.68, "y": 0.2925 },
+        { "beat": 40.25, "x": 0.4, "y": 0.25313 },
+        { "beat": 42.5, "x": 0.4, "y": 0.25313 },
+        { "beat": 42.6875, "x": 0.4, "y": 0.39375 },
+        { "beat": 44, "x": 0.4, "y": 0.39375 },
+        { "beat": 44.5, "x": 0.75, "y": 0.19688 }
+      ],
+      "hitbox": { "shape": "circle", "r": 0.16 }
+    }
+  ]
+}

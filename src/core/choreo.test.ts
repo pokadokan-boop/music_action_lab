@@ -3,6 +3,7 @@ import acceptance from '../../acceptance.json';
 import { config } from '../config';
 import { enemyPosAt, hitboxAt, incomingDir, pathPosAt, resolveAttack, validateChoreo, type CircleHit, type SegmentHit } from './choreo';
 import { distToSegment, easeIn } from './vec';
+import { WORLD } from './world';
 import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
 
 const grid = makeGrid();
@@ -59,14 +60,14 @@ describe('hitboxAt', () => {
       hitBeat: 18,
       impactDelayBeats: 0.125,
       path: [
-        { beat: 16, x: 0.2, y: 0.5 },
-        { beat: 18, x: 0.5, y: 0.4 }, // 音のなり始め: まだ上にいる
-        { beat: 18.125, x: 0.5, y: 0.7 }, // 立ち上がりきった瞬間に着地
+        { beat: 16, x: 0.2, y: 0.3 },
+        { beat: 18, x: 0.5, y: 0.2 }, // 音のなり始め: まだ上にいる
+        { beat: 18.125, x: 0.5, y: 0.5 }, // 立ち上がりきった瞬間に着地
       ],
     });
     expect(hitboxAt(atk, 18.05, grid.beatSec, config)).toBeNull();
     const h = hitboxAt(atk, 18.2, grid.beatSec, config) as CircleHit;
-    expect(h.y).toBeCloseTo(0.7, 9);
+    expect(h.y).toBeCloseTo(0.5, 9);
     expect(validateChoreo(makeChoreo([atk]), grid, acceptance, config)).toEqual([]);
     const v = validateChoreo(makeChoreo([burstAttack({ impactDelayBeats: 0.5 })]), grid, acceptance, config);
     expect(v.map((x) => x.rule)).toContain('impact-delay');
@@ -174,26 +175,26 @@ describe('resolveAttack (自機狙い)', () => {
         { beat: 20, x: 0.8, y: 0.3 },
       ],
     });
-    const r = resolveAttack(atk, { x: 0.3, y: 0.7 }, config);
+    const r = resolveAttack(atk, { x: 0.3, y: 0.45 }, config);
     const h = hitboxAt(r, 18.1, grid.beatSec, config) as CircleHit;
     expect(h.x).toBeCloseTo(0.3, 9);
-    expect(h.y).toBeCloseTo(0.7, 9);
+    expect(h.y).toBeCloseTo(0.45, 9);
     expect(r.path[0]).toEqual({ beat: 16, x: 0.2, y: 0.5 });
     expect(r.path[2].x).toBeCloseTo(0.6, 9);
-    expect(r.path[2].y).toBeCloseTo(0.5, 9);
+    expect(r.path[2].y).toBeCloseTo(0.25, 9);
     // 元の攻撃は変えない (純粋関数)
     expect(atk.path[1]).toEqual({ beat: 18, x: 0.5, y: 0.5 });
   });
 
   it('dash は突進の終点 (hitBeat の後の最初のキーフレーム) が target になり、予告開始時点の位置は変わらない', () => {
     const atk = dashAttack({ aim: 'player' });
-    const r = resolveAttack(atk, { x: 0.5, y: 0.8 }, config);
+    const r = resolveAttack(atk, { x: 0.5, y: 0.4 }, config);
     expect(pathPosAt(r.path, 8)).toEqual({ x: 0.75, y: 0.5 });
     expect(r.path[2].x).toBeCloseTo(0.5, 9);
-    expect(r.path[2].y).toBeCloseTo(0.8, 9);
-    // hitBeat の点も同じ delta (0.3, 0.3) で動く
+    expect(r.path[2].y).toBeCloseTo(0.4, 9);
+    // hitBeat の点も同じ delta (0.3, -0.1) で動く
     expect(r.path[1].x).toBeCloseTo(0.6, 9);
-    expect(r.path[1].y).toBeCloseTo(0.8, 9);
+    expect(r.path[1].y).toBeCloseTo(0.4, 9);
   });
 
   it('laser / shot は本体を動かさず target だけ置き換わる', () => {
@@ -206,10 +207,10 @@ describe('resolveAttack (自機狙い)', () => {
     expect(h.b.y).toBeGreaterThan(h.a.y); // 下 (y が大きい側) へ向かう
   });
 
-  it('画面外にはみ出す狙いは [enemyRadius, 1 - enemyRadius] に収まる', () => {
+  it('世界の外にはみ出す狙いは x が [enemyRadius, 1 - enemyRadius]、y が [enemyRadius, 9/16 - enemyRadius] に収まる', () => {
     const r = resolveAttack(burstAttack({ aim: 'player', hitBeat: 18 }), { x: 0, y: 1 }, config);
     expect(r.path[1].x).toBeCloseTo(config.enemyRadius, 9);
-    expect(r.path[1].y).toBeCloseTo(1 - config.enemyRadius, 9);
+    expect(r.path[1].y).toBeCloseTo(WORLD.h - config.enemyRadius, 9);
   });
 
   it('fixed (省略) は同じものを返す', () => {
@@ -281,5 +282,14 @@ describe('validateChoreo', () => {
   it('無いフレーズを指すと phrase-range、target の無い shot は shot-target', () => {
     const v = validateChoreo(makeChoreo([dashAttack({ phrase: 99 }), shotAttack({ target: undefined })]), grid, acceptance, config);
     expect(v.map((x) => x.rule)).toEqual(expect.arrayContaining(['phrase-range', 'shot-target']));
+  });
+
+  it('世界 (幅 1 × 高さ 9/16) の外の位置は in-world (v2 までの正規化座標の y 0.9 は弾かれる)', () => {
+    const v = validateChoreo(makeChoreo([dashAttack({ path: [{ beat: 8, x: 0.75, y: 0.9 }, { beat: 10, x: 0.3, y: 0.5 }] })]), grid, acceptance, config);
+    expect(v.map((x) => x.rule)).toContain('in-world');
+    expect(v.find((x) => x.rule === 'in-world')!.message).toContain('(0.75, 0.9)');
+    const t = validateChoreo(makeChoreo([shotAttack({ target: { x: 1.2, y: 0.3 } })]), grid, acceptance, config);
+    expect(t.map((x) => x.rule)).toContain('in-world');
+    expect(validateChoreo(makeChoreo(), grid, acceptance, config)).toEqual([]);
   });
 });

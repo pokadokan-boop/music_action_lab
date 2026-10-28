@@ -3,6 +3,7 @@
 import type { Config } from '../config';
 import type { Grid } from './grid';
 import { clamp, dist, distToSegment, easeIn, easeOut, lerpVec, normalize, type Vec } from './vec';
+import { WORLD, inWorld } from './world';
 
 export type AttackType = 'dash' | 'burst' | 'shot' | 'laser';
 
@@ -63,7 +64,8 @@ export type ViolationRule =
   | 'hit-on-grid'
   | 'dodgeable'
   | 'shot-target'
-  | 'impact-delay';
+  | 'impact-delay'
+  | 'in-world';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -187,12 +189,12 @@ export function shotDir(attack: Attack, origin: Vec): Vec {
   return { x: (target.x - origin.x) / d, y: (target.y - origin.y) / d };
 }
 
-// origin から dir へ進んで画面外 (margin の余白つき) に出るまでの距離
+// origin から dir へ進んで世界の外 (margin の余白つき) に出るまでの距離
 function exitDistance(origin: Vec, dir: Vec, margin: number): number {
   let s = Infinity;
-  if (dir.x > 0) s = Math.min(s, (1 + margin - origin.x) / dir.x);
+  if (dir.x > 0) s = Math.min(s, (WORLD.w + margin - origin.x) / dir.x);
   if (dir.x < 0) s = Math.min(s, (-margin - origin.x) / dir.x);
-  if (dir.y > 0) s = Math.min(s, (1 + margin - origin.y) / dir.y);
+  if (dir.y > 0) s = Math.min(s, (WORLD.h + margin - origin.y) / dir.y);
   if (dir.y < 0) s = Math.min(s, (-margin - origin.y) / dir.y);
   return Number.isFinite(s) ? s : 2;
 }
@@ -271,9 +273,10 @@ export function resolveAttack(attack: Attack, target: Vec, cfg: Config, motion: 
   const dx = target.x - anchor.x;
   const dy = target.y - anchor.y;
   const lo = cfg.enemyRadius;
-  const hi = 1 - cfg.enemyRadius;
+  const hiX = WORLD.w - cfg.enemyRadius;
+  const hiY = WORLD.h - cfg.enemyRadius;
   const path = attack.path.map((p) =>
-    p.beat <= attack.telegraphBeat ? p : { beat: p.beat, x: clamp(p.x + dx, lo, hi), y: clamp(p.y + dy, lo, hi) },
+    p.beat <= attack.telegraphBeat ? p : { beat: p.beat, x: clamp(p.x + dx, lo, hiX), y: clamp(p.y + dy, lo, hiY) },
   );
   return { ...attack, path };
 }
@@ -285,7 +288,9 @@ function dashEnd(attack: Attack): Vec {
   return { x: p.x, y: p.y };
 }
 
-const DODGE_GRID = 12;
+// 避けられる位置の格子。世界は 16:9 なので 16 × 9 (v2 までの 12 × 12 と同じ密度)
+const DODGE_GRID_X = 16;
+const DODGE_GRID_Y = 9;
 const DODGE_SAMPLE_DT_SEC = 1 / 120;
 
 export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptance, cfg: Config): Violation[] {
@@ -319,6 +324,16 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
     const delay = atk.impactDelayBeats ?? 0;
     if (delay < 0 || delay > IMPACT_DELAY_MAX_BEATS) {
       out.push({ attackIndex: i, rule: 'impact-delay', message: `impactDelayBeats ${delay} は 0〜${IMPACT_DELAY_MAX_BEATS} 拍の範囲` });
+    }
+    // 位置が世界座標の中にあること。v2 までの正規化座標 (y が 0.5625 を超える) をそのまま使うとここで弾かれる
+    const outside = [...atk.path, ...(atk.target ? [atk.target] : [])].filter((p) => !inWorld(p));
+    if (outside.length > 0) {
+      const ex = outside[0];
+      out.push({
+        attackIndex: i,
+        rule: 'in-world',
+        message: `位置 (${ex.x}, ${ex.y}) が世界 (x 0〜${WORLD.w}、y 0〜${WORLD.h}) の外。${outside.length} 点`,
+      });
     }
   });
 
@@ -371,9 +386,9 @@ function checkDodgeable(choreo: Choreo, grid: Grid, acceptance: Acceptance, cfg:
 
 function gridPoints(): Vec[] {
   const pts: Vec[] = [];
-  for (let i = 0; i < DODGE_GRID; i++) {
-    for (let j = 0; j < DODGE_GRID; j++) {
-      pts.push({ x: (i + 0.5) / DODGE_GRID, y: (j + 0.5) / DODGE_GRID });
+  for (let i = 0; i < DODGE_GRID_X; i++) {
+    for (let j = 0; j < DODGE_GRID_Y; j++) {
+      pts.push({ x: ((i + 0.5) / DODGE_GRID_X) * WORLD.w, y: ((j + 0.5) / DODGE_GRID_Y) * WORLD.h });
     }
   }
   return pts;
@@ -383,7 +398,8 @@ function gridPoints(): Vec[] {
 // p ごとに p を狙った形に解決し、予告の間 (telegraphBeat → impactBeat) に余裕を残して走れる距離の内に、
 // その攻撃で一度も当たらない格子点があること。1 つでも成り立たない p があれば failedAt にその例を返す。
 // union は全 p の安全位置の和集合。次の攻撃への連鎖 (prevSafe) にはこれを使う。実際の p によっては
-// 和集合の一部しか安全でないので緩い側の割り切り (v0 の「同時回避は見ない」と同じ扱い。docs/choreo-format.md)
+// 和集合の一部しか安全でないので緩い側の割り切り (v0 の「同時回避は見ない」と同じ扱い。docs/choreo-format.md)。
+// 格子は 16 × 9 = 144 点なので計算量は v2 の 12 × 12 と同じ
 function playerAimedSafe(
   atk: Attack,
   points: Vec[],

@@ -27,6 +27,7 @@ import {
   normalize,
   type Vec,
 } from './vec';
+import { WORLD } from './world';
 
 // 相殺の「近い」判定: 当たりの窓の終わりからこの拍数までの押下は、相殺しようとしたものとして cancel-miss を記録する
 const CANCEL_NEAR_AFTER_BEATS = 0.25;
@@ -137,8 +138,8 @@ export function effectiveChoreo(state: SimState, choreo: Choreo): Choreo {
 function movePlayer(state: SimState, input: InputState, dt: number, cfg: Config): void {
   const len = Math.hypot(input.move.x, input.move.y);
   const scale = len > 1 ? 1 / len : 1;
-  state.player.x = clamp(state.player.x + input.move.x * scale * cfg.playerSpeed * dt, cfg.playerRadius, 1 - cfg.playerRadius);
-  state.player.y = clamp(state.player.y + input.move.y * scale * cfg.playerSpeed * dt, cfg.playerRadius, 1 - cfg.playerRadius);
+  state.player.x = clamp(state.player.x + input.move.x * scale * cfg.playerSpeed * dt, cfg.playerRadius, WORLD.w - cfg.playerRadius);
+  state.player.y = clamp(state.player.y + input.move.y * scale * cfg.playerSpeed * dt, cfg.playerRadius, WORLD.h - cfg.playerRadius);
 }
 
 // 攻撃した拍の位置を分類する。表 (最寄りの拍)、裏 (最寄りの半拍)、それ以外
@@ -175,12 +176,13 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps): void {
   // 相殺は命中と独立に判定する (両方起きてよい)。寄せで位置が動く前の、押した瞬間の位置で見る
   tryCancel(state, aim, deps);
 
-  // 命中: 射程 + 補正距離の内、かつ扇の中 (inFan は T5 の相殺と共用)。扇の外なら寄せもしない
-  if (!inFan(state.player, aim, cfg.attackFanDeg / 2, cfg.meleeRange + cfg.rangeAssist, state.enemy)) return;
+  // 命中: 敵の中心が扇 (半径 attackRadius、角度 attackFanDeg) の中。描画も同じ扇 (見えない射程は無い。v3 T2)。扇の外なら寄せもしない
+  if (!inFan(state.player, aim, cfg.attackFanDeg / 2, cfg.attackRadius, state.enemy)) return;
   const d = dist(state.player, state.enemy);
-  if (d > cfg.meleeRange && d > 0) {
-    // 射程内なら当たるように少し寄せる (concept.md「初期案」)
-    const pull = (d - cfg.meleeRange) / d;
+  const contact = cfg.playerRadius + cfg.enemyRadius;
+  if (d > contact && d > 0) {
+    // 扇の中なら接触する距離まで寄せる (concept.md「初期案」の「射程内なら当たるように少し補正する」)
+    const pull = (d - contact) / d;
     state.player.x += (state.enemy.x - state.player.x) * pull;
     state.player.y += (state.enemy.y - state.player.y) * pull;
   }
@@ -190,14 +192,14 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps): void {
 }
 
 // 相殺 (v2 T5)。その瞬間に当たりがあり、uncancelable でなく、まだ相殺されていない敵の攻撃について、
-// 条件 1 (重なり): 扇 (半径 meleeRange + rangeAssist、角度 attackFanDeg) と当たりの形が重なる
+// 条件 1 (重なり): 扇 (半径 attackRadius、角度 attackFanDeg) と当たりの形が重なる
 // 条件 2 (向き): aim が「来る方向の逆」から ±cancelFacingDeg / 2 以内
 // の両方が成り立てば cancelled に入れる。成立しなかった押下は、近い攻撃 (予告開始 〜 窓の終わり + 0.25 拍) が
 // あれば cancel-miss を 1 件だけ記録する。理由の優先順: timing → reach → angle
 function tryCancel(state: SimState, aim: Vec, deps: SimDeps): void {
   const { cfg, grid } = deps;
   const choreo = effectiveChoreo(state, deps.choreo);
-  const range = cfg.meleeRange + cfg.rangeAssist;
+  const range = cfg.attackRadius;
   const half = cfg.attackFanDeg / 2;
   // 最初に見つかった不成立 (複数の攻撃が近くても記録は 1 件)
   let miss: { attackIndex: number; phrase: number; reason: CancelMissReason } | null = null;

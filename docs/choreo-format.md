@@ -21,8 +21,13 @@
 }
 ```
 
+## 位置と座標 (v3 T1。2026-10-29)
+- 位置は世界座標で書く: 単位は「画面の幅」、x ∈ 0..1、y ∈ 0..0.5625 (= 9/16。画面は 16:9)、y = 0 が上。y の中央は 0.28125。定義は `src/core/world.ts`
+- x と y は同じ長さの単位 (等方)。距離・角度・速度・半径は全てこの座標で測り、描画は x も y も画面の幅を掛けて写す。半径 r の円は画面でも円、扇は画面でも同じ角度の扇
+- v2 までは x, y とも 0..1 の正規化座標だった。画面が 16:9 なので縦が 9/16 に潰れ、扇が横長になり向きが最大 16 度ずれていた (docs/decisions/v2-feedback.md F1〜F3)。古い書き方の y (0.5625 超) は検査 `in-world` で弾かれる。v2 → v3 の写し方は y × 9/16
+- 時刻は拍番号 (小数可)。拍の長さは曲の BPM から決まる
+
 ## 項目
-- 位置は正規化座標 (x, y ∈ 0..1、y = 0 が上)。時刻は拍番号 (小数可)。拍の長さは曲の BPM から決まる
 - `phrase`: 攻撃を割り当てるフレーズ番号 (`buildGrid` が切ったもの)。`hitBeat` はそのフレーズの音か、拍・半拍に乗っていること
 - `type`: `dash` は本体が path を動き、active 区間の本体が当たり。`burst` は hitBeat 時点の敵位置に円が発生し、予告は中心 → 中間 → 外側の同心円を拍ごとに出す (hitBeat の後に戻りのキーフレームを置いてよい)。`shot` は hitBeat に `target` へ向けて弾を出し、予告は射線。`laser` は hitBeat に `target` 方向へ画面端まで伸びる線 (太さ `hitbox.r`) が `activeBeats` の間だけ判定になり、予告は射線。shot / laser は `target` 必須
 - `telegraphBeat`: 予告を出し始める拍。`hitBeat` より `telegraphLeadBeatsMin` (acceptance.json) 以上前
@@ -60,5 +65,6 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
   - `aim: "player"` の攻撃は予告開始時のプレイヤー位置で形が決まるので、12×12 の格子点 p の全てについて、p を狙った形に解決し、p から `playerSpeed × (impactBeat − telegraphBeat) × beatSec × (1 - dodgeTimeMarginRatio)` 以内に一度も当たらない格子点があることを見る。1 つでも成り立たない p があれば違反で、メッセージにその p の例を入れる。次の攻撃への連鎖 (前の攻撃の安全な点) には全 p の安全な点の和集合を使う。実際の p によっては和集合の一部しか安全でないので緩い側の割り切り (同時回避を見ないのと同じ扱い)
 - `shot-target`: shot / laser に target がある
 - `impact-delay`: impactDelayBeats が 0〜0.25 拍
+- `in-world`: path の全点と target が世界 (x 0〜1、y 0〜0.5625) の中にある。メッセージに外れた点の例と個数
 
 かっこいいかどうかは検査しない。それは遊んだ人間の不満で判定する。
