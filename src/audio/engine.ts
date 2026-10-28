@@ -1,6 +1,11 @@
 // Web Audio を直接使う再生エンジン。AudioContext.currentTime をゲーム全体の時計の正にする。
 // 曲は start() で全ノートを絶対時刻に予約する (20 秒・数百音なので lookahead 分割は要らない)。
 // 音色は拍とタイミングが分かる最低限。melody = 矩形波、bass = 三角波、drums = ノイズと短いサイン。
+// プレイヤーの 4 音は撥弦 (src/audio/pluck.ts)。曲の 3 声と別の系統 (docs/concept.md「曲と音の役割」)。
+
+import { midiToHz, pluckSpec, renderPluck, type PluckSpec } from './pluck';
+
+export { midiToHz };
 
 export type VoiceName = 'melody' | 'bass' | 'drums';
 // cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す
@@ -33,6 +38,8 @@ export class AudioEngine {
   readonly ctx: BaseAudioContext;
   private readonly master: GainNode;
   private noiseBuffer: AudioBuffer | null = null;
+  // 撥弦の前計算をキャッシュする。キーは kind + hz + sampleRate (相殺は音高が変わるので hz を含める)
+  private readonly pluckBuffers = new Map<string, AudioBuffer>();
   private active: AudioScheduledSourceNode[] = [];
 
   constructor(ctx?: BaseAudioContext) {
@@ -87,21 +94,31 @@ export class AudioEngine {
   }
 
   // midi は cancel のときだけ使う (相殺した拍に最も近いメロディ音の 1 オクターブ上。docs/plan/v2-phase2.md「既定値の決め」)
+  // 4 音とも撥弦 (pluck.ts の pluckSpec の値)。曲の 3 声の合成器 (tone / drum / noise) は使わない
   scheduleSfx(kind: SfxKind, atSec: number, midi: number = CANCEL_DEFAULT_MIDI): void {
-    switch (kind) {
-      case 'on':
-        this.tone('square', 880, atSec, 0.06, 0.25);
-        break;
-      case 'off':
-        this.tone('triangle', 440, atSec, 0.08, 0.25);
-        break;
-      case 'miss':
-        this.tone('sine', 110, atSec, 0.12, 0.3);
-        break;
-      case 'cancel':
-        this.tone('square', midiToHz(midi), atSec, 0.1, 0.3);
-        break;
-    }
+    this.pluck(kind, pluckSpec(kind, midi), atSec);
+  }
+
+  private pluck(kind: SfxKind, spec: PluckSpec, at: number): void {
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.getPluck(kind, spec);
+    const g = this.ctx.createGain();
+    g.gain.value = spec.gain;
+    src.connect(g).connect(this.master);
+    src.start(at);
+    this.track(src);
+  }
+
+  private getPluck(kind: SfxKind, spec: PluckSpec): AudioBuffer {
+    const sr = this.ctx.sampleRate;
+    const key = `${kind}:${spec.hz}:${sr}`;
+    const cached = this.pluckBuffers.get(key);
+    if (cached) return cached;
+    const samples = renderPluck(sr, spec.hz, spec.durSec, spec);
+    const buf = this.ctx.createBuffer(1, samples.length, sr);
+    buf.getChannelData(0).set(samples);
+    this.pluckBuffers.set(key, buf);
+    return buf;
   }
 
   private scheduleNote(voice: VoiceName, n: SongNote, at: number): void {
@@ -200,8 +217,4 @@ function voiceOf(trackName: string): VoiceName {
   if (trackName === 'bass') return 'bass';
   if (trackName === 'drums') return 'drums';
   return 'melody';
-}
-
-export function midiToHz(midi: number): number {
-  return 440 * 2 ** ((midi - 69) / 12);
 }
