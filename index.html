@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>music_action_lab v2</title>
+    <title>music_action_lab v3</title>
     <style>
       html, body { margin: 0; height: 100%; background: #101014; color: #ddd; font-family: sans-serif; overflow: hidden; }
       #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
@@ -19,6 +19,14 @@
       .panel pre { font-size: 12px; line-height: 1.4; white-space: pre-wrap; background: #000; padding: 10px; border-radius: 6px; max-height: 50vh; overflow: auto; }
       .hint { color: #ffb366; }
       .muted { color: #999; }
+      .tuning { margin: 10px 0 14px; font-size: 13px; color: #999; }
+      .tuning summary { cursor: pointer; }
+      .tuning p { font-size: 13px; }
+      .tuning .tuning-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+      .tuning .tuning-label { flex: 0 0 11em; }
+      .tuning input[type="range"] { flex: 1 1 auto; width: 100%; min-width: 0; margin: 0; }
+      .tuning .tuning-value { flex: 0 0 3.5em; text-align: right; color: #ddd; font-variant-numeric: tabular-nums; }
+      .panel button.tuning-reset { font-size: 13px; padding: 4px 10px; background: #444; color: #ddd; margin: 4px 0 0; }
     </style>
   </head>
   <body>

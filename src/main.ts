@@ -1,7 +1,7 @@
 // タイトル → ゲーム → 結果の遷移。音の時計 (AudioContext.currentTime) を正にして固定ステップで sim を進める
 import acceptance from '../acceptance.json';
 import { AudioEngine } from './audio/engine';
-import { config } from './config';
+import { makeConfig } from './config';
 import type { Choreo } from './core/choreo';
 import { GameClock } from './core/clock';
 import { phraseAt, type Grid } from './core/grid';
@@ -12,6 +12,7 @@ import { CANCEL_FLASH_SEC, fitViewport, render, type FlashState } from './render
 import { loadSong, type LoadedSong } from './song';
 import { showResult, type ResultView } from './ui/result';
 import { showTitle, type TitleView } from './ui/title';
+import { describeTuning, loadTuning, saveTuning } from './ui/tuning';
 
 const choreos = Object.values(import.meta.glob<Choreo>('../assets/choreo/*.json', { eager: true, import: 'default' })).sort((a, b) =>
   a.id.localeCompare(b.id),
@@ -31,10 +32,12 @@ let result: ResultView | null = null;
 let selected = 0;
 let prev: InputSnapshot = input.poll();
 
+// 調整パネルの値。タイトルで変えるたびに保存し、開始時に Config に焼く (ゲーム中は変わらない)
+let tuning = loadTuning();
 let sim: SimState | null = null;
 let deps: SimDeps | null = null;
 let loaded: LoadedSong | null = null;
-let clock = new GameClock(config.fixedDt);
+let clock = new GameClock(makeConfig(tuning).fixedDt);
 let startAt = 0;
 let latencySec = 0;
 let fedSec = 0;
@@ -73,6 +76,11 @@ function enterTitle(): void {
     songName: songName(),
     choices: choreos.map((c) => ({ id: c.id, intent: c.intent })),
     onStart: (i) => void startGame(i),
+    tuning,
+    onTuningChange: (t) => {
+      tuning = t;
+      saveTuning(t);
+    },
   });
   title.setSelection(selected);
 }
@@ -97,9 +105,10 @@ async function startGame(index: number): Promise<void> {
   loaded = songCache.get(choreo.song) ?? (await loadSong(url));
   songCache.set(choreo.song, loaded);
 
-  deps = { choreo, grid: loaded.grid, cfg: config, acceptance };
+  const cfg = makeConfig(tuning);
+  deps = { choreo, grid: loaded.grid, cfg, acceptance };
   sim = createSim(deps);
-  clock = new GameClock(config.fixedDt);
+  clock = new GameClock(cfg.fixedDt);
   fedSec = 0;
   impactLagsMs.length = 0;
   impactLagSeen.clear();
@@ -123,7 +132,7 @@ function enterResult(): void {
     choreoId: deps.choreo.id,
     song: deps.choreo.song,
     date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-    extra: `音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms / 当たりの処理遅れ ${lagSummary()}`,
+    extra: `${describeTuning(deps.cfg.tuning)} / 音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms / 当たりの処理遅れ ${lagSummary()}`,
   });
   result = showResult(overlay, { text, onRetry: () => enterTitle() });
 }
@@ -152,7 +161,7 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
     const steps = clock.advanceTime((elapsed - fedSec) * 1000);
     fedSec = elapsed;
     for (const _t of steps) {
-      step(sim, { move: now.move, attackPressed: now.attackPressed }, config.fixedDt, deps);
+      step(sim, { move: now.move, attackPressed: now.attackPressed }, deps.cfg.fixedDt, deps);
       if (sim.lastAttackClass) {
         engine.scheduleSfx(sim.lastAttackClass, engine.now());
         flash.attackClass = sim.lastAttackClass;
