@@ -13,7 +13,8 @@
 - 最新 commit: v3 Phase 1 を本人の返事で修正し承認済みに。concept.md に「曲と音の役割」、docs/decisions/commit-labels.md を追加 (docs のみ。コードは 8b40250 のまま)
 - テスト: `npm test` 89 件 (10 ファイル) 通過
 - 未 push: なし。注意: push は gh の有効アカウントが pokadokan-boop のときだけ通る (2026-10-28 に kmae0914 になっていて 403 が出た。`gh auth switch --user pokadokan-boop` で直る)
-- 回す仕組み: 段階 1 (NEXT.md とセッション規律) は稼働中。v3 の承認は不満ノート → 分解 → Phase 1 → 返事 1 回で済んだ。2026-10-29 に「切ってください」を廃止 (CLAUDE.md「区切りの作り方」)。Claude は区切りごとに NEXT.md を更新してそのまま続ける。段階 2 (無人の実行) は未着手で、本人の「開く手間」を無くす次の候補
+- 回す仕組み: 段階 1 (NEXT.md とセッション規律) は稼働中。v3 の承認は不満ノート → 分解 → Phase 1 → 返事 1 回で済んだ。2026-10-29 に「切ってください」を廃止 (CLAUDE.md「区切りの作り方」)。Claude は区切りごとに NEXT.md を更新してそのまま続ける。段階 2 (無人の専門家と判断者、docs/plan/loop-phase2.md) は 2026-10-29 に承認され T1〜T4 を実装・commit (fcf1391)。Task Scheduler に `music_action_lab-steward` (毎日 05:00) を登録済み
+- 判断者: 未実行。Claude のセッションから `node scripts/steward/run.js --force` で起こそうとしたが auto mode の分類器に止められた (無人の claude -p を Claude 自身が起動する形が止まる)。最初の実行は 05:00 の定時か、本人が `! node scripts/steward/run.js --force` を打つ。結果は docs/steward/runs/<日付>.md とこの行に出る
 
 ## 本人に聞きたいこと
-なし (v3 Phase 1 は返事の 5 点を反映して承認済みとして扱った。異議があれば止める)
+1. 判断者の最初の実行を今すぐ見たければ `! node scripts/steward/run.js --force` を打つ (数分かかる。記録は docs/steward/runs/ に出る)。打たなくても 05:00 に走る。答えが無くても進められる範囲: 全部 (定時で走る)
