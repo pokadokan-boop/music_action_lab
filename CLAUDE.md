@@ -9,6 +9,7 @@
 - docs/plan/v1-phase1.md: v1 (曲に乗っている感じ)。完了記録あり
 - docs/NEXT.md: 次のセッションへの引き継ぎ (次の 1 手、今の状態、本人に聞きたいこと)。セッションはここから始める
 - docs/plan/loop-phase1.md: 回す仕組みの段階 1 (NEXT.md とセッション規律)。承認済み、実装済み
+- docs/plan/loop-phase2.md: 回す仕組みの段階 2 (無人の専門家と判断者)。承認済み 2026-10-29。判断者は Task Scheduler から毎日 `scripts/steward/run.js` で起動し、docs/steward/judge.md に従って規律と待ちの在庫を減らす。削除は承認なしで commit (接頭辞 `[仕組み] 判断者:`)、記録は docs/steward/runs/、提案は docs/steward/proposals/。削除に不満があれば不満ノートに書く
 - docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細。完了記録あり
 - docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認済み 2026-10-29。不満の分解は docs/decisions/v2-feedback.md
 - docs/decisions/commit-labels.md: commit とタスクの接頭辞の定義。[作品] = このゲームに属するもの (コードを含む)、[仕組み] = 開発の流れ (2026-10-29 に本人の指摘で直した)

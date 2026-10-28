@@ -63,7 +63,7 @@ graph TD
 - 触らない: docs/concept.md、src/、assets/、acceptance.json、vault、global CLAUDE.md (測るだけ。変更は提案)。push はしない (次のセッションが push する。未 push を NEXT.md に書く)
 
 ### 実行記録
-- docs/steward/runs/<日付>.md: 数値の表、各専門家の所見 (根拠つき)、取った行動、飛ばした場合はその理由。失敗しても必ず書く (失敗が誰にも気づかれない状態を作らない)
+- docs/steward/runs/<日付>.md: 数値の表、各専門家の所見 (根拠つき)、取った行動、それまでに飛ばした日 (活動中で飛ばした日は `.steward/skips.log` に溜め、次の記録に載せる。作業中の tree に記録を書き込まないため)。失敗しても必ず書く (判断者が書かなければ run.js が失敗の記録を書いて commit する)
 - NEXT.md「今の状態」に 1 行: 「判断者: 最終実行 <日付>、削除 N、提案 N、質問 N (docs/steward/runs/<日付>.md)」
 
 ## タスク

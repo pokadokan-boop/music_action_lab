@@ -4,3 +4,5 @@ tmp/
 logs/
 .claude/settings.local.json
 CLAUDE.local.md
+.steward/
+.vitest/

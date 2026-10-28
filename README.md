@@ -34,6 +34,9 @@ npm run gen:candidates   # 曲候補の再生成
 npx tsx scripts/print-grid.ts assets/midi/candidate-2.mid        # 拍グリッドとフレーズ一覧
 npx tsx scripts/validate-choreo.ts assets/choreo/v2.json         # 振り付けの検査 (自機狙いの検査を含む)
 npx tsx scripts/sync-report.ts assets/choreo/v2.json             # 音と動き・当たりのずれを ms で見る
+node scripts/steward/collect.js                                  # 判断者が使うデータ (JSON) を見る
+node scripts/steward/run.js --force                              # 無人の判断者を今すぐ走らせる (docs/plan/loop-phase2.md)
+node scripts/steward/register.js query                           # Task Scheduler の登録状態 (create / delete / run もある)
 ```
 - 合否条件は `acceptance.json`。Claude Code の hook が Edit/Write を止める (docs/decisions/acceptance-guard.md)
 - 振り付けの形式: docs/choreo-format.md。v2 の狙い: assets/choreo/README.md
