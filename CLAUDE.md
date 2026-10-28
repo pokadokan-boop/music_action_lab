@@ -10,7 +10,8 @@
 - docs/NEXT.md: 次のセッションへの引き継ぎ (次の 1 手、今の状態、本人に聞きたいこと)。セッションはここから始める
 - docs/plan/loop-phase1.md: 回す仕組みの段階 1 (NEXT.md とセッション規律)。承認済み、実装済み
 - docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細。完了記録あり
-- docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認待ち。不満の分解は docs/decisions/v2-feedback.md
+- docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認済み 2026-10-29。不満の分解は docs/decisions/v2-feedback.md
+- docs/decisions/commit-labels.md: commit とタスクの接頭辞の定義。[作品] = このゲームに属するもの (コードを含む)、[仕組み] = 開発の流れ (2026-10-29 に本人の指摘で直した)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
 - docs/decisions/: 曲の選択、合否条件ガードの確認、v2 の当たりの時刻の基準の検証 (仮説は外れた) など、実験中の決定の記録
