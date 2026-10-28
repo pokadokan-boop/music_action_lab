@@ -1,22 +1,23 @@
 # music_action_lab
 音楽アクションの最初の実験。20 秒の戦闘シーン (敵 1 体、曲 1 つ) を、遊んだ人間の不満だけを源泉にして育てる。
 
-## 遊ぶ (v2)
+## 遊ぶ (v3)
 - URL: https://pokadokan-boop.github.io/music_action_lab/
 - PC のブラウザで開く。DualSense を USB か Bluetooth でつなぎ、ボタンを 1 回押すと認識される。キーボードでも遊べる
 - 操作: 左スティック (WASD / 矢印) で移動、× (Space / J) で攻撃。常に浮いていて重力は無い
-- 攻撃の向きはスティック (WASD) の向き。無入力なら敵の方向。当たるのは前方の扇の中だけ
+- 攻撃の向きはスティック (WASD) の向き。無入力なら敵の方向。当たるのは前方の扇 (見えている扇がそのまま判定) の中だけ
 - 敵の突進・レーザー・叩きつけは、すべて予告開始時の自機の位置を狙う (追尾はしない)。立ち止まっていると当たる
-- 敵の攻撃が当たる瞬間に、来る方向へ向けて攻撃すると相殺できる。叩きつけ (範囲攻撃) だけは相殺できず、避けるしかない
-- 振り付けは v2 の 1 本。「はじめる」はクリックか Enter (ブラウザの制約で、最初の音の有効化にはクリックかキーが要る)
+- 敵の攻撃が自機に触れる瞬間の前 100 ms〜後 50 ms に、来る方向へ向けて攻撃すると相殺できる。触れた後でも 50 ms 以内なら被弾が取り消される。予告が黄の攻撃 (突進・レーザー) は相殺でき、赤 (叩きつけ) は相殺できず避けるしかない
+- タイトルの「調整」で相殺の窓・自機と敵の大きさ・扇の半径・向きの許容角を動かせる。選んだ値は結果の要約の先頭行に出るので、不満ノートに貼れば次の版の既定値に反映される
+- 振り付けは v3 の 1 本。「はじめる」はクリックか Enter (ブラウザの制約で、最初の音の有効化にはクリックかキーが要る)
 - 20 秒で終わり、結果画面に記録の要約が出る。「コピー」して不満ノートに貼る
 - 曲候補を聴く: https://pokadokan-boop.github.io/music_action_lab/candidates.html
 
 ## 不満を書く
-vault の `音楽アクション/<版> 不満.md` (v2 なら `v2 不満.md`) に書く。1 回の不満につき 4 行以内: 版 / 何が / いつ (phrase 番号か場面) / どう嫌か。好きだった点は `+` を頭に付けて任意で。自由記述でも分解できる (docs/decisions/v2-feedback.md)。
+vault の `音楽アクション/<版> 不満.md` (v3 なら `v3 不満.md`。無ければ `v2 不満.md` の「v3 について」の下でもよい) に書く。1 回の不満につき 4 行以内: 版 / 何が / いつ (phrase 番号か場面) / どう嫌か。好きだった点は `+` を頭に付けて任意で。自由記述でも分解できる (docs/decisions/v2-feedback.md)。
 
 ## 次のセッションの手順
-- 次は `claude` を開くだけでよい。Claude が docs/NEXT.md の「次の 1 手」から始める (規律は CLAUDE.md「セッションの始め方」「セッションの終わり方」)
+- 次は `claude` を開くだけでよい。Claude が docs/NEXT.md の「次の 1 手」から始める (規律は CLAUDE.md「セッションの始め方」「区切りの作り方」)
 - 不満から次の版を作る一般の手順:
   1. docs/concept.md (保護対象) を読む
   2. vault の不満ノートと、貼られた結果の要約を読む
@@ -32,13 +33,13 @@ npm test                 # Vitest (拍グリッド、振り付けの検査、決
 npm run build            # 型チェック + ビルド
 npm run gen:candidates   # 曲候補の再生成
 npx tsx scripts/print-grid.ts assets/midi/candidate-2.mid        # 拍グリッドとフレーズ一覧
-npx tsx scripts/validate-choreo.ts assets/choreo/v2.json         # 振り付けの検査 (自機狙いの検査を含む)
-npx tsx scripts/sync-report.ts assets/choreo/v2.json             # 音と動き・当たりのずれを ms で見る
+npx tsx scripts/validate-choreo.ts assets/choreo/v3.json         # 振り付けの検査 (自機狙い・等方座標の検査を含む)
+npx tsx scripts/sync-report.ts assets/choreo/v3.json             # 音と動き・当たりのずれを ms で見る
 node scripts/steward/collect.js                                  # 判断者が使うデータ (JSON) を見る
 node scripts/steward/run.js --force                              # 無人の判断者を今すぐ走らせる (docs/plan/loop-phase2.md)
 node scripts/steward/register.js query                           # Task Scheduler の登録状態 (create / delete / run もある)
 ```
 - 合否条件は `acceptance.json`。Claude Code の hook が Edit/Write を止める (docs/decisions/acceptance-guard.md)
-- 振り付けの形式: docs/choreo-format.md。v2 の狙い: assets/choreo/README.md
+- 振り付けの形式: docs/choreo-format.md。v3 の狙い: assets/choreo/README.md。理想の動作イメージ (本人が直す叩き台): docs/play-image.md
 - 設計と計画: docs/system-design.md、docs/plan/
 - push すると GitHub Actions が Pages に配置する

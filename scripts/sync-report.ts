@@ -1,6 +1,6 @@
 // 振り付けの各攻撃について、曲の音のなり始め・音のアタックが立ち上がりきる時刻・動き出し・当たりの発生を
 // ms で並べ、ずれを数で見る。耳で聴かずに「データ上の同期」を確かめるためのもの。
-// 実行: npx tsx scripts/sync-report.ts assets/choreo/v2.json
+// 実行: npx tsx scripts/sync-report.ts assets/choreo/v3.json
 import midiPkg from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
