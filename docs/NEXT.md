@@ -10,9 +10,9 @@
 
 ## 今の状態
 - 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v2。v3 は未着手)
-- 最新 commit: v2 の不満の分解と v3 の Phase 1 (docs のみ。コードは 8b40250 のまま)
+- 最新 commit: v2 の不満の分解と v3 の Phase 1 (6010bbb。docs のみ。コードは 8b40250 のまま)
 - テスト: `npm test` 89 件 (10 ファイル) 通過
-- 未 push: なし (このセッションの終わりに push)
+- 未 push: 2026-10-28 のセッションの終わりに push が 403 で止まった。gh の有効アカウントが kmae0914 で、リポジトリの持ち主 pokadokan-boop が非アクティブだったため。`gh auth switch --user pokadokan-boop` の後に `git push` すれば通るはず。次のセッションは最初に `git status -sb` で ahead を確認する
 - 回す仕組み: 段階 1 (NEXT.md とセッション規律) は稼働中。本人は「不満ノートを書いた、見てほしい」の 1 行で呼んだ。段階 2 (無人の実行) は未着手
 
 ## 本人に聞きたいこと
