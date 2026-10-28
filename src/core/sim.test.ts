@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import acceptance from '../../acceptance.json';
 import { config } from '../config';
 import { GameClock } from './clock';
-import { hitboxAt, type Attack, type CircleHit } from './choreo';
+import { contactBeat, hitboxAt, type Attack, type CircleHit } from './choreo';
 import type { EventKind } from './log';
 import { classifyBeat, createSim, effectiveChoreo, step, type InputState, type SimDeps, type SimState } from './sim';
 import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
@@ -261,9 +261,11 @@ describe('相殺 (cancel)', () => {
     step(state, pressRight, config.fixedDt, d);
     expect(state.cancelled.has(0)).toBe(true);
     expect(state.lastCancel?.attackIndex).toBe(0);
-    // 閃光の位置は当たりの中心 (= dash の本体)
-    expect(state.lastCancel?.pos.x).toBeCloseTo(state.enemy.x, 9);
-    expect(state.lastCancel?.pos.y).toBeCloseTo(state.enemy.y, 9);
+    // 閃光の位置は当たりの中心 (= dash の本体)。時刻が合った相殺なので接触の瞬間 (10.15 拍) の本体の位置
+    expect(state.lastCancel?.pos.y).toBeCloseTo(0.5, 9);
+    expect(state.lastCancel?.pos.x).toBeGreaterThan(0.2);
+    expect(state.lastCancel?.pos.x).toBeLessThan(0.3);
+    expect(state.lastCancel?.hitbox.kind).toBe('circle');
     expect(events(state, 'cancel')).toHaveLength(1);
     expect(events(state, 'cancel')[0]).toMatchObject({ attackIndex: 0, phrase: 1 });
     expect(events(state, 'cancel-miss')).toHaveLength(0);
@@ -286,12 +288,12 @@ describe('相殺 (cancel)', () => {
     expect(events(state, 'cancel-miss')[0]).toMatchObject({ attackIndex: 0, phrase: 1, reason: 'angle' });
   });
 
-  it('左向き (敵に背を向ける) は扇と重ならないので reach', () => {
+  it('左向き (敵に背を向ける) は、時刻は接触の窓の中なので向きの問題 (angle) として記録される', () => {
     const d = dashDeps();
     const state = runTo(d, 0.15, 10.1);
     step(state, pressLeft, config.fixedDt, d);
     expect(state.cancelled.size).toBe(0);
-    expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'reach' });
+    expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'angle' });
   });
 
   it('窓の前 (予告中) に押すと cancel-miss timing', () => {
@@ -365,6 +367,81 @@ describe('相殺 (cancel)', () => {
       step(state, pressLeft, config.fixedDt, d);
       expect(state.cancelled.size).toBe(0);
       expect(events(state, 'cancel-miss')[0]).toMatchObject({ reason: 'angle' });
+    });
+  });
+
+  describe('接触基準の窓 (v3 T3: 接触の前 100 ms 〜 後 50 ms)', () => {
+    const msBeat = (ms: number, d: SimDeps) => ms / 1000 / d.grid.beatSec;
+    const contactOf = (d: SimDeps, x: number, y = 0.5) => contactBeat(d.choreo.attacks[0], { x, y }, d.grid.beatSec, config);
+
+    it('dash: 立ったまま (接触 10.15 拍) の −100 ms 〜 +40 ms のどの押下でも相殺され、HP が減らない', () => {
+      const d = dashDeps();
+      const c = contactOf(d, 0.15)!;
+      expect(c).toBeGreaterThan(10.1);
+      expect(c).toBeLessThan(10.2);
+      // 押下は目標の拍から 1 step (8.3 ms) 以内に遅れるので、遅い側は 40 ms まで見る
+      for (let ms = -100; ms <= 40; ms += 10) {
+        const state = runTo(d, 0.15, c + msBeat(ms, d));
+        step(state, pressRight, config.fixedDt, d);
+        expect(state.cancelled.has(0), `${ms} ms`).toBe(true);
+        while (state.beat < 10.6) step(state, stay, config.fixedDt, d);
+        expect(state.player.hp, `${ms} ms`).toBe(config.playerHp);
+      }
+    });
+
+    it('dash: 窓の外 (−150 ms) は timing で被弾、+100 ms も被弾のまま', () => {
+      const d = dashDeps();
+      const c = contactOf(d, 0.15)!;
+      const early = runTo(d, 0.15, c + msBeat(-150, d));
+      step(early, pressRight, config.fixedDt, d);
+      expect(early.cancelled.size).toBe(0);
+      expect(events(early, 'cancel-miss')[0]).toMatchObject({ reason: 'timing' });
+      while (early.beat < 10.6) step(early, stay, config.fixedDt, d);
+      expect(early.player.hp).toBe(config.playerHp - 1);
+
+      const late = runTo(d, 0.15, c + msBeat(100, d));
+      expect(late.player.hp).toBe(config.playerHp - 1);
+      step(late, pressRight, config.fixedDt, d);
+      expect(late.cancelled.size).toBe(0);
+      expect(late.player.hp).toBe(config.playerHp - 1);
+      expect(events(late, 'damage-undone')).toHaveLength(0);
+    });
+
+    it('dash: 接触の後 (遅い側) の押下は、既に受けた被弾を取り消す (HP が戻り、記録に damage-undone が残る)', () => {
+      const d = dashDeps();
+      const c = contactOf(d, 0.15)!;
+      const state = runTo(d, 0.15, c + msBeat(30, d));
+      expect(state.player.hp).toBe(config.playerHp - 1); // 既に被弾している
+      step(state, pressRight, config.fixedDt, d);
+      expect(state.cancelled.has(0)).toBe(true);
+      expect(state.player.hp).toBe(config.playerHp);
+      expect(events(state, 'damage')).toHaveLength(1);
+      expect(events(state, 'damage-undone')).toHaveLength(1);
+      expect(events(state, 'damage-undone')[0]).toMatchObject({ attackIndex: 0, phrase: 1 });
+      const text = state.log.summary({ choreoId: 't', song: 'f', date: '2026-10-29' });
+      expect(text).toContain('被弾 1 回 (取り消し 1 回): 攻撃0(phrase 1, 取り消し)');
+    });
+
+    it('laser: 接触 (窓の始まり) の 100 ms 前に射線の逆を向いて押せば、当たりが出る前に相殺される', () => {
+      const d: SimDeps = { choreo: makeChoreo([shotAttack({ type: 'laser', activeBeats: 0.25 })]), grid: makeGrid(), cfg: config, acceptance };
+      expect(contactOf(d, 0.4, 0.35)).toBeCloseTo(26, 9);
+      const state = runTo(d, 0.4, 26 + msBeat(-100, d), 0.35);
+      step(state, pressRight, config.fixedDt, d);
+      expect(state.cancelled.has(0)).toBe(true);
+      expect(state.lastCancel?.hitbox.kind).toBe('segment');
+      while (state.beat < 26.3) step(state, stay, config.fixedDt, d);
+      expect(state.player.hp).toBe(config.playerHp);
+      expect(events(state, 'damage')).toHaveLength(0);
+    });
+
+    it('かすめる相殺: 接触しない位置でも、押した瞬間に当たりが扇に重なっていれば相殺できる', () => {
+      const d = dashDeps();
+      // 本体 (y 0.5) の 0.1 上。接触距離 (0.06 + 0.024) より離れているので当たらない
+      expect(contactOf(d, 0.2, 0.4)).toBeNull();
+      const state = runTo(d, 0.2, 10.1, 0.4);
+      step(state, pressRight, config.fixedDt, d);
+      expect(state.cancelled.has(0)).toBe(true);
+      expect(events(state, 'cancel')).toHaveLength(1);
     });
   });
 

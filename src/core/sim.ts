@@ -3,6 +3,7 @@ import type { Config } from '../config';
 import {
   activeWindow,
   attackMotion,
+  contactBeat,
   enemyPosAt,
   hitDistance,
   hitboxAt,
@@ -31,6 +32,8 @@ import { WORLD } from './world';
 
 // 相殺の「近い」判定: 当たりの窓の終わりからこの拍数までの押下は、相殺しようとしたものとして cancel-miss を記録する
 const CANCEL_NEAR_AFTER_BEATS = 0.25;
+// 拍の比較の許容誤差 (固定ステップの倍数と窓の端が一致したときの浮動小数のずれ)
+const BEAT_EPS = 1e-9;
 
 export interface InputState {
   move: Vec;
@@ -44,6 +47,8 @@ export interface SimState {
   enemy: { x: number; y: number; hp: number };
   attackLatch: boolean;
   damagedBy: Set<number>;
+  // 被弾した拍 (attackIndex → beat)。遅い側の相殺で被弾を取り消すときに、直前の被弾だけを対象にするため (v3 T3)
+  damageBeat: Map<number, number>;
   // 各攻撃の当たりが最初に有効になった sim 時刻 (処理の遅れの計測用)
   impactAt: Map<number, number>;
   // 予告が始まった攻撃を、その瞬間のプレイヤー位置で解決した形 (attackIndex → Attack)。自機狙いはここで狙いが固定され、以後追尾しない。
@@ -59,8 +64,8 @@ export interface SimState {
   lastDamage: boolean;
   // 直前の step で攻撃したときの向き (単位ベクトル)。描画が扇を出すために使う
   lastAim: Vec | null;
-  // 直前の step で相殺が成立したとき、その攻撃と当たりの位置 (閃光と音の位置・音高を決めるため)
-  lastCancel: { attackIndex: number; pos: Vec } | null;
+  // 直前の step で相殺が成立したとき、その攻撃と当たりの位置 (閃光と音の位置・音高を決めるため) と、消した当たりの形 (砕ける絵のため)
+  lastCancel: { attackIndex: number; pos: Vec; hitbox: Hitbox } | null;
 }
 
 export interface SimDeps {
@@ -80,6 +85,7 @@ export function createSim(deps: SimDeps): SimState {
     enemy: { x: enemy.x, y: enemy.y, hp: cfg.enemyHp },
     attackLatch: false,
     damagedBy: new Set(),
+    damageBeat: new Map(),
     impactAt: new Map(),
     resolved: new Map(),
     cancelled: new Set(),
@@ -191,16 +197,22 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps): void {
   state.log.push({ t: state.t, beat: state.beat, kind: 'hit', phrase: phraseAt(grid, state.beat)?.index });
 }
 
-// 相殺 (v2 T5)。その瞬間に当たりがあり、uncancelable でなく、まだ相殺されていない敵の攻撃について、
-// 条件 1 (重なり): 扇 (半径 attackRadius、角度 attackFanDeg) と当たりの形が重なる
-// 条件 2 (向き): aim が「来る方向の逆」から ±cancelFacingDeg / 2 以内
-// の両方が成り立てば cancelled に入れる。成立しなかった押下は、近い攻撃 (予告開始 〜 窓の終わり + 0.25 拍) が
-// あれば cancel-miss を 1 件だけ記録する。理由の優先順: timing → reach → angle
+// 相殺 (v2 T5、v3 T3 で窓を接触基準にした)。uncancelable でなく、まだ相殺されていない敵の攻撃について:
+// 時刻: 押下 b が [接触拍 c − 早い側, c + 遅い側] にある (c = 今の自機の位置に当たりが最初に触れる拍。docs/plan/v3-phase2.md)、
+//       または押した瞬間に当たりの形が扇 (半径 attackRadius、角度 attackFanDeg) と重なる (かすめる相殺。接触しない位置からでもよい)
+// 向き: aim が「来る方向の逆」から ±cancelFacingDeg / 2 以内。来る方向は、時刻が合った相殺なら c の時点、かすめる相殺なら b の時点
+// 両方が成り立てば cancelled に入れる。遅い側で成立し、その攻撃で既に被弾していれば HP を戻す (damage-undone)。
+// 成立しなかった押下は、近い攻撃 (予告開始 〜 窓の終わり + 0.25 拍) があれば cancel-miss を 1 件だけ記録する。
+// 理由: 時刻が外れ → c があれば timing、無ければ reach / 時刻は合うが向きが外れ → angle
 function tryCancel(state: SimState, aim: Vec, deps: SimDeps): void {
   const { cfg, grid } = deps;
   const choreo = effectiveChoreo(state, deps.choreo);
   const range = cfg.attackRadius;
   const half = cfg.attackFanDeg / 2;
+  const msToBeat = 1 / (grid.beatSec * 1000);
+  const early = cfg.cancelEarlyMs * msToBeat;
+  const late = cfg.cancelLateMs * msToBeat;
+  const b = state.beat;
   // 最初に見つかった不成立 (複数の攻撃が近くても記録は 1 件)
   let miss: { attackIndex: number; phrase: number; reason: CancelMissReason } | null = null;
   let cancelledAny = false;
@@ -208,27 +220,37 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps): void {
   for (const [idx, atk] of choreo.attacks.entries()) {
     if (atk.uncancelable || state.cancelled.has(idx)) continue;
     const motion = attackMotion(choreo, atk);
-    const h = hitboxAt(atk, state.beat, grid.beatSec, cfg, motion);
+    const w = activeWindow(atk, grid.beatSec, cfg, motion);
+    // 押下の拍は固定ステップの倍数で、窓の端と一致しうるので浮動小数の誤差ぶんを足す
+    const c = contactBeat(atk, state.player, grid.beatSec, cfg, motion);
+    const timingOk = c !== null && b >= c - early - BEAT_EPS && b <= c + late + BEAT_EPS;
+    const now = hitboxAt(atk, b, grid.beatSec, cfg, motion);
+    const nowOk = now !== null && fanOverlapsHitbox(state.player, aim, half, range, now);
     let reason: CancelMissReason | null = null;
-    if (!h) {
-      const w = activeWindow(atk, grid.beatSec, cfg, motion);
-      if (state.beat < atk.telegraphBeat || state.beat > w.endBeat + CANCEL_NEAR_AFTER_BEATS) continue; // 近くない。相殺しようとした押下ではない
-      reason = 'timing';
-    } else if (!fanOverlapsHitbox(state.player, aim, half, range, h)) {
-      reason = 'reach';
+    if (!timingOk && !nowOk) {
+      if (b < atk.telegraphBeat || b > w.endBeat + CANCEL_NEAR_AFTER_BEATS) continue; // 近くない。相殺しようとした押下ではない
+      reason = c !== null ? 'timing' : 'reach';
     } else {
-      const incoming = incomingDir(atk, state.beat, state.player, grid.beatSec, cfg, motion);
+      const incoming = incomingDir(atk, timingOk ? c! : b, state.player, grid.beatSec, cfg, motion);
       if (angleBetweenDeg(aim, { x: -incoming.x, y: -incoming.y }) > cfg.cancelFacingDeg / 2) reason = 'angle';
     }
     if (reason) {
       miss ??= { attackIndex: idx, phrase: atk.phrase, reason };
       continue;
     }
-    const hit = h!;
+    // 成立。消した当たりの形は、時刻が合った相殺なら接触の瞬間の形、かすめる相殺なら今の形
+    const shape = (timingOk ? hitboxAt(atk, c!, grid.beatSec, cfg, motion) : null) ?? now!;
     state.cancelled.add(idx);
     cancelledAny = true;
-    state.lastCancel = { attackIndex: idx, pos: hit.kind === 'circle' ? { x: hit.x, y: hit.y } : closestPointOnSegment(state.player, hit.a, hit.b) };
-    state.log.push({ t: state.t, beat: state.beat, kind: 'cancel', attackIndex: idx, phrase: atk.phrase });
+    const pos = shape.kind === 'circle' ? { x: shape.x, y: shape.y } : closestPointOnSegment(state.player, shape.a, shape.b);
+    state.lastCancel = { attackIndex: idx, pos, hitbox: shape };
+    state.log.push({ t: state.t, beat: b, kind: 'cancel', attackIndex: idx, phrase: atk.phrase });
+    // 遅い側: この攻撃で既に被弾していて、それが窓の中 (b − 遅い側 以降) なら取り消す。記録の damage は残し、HP だけ戻す
+    const dmgBeat = state.damageBeat.get(idx);
+    if (dmgBeat !== undefined && dmgBeat >= b - late - 1e-9) {
+      state.player.hp = Math.min(cfg.playerHp, state.player.hp + 1);
+      state.log.push({ t: state.t, beat: b, kind: 'damage-undone', attackIndex: idx, phrase: atk.phrase });
+    }
   }
 
   // 何かを相殺できた押下は失敗ではない
@@ -254,6 +276,7 @@ function checkDamage(state: SimState, deps: SimDeps): void {
     if (state.damagedBy.has(idx) || state.cancelled.has(idx)) return;
     if (hitDistance(state.player, c) <= c.r + cfg.playerRadius) {
       state.damagedBy.add(idx);
+      state.damageBeat.set(idx, state.beat);
       state.player.hp = Math.max(0, state.player.hp - 1);
       state.lastDamage = true;
       state.log.push({ t: state.t, beat: state.beat, kind: 'damage', attackIndex: idx, phrase: atk.phrase });

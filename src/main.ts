@@ -163,7 +163,7 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
       if (sim.lastDamage) flash.damaged = 0.2;
       if (sim.lastCancel) {
         engine.scheduleSfx('cancel', engine.now(), cancelPitch(deps.grid, sim.beat));
-        flash.cancel = { pos: sim.lastCancel.pos, t: CANCEL_FLASH_SEC };
+        flash.cancel = { pos: sim.lastCancel.pos, hitbox: sim.lastCancel.hitbox, t: CANCEL_FLASH_SEC };
       }
     }
     for (const [idx, t] of sim.impactAt) {

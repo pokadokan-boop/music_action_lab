@@ -10,7 +10,8 @@ export function buildSummary(log: GameLog, choreo: Choreo, grid: Grid, meta: Sum
     const atks = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => a.phrase === p.index);
     const types = atks.map(({ a }) => `${a.type}@${a.hitBeat}`).join(' ') || '-';
     const ofPhrase = (kind: string) => log.events.filter((e) => e.kind === kind && atks.some(({ i }) => i === e.attackIndex));
-    const damaged = ofPhrase('damage').length > 0 ? '被弾' : '-';
+    // 被弾列: 被弾して取り消されていなければ「被弾」、遅い側の相殺で取り消されたら「取り消し」
+    const damaged = ofPhrase('damage').length === 0 ? '-' : ofPhrase('damage-undone').length > 0 ? '取り消し' : '被弾';
     const myAttacks = log.events.filter((e) => e.kind === 'attack' && e.beat >= p.startBeat && e.beat < p.endBeat).length;
     rows.push(`${String(p.index).padStart(2)} | ${types} | ${damaged} | ${cancelColumn(ofPhrase('cancel').length, ofPhrase('cancel-miss'))} | ${myAttacks}`);
   }

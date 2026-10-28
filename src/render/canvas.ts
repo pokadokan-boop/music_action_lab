@@ -1,7 +1,7 @@
 // Canvas 2D で四角と線だけで描く。位置は世界座標 (等方。単位は画面の幅。src/core/world.ts) → 16:9 の描画領域へ、x も y も幅を掛けて写す。
 // 規律 (v3 T1): 描画は判定の値をそのまま使う。判定に無い大きさを描かず、判定にある大きさを描き落とさない
 import type { Config } from '../config';
-import { aimLine, attackMotion, easeFor, hitboxAt, impactBeat, pathPosAt, type Attack, type Choreo, type Motion } from '../core/choreo';
+import { aimLine, attackMotion, cancelAnchorBeat, easeFor, hitboxAt, pathPosAt, type Attack, type Choreo, type Hitbox, type Motion } from '../core/choreo';
 import type { Grid } from '../core/grid';
 import { effectiveChoreo, type SimState } from '../core/sim';
 import { easeOut, type Vec } from '../core/vec';
@@ -26,6 +26,9 @@ const COLOR = {
   enemy: '#d05aa0',
   telegraph: 'rgba(255, 200, 80, 0.55)',
   telegraphStrong: 'rgba(255, 220, 120, 0.95)',
+  // 相殺できない攻撃 (uncancelable) の予告は赤 (「赤 = 避けるしかない」の慣用。v3 T4)
+  telegraphDanger: 'rgba(255, 90, 70, 0.6)',
+  telegraphDangerStrong: 'rgba(255, 120, 100, 0.95)',
   hitbox: 'rgba(255, 70, 70, 0.45)',
   hitboxStrong: 'rgba(255, 120, 120, 0.9)',
   hpOk: '#6aa0ff',
@@ -136,14 +139,16 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   }
 
   if (flash.cancel) {
-    // 相殺の閃光: 消した当たりの位置に白い円。残り時間に比例して縮み、薄くなる
+    // 相殺の成立 (v3 T4): 消した当たりの位置に白い閃光 (敵の 1.5 倍から 0.5 倍へ縮み、薄くなる) と、
+    // 消した当たりの形を白の破線で残す (砕けた見た目。残り時間に比例して薄くなる)
     const c = px(flash.cancel.pos);
     const k = Math.max(0, Math.min(1, flash.cancel.t / CANCEL_FLASH_SEC));
-    ctx.fillStyle = COLOR.cancel;
     ctx.globalAlpha = k;
+    ctx.fillStyle = COLOR.cancel;
     ctx.beginPath();
-    ctx.arc(c.x, c.y, pr(cfg.enemyRadius * (0.6 + 0.8 * k)), 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, pr(cfg.enemyRadius * (0.5 + 1.0 * k)), 0, Math.PI * 2);
     ctx.fill();
+    drawShards(ctx, px, pr, flash.cancel.hitbox);
     ctx.globalAlpha = 1;
   }
 
@@ -151,8 +156,28 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   ctx.restore();
 }
 
-// 相殺の閃光の長さ (秒)。main.ts が立て、毎フレーム減らす
-export const CANCEL_FLASH_SEC = 0.15;
+// 消した当たりの形を白の破線で描く (円は破線の輪、線分は破線)
+function drawShards(ctx: CanvasRenderingContext2D, px: (v: Vec) => Vec, pr: (r: number) => number, h: Hitbox): void {
+  ctx.strokeStyle = COLOR.cancel;
+  ctx.setLineDash([5, 7]);
+  ctx.beginPath();
+  if (h.kind === 'circle') {
+    const p = px(h);
+    ctx.lineWidth = 2;
+    ctx.arc(p.x, p.y, Math.max(1, pr(h.r)), 0, Math.PI * 2);
+  } else {
+    const a = px(h.a);
+    const b = px(h.b);
+    ctx.lineWidth = Math.max(2, pr(h.r * 2));
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// 相殺の閃光と砕けた形の長さ (秒)。main.ts が立て、毎フレーム減らす
+export const CANCEL_FLASH_SEC = 0.3;
 
 export interface FlashState {
   attackClass: 'on' | 'off' | 'miss' | null;
@@ -160,8 +185,8 @@ export interface FlashState {
   aim: Vec | null;
   enemyHit: number;
   damaged: number;
-  // 相殺の閃光。pos は消した当たりの位置 (sim.lastCancel.pos)、t は残り秒
-  cancel: { pos: Vec; t: number } | null;
+  // 相殺の閃光。pos は消した当たりの位置、hitbox は消した当たりの形 (sim.lastCancel)、t は残り秒
+  cancel: { pos: Vec; hitbox: Hitbox; t: number } | null;
 }
 
 function drawBeatTicks(ctx: CanvasRenderingContext2D, vp: Viewport, grid: Grid, beat: number): void {
@@ -179,7 +204,8 @@ function drawBeatTicks(ctx: CanvasRenderingContext2D, vp: Viewport, grid: Grid, 
 }
 
 // 予告: 拍の数に合わせた補助線。当たり点に同心円を予告拍数ぶん置き、中心 → 外側へ 1 拍ごとに動く輪を描く。
-// dash は進路の線、shot は射線を添える
+// dash は進路の線、shot は射線を添える。輪が外側に届く瞬間 = 相殺の基準 (cancelAnchorBeat。dash は自機に届く瞬間)。
+// 色は相殺できる攻撃が黄、uncancelable が赤 (v3 T4)
 function drawTelegraph(
   ctx: CanvasRenderingContext2D,
   px: (v: Vec) => Vec,
@@ -189,18 +215,20 @@ function drawTelegraph(
   cfg: Config,
   motion: Motion,
 ): void {
-  // 予告は音のアンカー (hitBeat) で輪が外側に届き、実際の当たり (impactBeat) まで出しておく
-  if (beat < atk.telegraphBeat || beat >= impactBeat(atk)) return;
-  const lead = atk.hitBeat - atk.telegraphBeat;
+  const anchor = cancelAnchorBeat(atk);
+  if (beat < atk.telegraphBeat || beat >= anchor) return;
+  const lead = anchor - atk.telegraphBeat;
   const elapsed = beat - atk.telegraphBeat;
   const rings = Math.max(1, Math.round(lead));
-  const impact = pathPosAt(atk.path, impactBeat(atk), motion);
+  const impact = pathPosAt(atk.path, anchor, motion);
   const ip = px(impact);
   const maxR = atk.type === 'burst' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
   const ease = easeFor(motion);
+  const weak = atk.uncancelable ? COLOR.telegraphDanger : COLOR.telegraph;
+  const strong = atk.uncancelable ? COLOR.telegraphDangerStrong : COLOR.telegraphStrong;
 
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = COLOR.telegraph;
+  ctx.strokeStyle = weak;
   for (let k = 1; k <= rings; k++) {
     ctx.beginPath();
     ctx.arc(ip.x, ip.y, pr((maxR * k) / rings), 0, Math.PI * 2);
@@ -210,14 +238,14 @@ function drawTelegraph(
   const frac = ease(elapsed - k);
   const moving = (maxR * Math.min(rings, k + frac)) / rings;
   ctx.lineWidth = 3;
-  ctx.strokeStyle = COLOR.telegraphStrong;
+  ctx.strokeStyle = strong;
   ctx.beginPath();
   ctx.arc(ip.x, ip.y, Math.max(1, pr(moving)), 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 6]);
-  ctx.strokeStyle = COLOR.telegraph;
+  ctx.strokeStyle = weak;
   if (atk.type === 'dash') {
     ctx.beginPath();
     atk.path.forEach((pt, i) => {

@@ -93,6 +93,8 @@ export type Hitbox = CircleHit | SegmentHit;
 const LASER_DEFAULT_ACTIVE_BEATS = 0.25;
 // dash の進行方向を取るときに見る時間差 (sim の固定ステップと同じ 1/120 秒)
 const INCOMING_DIR_DT_SEC = 1 / 120;
+// 接触拍の走査の刻み (同上)
+const CONTACT_SAMPLE_DT_SEC = 1 / 120;
 
 export function easeFor(motion: Motion): (t: number) => number {
   return motion === 'snap' ? easeIn : easeOut;
@@ -251,6 +253,28 @@ export function incomingDir(attack: Attack, beat: number, playerPos: Vec, beatSe
       return normalize({ x: playerPos.x - c.x, y: playerPos.y - c.y });
     }
   }
+}
+
+// 相殺の基準 (v3 T3): 自機 (位置 playerPos、半径 cfg.playerRadius) に、この攻撃の当たりが最初に触れる拍。
+// active 区間を 1/120 秒刻みで走査する。自機が動かなければ、この拍に checkDamage と同じ条件で被弾する。触れなければ null
+export function contactBeat(attack: Attack, playerPos: Vec, beatSec: number, cfg: Config, motion: Motion = 'easeOut'): number | null {
+  const w = activeWindow(attack, beatSec, cfg, motion);
+  const dtBeat = CONTACT_SAMPLE_DT_SEC / beatSec;
+  for (let b = w.startBeat; b <= w.endBeat + 1e-9; b += dtBeat) {
+    const h = hitboxAt(attack, b, beatSec, cfg, motion);
+    if (h && hitDistance(playerPos, h) <= h.r + cfg.playerRadius) return b;
+  }
+  return null;
+}
+
+// 予告の輪が収束する拍 (v3 T3)。dash は突進の終点 (hitBeat より後の最初のキーフレーム) の拍 = 自機の位置に届く瞬間。
+// 他は当たりの発生 (impactBeat)。hitBeat は音のアンカーのまま検査に使う (docs/plan/v3-phase2.md「既定値の決め」)
+export function cancelAnchorBeat(attack: Attack): number {
+  if (attack.type === 'dash') {
+    const after = attack.path.find((p) => p.beat > attack.hitBeat);
+    if (after) return after.beat;
+  }
+  return impactBeat(attack);
 }
 
 // 予告の線 (shot / laser の射線) の始点と向き先。描画用
