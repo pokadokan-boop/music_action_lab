@@ -13,7 +13,7 @@
 - 曲候補を聴く: https://pokadokan-boop.github.io/music_action_lab/candidates.html
 
 ## 不満を書く
-vault の `音楽アクション/v0 不満.md` に書く。1 回の不満につき 4 行以内: 版 (v2) / 何が / いつ (phrase 番号か場面) / どう嫌か。好きだった点は `+` を頭に付けて任意で。
+vault の `音楽アクション/<版> 不満.md` (v2 なら `v2 不満.md`) に書く。1 回の不満につき 4 行以内: 版 / 何が / いつ (phrase 番号か場面) / どう嫌か。好きだった点は `+` を頭に付けて任意で。自由記述でも分解できる (docs/decisions/v2-feedback.md)。
 
 ## 次のセッションの手順
 - 次は `claude` を開くだけでよい。Claude が docs/NEXT.md の「次の 1 手」から始める (規律は CLAUDE.md「セッションの始め方」「セッションの終わり方」)

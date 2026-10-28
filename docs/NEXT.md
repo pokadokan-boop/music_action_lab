@@ -1,19 +1,21 @@
 # NEXT.md: 次のセッションへの引き継ぎ
-更新 2026-10-27。セッションの終わりに Claude が書き直す (書き方は CLAUDE.md「セッションの終わり方」)。
+更新 2026-10-28。セッションの終わりに Claude が書き直す (書き方は CLAUDE.md「セッションの終わり方」)。
 
 ## 次の 1 手
-- v2 は完了 (docs/plan/v2-phase1.md「完了記録」)。次は本人が v2 を遊んで不満ノートに書くのを待つ。不満が来たら docs/concept.md → vault:音楽アクション/v0 不満.md の「v2」節と貼られた要約 → docs/decisions/v1-feedback.md の順に読み、不満を変更に落として docs/decisions/v2-feedback.md に分解を書く
-- 不満がまだ無ければ、下の「本人に聞きたいこと」1 (レーザーの相殺窓) を先に 2 案で用意してもよい: 窓を当たりの 0.125 拍前に広げた版と今の版。ただし作品側の変更は不満を根拠にする原則なので、反応が無いうちは実装しない
-- 現状の確認: `npm test` (89 件)、`npx tsx scripts/validate-choreo.ts assets/choreo/v2.json`、`npx tsx scripts/sync-report.ts assets/choreo/v2.json`
-- 終了条件: 不満の分解が docs/decisions/v2-feedback.md にあり、次の版 (v3) の目的・完了条件・入れないものが docs/plan/v3-phase1.md に書かれて本人の承認待ちになっている
+- v3 の Phase 1 (docs/plan/v3-phase1.md) は本人の承認待ち。承認されたら、docs/concept.md → docs/decisions/v2-feedback.md (確かめた事実 F1〜F10) → docs/plan/v3-phase1.md → docs/choreo-format.md → src/core/sim.ts・vec.ts・choreo.ts・render/canvas.ts の順に読み、docs/plan/v3-phase2.md (各タスクの詳細と既定値) を書いて承認を待たずに T1 (等方座標) から実装に入る
+- 「承認に含めるもの」3 点 (調整パネル / concept.md の 1 行 / play-image.md) の可否を本人の返事から拾い、否なら該当タスクを外す。返事が無い点は「可」として進め、concept.md の 1 行だけは承認が明示されるまで書かない
+- 実装は v2 と同じく並列サブエージェントで通してよい。T1 (等方座標) が他の全てに効くので、T1 を先に終えて commit してから残りを並列にする
+- 現状の確認: `npm test` (89 件)、`npx tsx scripts/validate-choreo.ts assets/choreo/v2.json`
+- 終了条件: v3 の完了条件 (docs/plan/v3-phase1.md) が全て満たされ、公開 URL で遊べ、不満ノートに v3 の節がある
 
 ## 今の状態
-- 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v2。タイトルに選択なし)
-- 最新 commit: v2 のレビュー指摘の後片付け (4d2809e)。v2 の本体は T1〜T6 の 9 commit (dd2dbd6〜ba30a95)。当たりの時刻の基準の仮説は外れた (docs/decisions/v2-timing-standard.md)
-- テスト: `npm test` 89 件 (10 ファイル) 通過。`npm run build` 通過
-- 未 push: なし
-- 回す仕組み: 段階 1 (NEXT.md とセッション規律) は稼働中。承認は版ごとに 1 回 (CLAUDE.md「承認の扱い」)。段階 2 (無人の実行) は未着手。今回 v2 の T1〜T6 を ultracode (並列サブエージェント) で 1 セッションで通せたので、段階 2 の最初のキューは「不満の分解 → v3 の計画」が候補
+- 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v2。v3 は未着手)
+- 最新 commit: v2 の不満の分解と v3 の Phase 1 (docs のみ。コードは 8b40250 のまま)
+- テスト: `npm test` 89 件 (10 ファイル) 通過
+- 未 push: なし (このセッションの終わりに push)
+- 回す仕組み: 段階 1 (NEXT.md とセッション規律) は稼働中。本人は「不満ノートを書いた、見てほしい」の 1 行で呼んだ。段階 2 (無人の実行) は未着手
 
 ## 本人に聞きたいこと
-1. レーザーの相殺の窓。レーザーは自機の位置を狙うので、射線上に立ったままだと当たりの最初の step (8 ms) で被弾し、相殺はその step に押下が乗ったときだけ成立する。遊んで「相殺できない」と感じたら、受付窓を当たりの 0.125 拍前 (表の判定窓と同じ) に広げる案がある。答えが無くても進められる範囲: 不満ノートの反応を待つ (今の仕様のまま)
-2. 結果画面の「当たりの処理遅れ」の値。Chrome の自動操作タブでは 346〜649 ms と出たが、描画の間引きによる可能性が高い。手で遊んだときの値が 50 ms を超えていたら知らせてほしい。答えが無くても進められる範囲: 全部
+1. docs/plan/v3-phase1.md の承認 (目的・完了条件・入れないもの)。答えが無くても進められる範囲: なし (版の承認は 1 回要る)
+2. 同文書「承認に含めるもの」3 点: 調整パネルを実験の道具として入れてよいか (concept.md の「難易度調整変数」との関係) / concept.md に「曲は敵のもの、プレイヤーの音は別の楽器」の 1 行を足してよいか / 理想の 1 フレーズの動作イメージ (docs/play-image.md) を Claude が下書きしてよいか。答えが無くても進められる範囲: 調整パネルと play-image.md は進める。concept.md の 1 行は書かない
+3. 「攻撃判定は自機の 1.2 倍」の「サイズ」は直径と読んだ (扇の半径 = 自機の直径 × 1.2 ≈ 0.06)。違えば調整パネルの倍率で直せる。答えが無くても進められる範囲: 全部

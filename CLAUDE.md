@@ -9,12 +9,13 @@
 - docs/plan/v1-phase1.md: v1 (曲に乗っている感じ)。完了記録あり
 - docs/NEXT.md: 次のセッションへの引き継ぎ (次の 1 手、今の状態、本人に聞きたいこと)。セッションはここから始める
 - docs/plan/loop-phase1.md: 回す仕組みの段階 1 (NEXT.md とセッション規律)。承認済み、実装済み
-- docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細 (3 セッションに分ける)
+- docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細。完了記録あり
+- docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認待ち。不満の分解は docs/decisions/v2-feedback.md
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
 - docs/decisions/: 曲の選択、合否条件ガードの確認、v2 の当たりの時刻の基準の検証 (仮説は外れた) など、実験中の決定の記録
 - README.md: 遊び方、不満の書き方、開発コマンド
-- 不満の受け口: vault:音楽アクション/v0 不満.md。v1 を作るセッションは docs/concept.md → このノート → 貼られた結果の要約、の順に読む
+- 不満の受け口: vault:音楽アクション/<版> 不満.md (v0 不満.md に v0〜v2 の節、v2 不満.md 以降は版ごとのファイル)。次の版を作るセッションは docs/concept.md → そのノート → 貼られた結果の要約 → 前の版の docs/decisions/v*-feedback.md の順に読む
 
 ## vault の参照
 - vault ルートの絶対パスは `CLAUDE.local.md` (git 未追跡) に書く。公開リポジトリにローカルのパスを置かないため
