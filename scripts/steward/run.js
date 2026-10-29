@@ -39,12 +39,16 @@ function log(line) {
   process.stderr.write(`${line}\n`);
 }
 
+// 一番新しい更新と、それがどのファイルかを返す (飛ばした理由を後から追えるように)
 function latestActivity() {
-  let latest = 0;
+  let latest = { ms: 0, file: null };
+  const consider = (file, ms) => {
+    if (ms > latest.ms) latest = { ms, file };
+  };
   const tracked = spawnSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'utf8' }).stdout.split('\0').filter(Boolean);
   for (const f of tracked) {
     try {
-      latest = Math.max(latest, fs.statSync(path.join(repo, f)).mtimeMs);
+      consider(f, fs.statSync(path.join(repo, f)).mtimeMs);
     } catch {
       /* 削除済み */
     }
@@ -52,7 +56,7 @@ function latestActivity() {
   const sessions = path.join(os.homedir(), '.claude', 'projects', projectSlug(repo));
   if (fs.existsSync(sessions)) {
     for (const n of fs.readdirSync(sessions)) {
-      if (n.endsWith('.jsonl')) latest = Math.max(latest, fs.statSync(path.join(sessions, n)).mtimeMs);
+      if (n.endsWith('.jsonl')) consider(`session:${n}`, fs.statSync(path.join(sessions, n)).mtimeMs);
     }
   }
   return latest;
@@ -88,10 +92,12 @@ function main() {
   fs.mkdirSync(stateDir, { recursive: true });
 
   if (!force) {
-    const ageMin = (Date.now() - latestActivity()) / 60000;
+    const latest = latestActivity();
+    const ageMin = (Date.now() - latest.ms) / 60000;
     if (ageMin < GUARD_MINUTES) {
-      fs.appendFileSync(path.join(stateDir, 'skips.log'), `${today} 直近 ${Math.round(ageMin)} 分に活動があったので飛ばした\n`);
-      log(`skip: activity ${Math.round(ageMin)} min ago`);
+      const when = new Date(latest.ms).toISOString();
+      fs.appendFileSync(path.join(stateDir, 'skips.log'), `${today} 直近 ${ageMin.toFixed(1)} 分に活動があったので飛ばした (${latest.file} が ${when} に更新)\n`);
+      log(`skip: activity ${ageMin.toFixed(1)} min ago (${latest.file} at ${when})`);
       return 0;
     }
   }
