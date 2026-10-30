@@ -1,10 +1,26 @@
-// Canvas 2D で四角と線だけで描く。位置は世界座標 (等方。単位は画面の幅。src/core/world.ts) → 16:9 の描画領域へ、x も y も幅を掛けて写す。
-// 規律 (v3 T1): 描画は判定の値をそのまま使う。判定に無い大きさを描かず、判定にある大きさを描き落とさない
+// Canvas 2D で線と面だけで描く。位置は世界座標 (等方。単位は画面の幅。src/core/world.ts) → 16:9 の描画領域へ、x も y も幅を掛けて写す。
+// 規律 (v3 T1): 描画は判定の値をそのまま使う。判定に無い大きさを描かず、判定にある大きさを描き落とさない。
+// 自機と敵の姿 (v4 T3) は src/render/figures.ts。構えの名前は src/core/pose.ts で決まる
 import type { Config } from '../config';
-import { aimLine, attackMotion, cancelAnchorBeat, easeFor, hitboxAt, pathPosAt, type Attack, type Choreo, type Hitbox, type Motion } from '../core/choreo';
+import {
+  activeWindow,
+  aimLine,
+  attackMotion,
+  cancelAnchorBeat,
+  easeFor,
+  hitboxAt,
+  incomingDir,
+  pathPosAt,
+  type Attack,
+  type Choreo,
+  type Hitbox,
+  type Motion,
+} from '../core/choreo';
 import type { Grid } from '../core/grid';
+import { enemyPose, playerPose } from '../core/pose';
 import { effectiveChoreo, type SimState } from '../core/sim';
-import { easeOut, type Vec } from '../core/vec';
+import { easeOut, normalize, type Vec } from '../core/vec';
+import { drawEnemy, drawPlayer } from './figures';
 
 export interface Viewport {
   ox: number;
@@ -100,20 +116,20 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
     }
   }
 
-  // 敵: 拍の頭で明るく、イージングアウトで戻る
+  // 敵: 構えは core が決める。拍の頭で明るく、イージングアウトで戻る。命中の瞬間は白
   const e = px(state.enemy);
-  const er = pr(cfg.enemyRadius);
-  ctx.fillStyle = flash.enemyHit > 0 ? '#ffffff' : mix(COLOR.enemy, '#ffffff', pulse * 0.35);
-  ctx.fillRect(e.x - er, e.y - er, er * 2, er * 2);
+  const ePose = enemyPose(choreo, beat, grid.beatSec, cfg);
+  const eDir = enemyDir(choreo, state, grid.beatSec, cfg);
+  drawEnemy(ctx, e, pr(cfg.enemyRadius), ePose, eDir, pulse, mix(COLOR.enemy, '#ffffff', pulse * 0.35), flash.enemyHit > 0);
 
-  // プレイヤー
+  // プレイヤー: 構えは core が決める。向きは攻撃の向きがあればその側、無ければ敵のいる側
   const p = px(state.player);
-  const prr = pr(cfg.playerRadius);
   let pc = mix(COLOR.player, '#ffffff', pulse * 0.2);
   if (flash.attackClass) pc = COLOR[flash.attackClass];
   if (flash.damaged > 0) pc = COLOR.hpLow;
-  ctx.fillStyle = pc;
-  ctx.fillRect(p.x - prr, p.y - prr, prr * 2, prr * 2);
+  const pPose = playerPose({ attacking: !!flash.attackClass, cancelling: !!flash.cancel, damaged: flash.damaged > 0 }, ePose);
+  const facingX = flash.aim && flash.aim.x !== 0 ? flash.aim.x : state.enemy.x - state.player.x;
+  drawPlayer(ctx, p, pr(cfg.playerRadius), pPose, facingX < 0 ? -1 : 1, pulse, pc);
   if (flash.attackClass) {
     // 攻撃の瞬間: 向いた方向へ attackRadius の扇 (塗り + 縁) を出す。判定と同じ半径・同じ角度。向きが無い (古い状態) なら円で代える。
     // 相殺が成立した押下なら扇は白 (拍の色より「捌けた」を優先して見せる)
@@ -154,6 +170,30 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
 
   drawHp(ctx, vp, state, cfg);
   ctx.restore();
+}
+
+// 敵の向き (単位ベクトル。目と前傾の向き)。攻撃中 (予告開始〜窓の終わり) はその攻撃の来る方向 (incomingDir)、
+// 分岐で動いていれば path の進行方向、他は自機の側。向きが定まらない (止まっている) ときも自機の側
+function enemyDir(choreo: Choreo, state: SimState, beatSec: number, cfg: Config): Vec {
+  const beat = state.beat;
+  const toPlayer = normalize({ x: state.player.x - state.enemy.x, y: state.player.y - state.enemy.y });
+  const fallback = toPlayer.x === 0 && toPlayer.y === 0 ? { x: -1, y: 0 } : toPlayer;
+  for (const atk of choreo.attacks) {
+    const motion = attackMotion(choreo, atk);
+    const w = activeWindow(atk, beatSec, cfg, motion);
+    if (beat < atk.telegraphBeat || beat > w.endBeat) continue;
+    const d = incomingDir(atk, beat, state.player, beatSec, cfg, motion);
+    return d.x === 0 && d.y === 0 ? fallback : d;
+  }
+  for (const atk of choreo.attacks) {
+    if (atk.branchFromBeat === undefined || beat < atk.branchFromBeat || beat > atk.path[atk.path.length - 1].beat) continue;
+    const motion = attackMotion(choreo, atk);
+    const now = pathPosAt(atk.path, beat, motion);
+    const before = pathPosAt(atk.path, beat - cfg.fixedDt / beatSec, motion);
+    const d = normalize({ x: now.x - before.x, y: now.y - before.y });
+    return d.x === 0 && d.y === 0 ? fallback : d;
+  }
+  return fallback;
 }
 
 // 消した当たりの形を白の破線で描く (円は破線の輪、線分は破線)
