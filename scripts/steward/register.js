@@ -1,5 +1,6 @@
 // Task Scheduler への登録 (docs/plan/loop-phase2.md T4)。本人の登録作業を残さないために Claude が実行する。
-//   node scripts/steward/register.js create [HH:MM]   毎日 HH:MM (既定 05:00) に run.js を起動する登録
+//   node scripts/steward/register.js create [HH:MM]   毎日 HH:MM に run.js を起動する登録 (PC がその時刻に起きていないと走らない)
+//   node scripts/steward/register.js create idle [分]  PC を [分] (既定 15) 放置したら起動する登録 (既定。1 日 1 回の制限は run.js 側)
 //   node scripts/steward/register.js delete           登録を外す (判断者の停止条件でも使う)
 //   node scripts/steward/register.js query            登録の状態
 //   node scripts/steward/register.js run              今すぐ 1 回起動する (無人の経路の確認)
@@ -22,9 +23,13 @@ function schtasks(args) {
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
   case 'create': {
-    const time = arg ?? '05:00';
     const tr = `"${process.execPath}" "${runJs}"`;
-    process.exitCode = schtasks(['/Create', '/F', '/SC', 'DAILY', '/ST', time, '/TN', TASK_NAME, '/TR', tr]);
+    if (arg === 'idle' || arg === undefined) {
+      const minutes = process.argv[4] ?? '15';
+      process.exitCode = schtasks(['/Create', '/F', '/SC', 'ONIDLE', '/I', minutes, '/TN', TASK_NAME, '/TR', tr]);
+    } else {
+      process.exitCode = schtasks(['/Create', '/F', '/SC', 'DAILY', '/ST', arg, '/TN', TASK_NAME, '/TR', tr]);
+    }
     break;
   }
   case 'delete':
