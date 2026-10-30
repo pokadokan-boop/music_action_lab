@@ -1,5 +1,5 @@
 # v4 計画 Phase 1: 流れを作るための部品
-作成 2026-10-30。承認待ち (本人に求めるのは「目的」「完了条件」「入れないもの」と、下の「承認に含めるもの」3 点)。同日に本人の指摘で狙いを絞った: 「捌いた後に敵が近くにいればリターン」という案は浅く、一連の流れを作るのは次の計画に回し、v4 は機能 (部品) を作るだけにする。応えの音の規則も次かその次に回す。前提は docs/concept.md (保護対象)、docs/decisions/v3-feedback.md (不満の分解)、docs/play-image.md (理想の動作イメージの叩き台)、docs/choreo-format.md、現在のコード (src/core/sim.ts、choreo.ts、render/canvas.ts、audio/engine.ts、audio/pluck.ts)。
+作成 2026-10-30。承認済み 2026-10-30 (「承認に含めるもの」3 点も可。本人の補足: concept.md の「入れないもの」は書いた時点の判断で、いつまでも入れないものではない)。同日に本人の指摘で狙いを絞った: 「捌いた後に敵が近くにいればリターン」という案は浅く、一連の流れを作るのは次の計画に回し、v4 は機能 (部品) を作るだけにする。応えの音の規則も次かその次に回す。前提は docs/concept.md (保護対象)、docs/decisions/v3-feedback.md (不満の分解)、docs/play-image.md (理想の動作イメージの叩き台)、docs/choreo-format.md、現在のコード (src/core/sim.ts、choreo.ts、render/canvas.ts、audio/engine.ts、audio/pluck.ts)。
 
 ## 新しいセッションの始め方
 docs/NEXT.md の「次の 1 手」に従う。Phase 2 (各タスクの詳細と既定値) は承認後に Claude が docs/plan/v4-phase2.md に書き、承認を待たずに実装に入る。接頭辞は全て `[作品]`。

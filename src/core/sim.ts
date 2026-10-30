@@ -2,7 +2,9 @@
 import type { Config } from '../config';
 import {
   activeWindow,
+  applyBranch,
   attackMotion,
+  branchStartBeat,
   contactBeat,
   enemyPosAt,
   hitDistance,
@@ -13,6 +15,7 @@ import {
   type Attack,
   type Choreo,
   type Hitbox,
+  type Outcome,
 } from './choreo';
 import { phraseAt, type Grid } from './grid';
 import { GameLog, type BeatClass, type CancelMissReason } from './log';
@@ -56,6 +59,12 @@ export interface SimState {
   resolved: Map<number, Attack>;
   // 相殺された攻撃 (attackIndex)。以後その当たりは被弾判定と描画で無視する。本体の動きは path どおり続く
   cancelled: Set<number>;
+  // 攻撃の結果 (v4 T1)。当たりの窓の終わり + 遅い側の相殺の窓 で確定する
+  outcome: Map<number, Outcome>;
+  // 分岐を適用済みの攻撃 (normal も含む)
+  branched: Set<number>;
+  // 自機が最後に向いた向き (攻撃の aim)。分岐の「寄る」の先を決めるのに使う。初期値は右 (敵の側)
+  facing: Vec;
   log: GameLog;
   finished: boolean;
   // 直前の step で起きたこと (描画・効果音用。記録は log が持つ)
@@ -89,6 +98,9 @@ export function createSim(deps: SimDeps): SimState {
     impactAt: new Map(),
     resolved: new Map(),
     cancelled: new Set(),
+    outcome: new Map(),
+    branched: new Set(),
+    facing: { x: 1, y: 0 },
     log: new GameLog(),
     finished: false,
     lastAttackClass: null,
@@ -113,6 +125,8 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
 
   movePlayer(state, input, dt, cfg);
   resolveStarted(state, choreo, cfg);
+  settleOutcomes(state, deps);
+  applyBranches(state, deps);
 
   const enemyPos = enemyPosAt(effectiveChoreo(state, choreo), state.beat, cfg.enemyRestPos);
   state.enemy.x = enemyPos.x;
@@ -132,6 +146,35 @@ function resolveStarted(state: SimState, choreo: Choreo, cfg: Config): void {
   choreo.attacks.forEach((atk, idx) => {
     if (state.resolved.has(idx) || state.beat < atk.telegraphBeat) return;
     state.resolved.set(idx, resolveAttack(atk, state.player, cfg, attackMotion(choreo, atk)));
+  });
+}
+
+// 攻撃の結果を確定する (v4 T1)。当たりの窓の終わり + 遅い側の相殺の窓 を過ぎたら、相殺済みか被弾していなければ handled、被弾していれば hit
+function settleOutcomes(state: SimState, deps: SimDeps): void {
+  const { cfg, grid } = deps;
+  const choreo = effectiveChoreo(state, deps.choreo);
+  const lateBeats = cfg.cancelLateMs / 1000 / grid.beatSec;
+  choreo.attacks.forEach((atk, idx) => {
+    if (state.outcome.has(idx)) return;
+    const w = activeWindow(atk, grid.beatSec, cfg, attackMotion(choreo, atk));
+    if (state.beat < w.endBeat + lateBeats) return;
+    const outcome: Outcome = state.cancelled.has(idx) || !state.damagedBy.has(idx) ? 'handled' : 'hit';
+    state.outcome.set(idx, outcome);
+    state.log.push({ t: state.t, beat: state.beat, kind: 'outcome', attackIndex: idx, phrase: atk.phrase, outcome, branch: atk.after?.[outcome]?.move ?? 'normal' });
+  });
+}
+
+// 結果に対応する分岐を、振り付けの動きが終わった拍 (path の最後) で path に反映する (v4 T1)。自機の位置と向きはその瞬間のもの
+function applyBranches(state: SimState, deps: SimDeps): void {
+  const choreo = effectiveChoreo(state, deps.choreo);
+  choreo.attacks.forEach((atk, idx) => {
+    if (state.branched.has(idx)) return;
+    const outcome = state.outcome.get(idx);
+    if (!outcome || state.beat < branchStartBeat(atk)) return;
+    state.branched.add(idx);
+    const branch = atk.after?.[outcome];
+    if (!branch || branch.move === 'normal') return;
+    state.resolved.set(idx, applyBranch(atk, branch, state.player, state.facing, deps.cfg, deps.cfg.enemyRestPos));
   });
 }
 
@@ -167,6 +210,7 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps): void {
   const toEnemy: Vec = { x: state.enemy.x - state.player.x, y: state.enemy.y - state.player.y };
   const aim = Math.hypot(input.move.x, input.move.y) > 0 ? normalize(input.move) : normalize(toEnemy);
   state.lastAim = aim;
+  if (aim.x !== 0 || aim.y !== 0) state.facing = aim;
   // 扇の角度の条件だけを記録する (距離込みだと命中と同じ値になり、「向きが合っていたか」が読めなくなる)
   const enemyInFan = angleBetweenDeg(aim, toEnemy) <= cfg.attackFanDeg / 2;
   state.log.push({

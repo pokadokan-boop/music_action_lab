@@ -457,6 +457,72 @@ describe('相殺 (cancel)', () => {
   });
 });
 
+describe('結果の確定と分岐 (v4 T1)', () => {
+  const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
+  const pressRight: InputState = { move: { x: 1, y: 0 }, attackPressed: true };
+  const events = (state: SimState, kind: EventKind) => state.log.events.filter((e) => e.kind === kind);
+  // dash (path は 10.5 に (0.2, 0.5) で終わる) の後、shot の始点 (24 拍、(0.5, 0.5)) へ補間で移る振り付け。
+  // dash を捌けたら 1 拍止まる
+  function branchDeps(): SimDeps {
+    return {
+      choreo: makeChoreo([dashAttack({ after: { handled: { move: 'stop', beats: 1 } } }), shotAttack()]),
+      grid: makeGrid(),
+      cfg: config,
+      acceptance,
+    };
+  }
+  function runTo(d: SimDeps, x: number, targetBeat: number): SimState {
+    const state = createSim(d);
+    state.player.x = x;
+    state.player.y = 0.5;
+    while ((state.t + config.fixedDt) / d.grid.beatSec < targetBeat) step(state, stay, config.fixedDt, d);
+    return state;
+  }
+
+  it('相殺した dash は handled になり、path の最後 (10.5) から 1 拍、敵がその場 (x 0.2) にとどまる', () => {
+    const d = branchDeps();
+    const state = runTo(d, 0.15, 10.1);
+    step(state, pressRight, config.fixedDt, d);
+    expect(state.cancelled.has(0)).toBe(true);
+    while (state.beat < 10.4) step(state, stay, config.fixedDt, d);
+    expect(state.outcome.get(0)).toBe('handled');
+    expect(events(state, 'outcome')[0]).toMatchObject({ attackIndex: 0, phrase: 1, outcome: 'handled', branch: 'stop' });
+    while (state.beat < 11.4) step(state, stay, config.fixedDt, d);
+    expect(state.branched.has(0)).toBe(true);
+    expect(state.enemy.x).toBeCloseTo(0.2, 9); // 止まっている (y は拍の揺れが乗る)
+    while (state.beat < 12.5) step(state, stay, config.fixedDt, d);
+    expect(state.enemy.x).toBeGreaterThan(0.2); // 止まる区間が終わると次の始点へ動き出す
+  });
+
+  it('被弾した dash は hit になり (hit の分岐は無い)、10.5 以降はすぐ次の始点へ動く', () => {
+    const d = branchDeps();
+    const state = runTo(d, 0.15, 10.6);
+    expect(state.player.hp).toBe(config.playerHp - 1);
+    while (state.beat < 11.4) step(state, stay, config.fixedDt, d);
+    expect(state.outcome.get(0)).toBe('hit');
+    expect(events(state, 'outcome')[0]).toMatchObject({ outcome: 'hit', branch: 'normal' });
+    expect(state.branched.has(0)).toBe(true);
+    expect(effectiveChoreo(state, d.choreo).attacks[0].branchFromBeat).toBeUndefined(); // normal は path を変えない
+    expect(state.enemy.x).toBeGreaterThan(0.2);
+  });
+
+  it('相殺できない burst も、避ければ handled', () => {
+    const d: SimDeps = { choreo: makeChoreo([burstAttack({ uncancelable: true })]), grid: makeGrid(), cfg: config, acceptance };
+    const state = runTo(d, 0.1, 19.5);
+    expect(state.player.hp).toBe(config.playerHp);
+    expect(state.outcome.get(0)).toBe('handled');
+  });
+
+  it('要約に「捌けた n / 被弾 m」と phrase 表の結果列が出る', () => {
+    const d = branchDeps();
+    const state = runTo(d, 0.15, 10.1);
+    step(state, pressRight, config.fixedDt, d);
+    while (state.beat < 11) step(state, stay, config.fixedDt, d);
+    const text = state.log.summary({ choreoId: 't', song: 'f', date: '2026-10-30' });
+    expect(text).toContain('捌けた 1 / 被弾 0 (結果の出た攻撃 1、分岐した 1)');
+  });
+});
+
 describe('classifyBeat', () => {
   it('表・裏・外を分ける', () => {
     expect(classifyBeat(10.05, 0.125).cls).toBe('on');

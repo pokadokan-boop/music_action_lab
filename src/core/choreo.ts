@@ -13,6 +13,20 @@ export type Aim = 'fixed' | 'player';
 // 移動と予告の補間。easeOut = 区間の最初が速い (v0)。snap = 拍の頭に向けて加速し、3 拍の移動なら最後の 1 拍で 70% 動く (v1)
 export type Motion = 'easeOut' | 'snap';
 
+// 攻撃の結果 (v4 T1)。handled = 捌けた (相殺した、または窓の終わりまでに被弾していない)、hit = 被弾した
+export type Outcome = 'handled' | 'hit';
+
+// 結果で分岐する敵の次の動き (v4 T1)。path の最後のキーフレームの後に足す。
+// normal = 変えない。stop = 最後の点に beats とどまる。approach = 0.5 拍で自機の正面の間合いへ寄り beats の終わりまでとどまる。
+// retreat = 0.5 拍で休憩位置へ戻り beats の終わりまでとどまる。意味づけ (何がリターンか) は v5 で決める (docs/plan/v4-phase1.md)
+export type BranchMove = 'normal' | 'stop' | 'approach' | 'retreat';
+
+export interface Branch {
+  move: BranchMove;
+  // とどまる長さ (拍)。省略時 1
+  beats?: number;
+}
+
 export interface PathPoint extends Vec {
   beat: number;
 }
@@ -36,6 +50,11 @@ export interface Attack {
   aim?: Aim;
   // 省略時 false。true なら相殺 (v2 T5) の対象にならず、避けるしかない
   uncancelable?: boolean;
+  // 結果別の次の動き (v4 T1)。省略時はどちらも normal
+  after?: { handled?: Branch; hit?: Branch };
+  // applyBranch が付ける。この拍以降の path は分岐で足した区間 (拍の揺れを乗せ、構えを分岐の種類にする)
+  branchFromBeat?: number;
+  branchMove?: BranchMove;
 }
 
 export interface Choreo {
@@ -65,7 +84,9 @@ export type ViolationRule =
   | 'dodgeable'
   | 'shot-target'
   | 'impact-delay'
-  | 'in-world';
+  | 'in-world'
+  | 'after-order'
+  | 'after-overlap';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -95,6 +116,10 @@ const LASER_DEFAULT_ACTIVE_BEATS = 0.25;
 const INCOMING_DIR_DT_SEC = 1 / 120;
 // 接触拍の走査の刻み (同上)
 const CONTACT_SAMPLE_DT_SEC = 1 / 120;
+// 分岐 (v4 T1): とどまる長さの既定、寄る・戻るの移動時間、寄ったときの間合い (接触距離に対する倍率)
+const BRANCH_DEFAULT_BEATS = 1;
+const BRANCH_MOVE_BEATS = 0.5;
+const APPROACH_DISTANCE_RATIO = 1.5;
 
 export function easeFor(motion: Motion): (t: number) => number {
   return motion === 'snap' ? easeIn : easeOut;
@@ -144,7 +169,11 @@ export function enemyPosAt(choreo: Choreo, beat: number, restPos: Vec): Vec {
   for (const atk of attacks) {
     const first = atk.path[0];
     const last = atk.path[atk.path.length - 1];
-    if (beat >= first.beat && beat <= last.beat) return pathPosAt(atk.path, beat, attackMotion(choreo, atk));
+    if (beat >= first.beat && beat <= last.beat) {
+      const p = pathPosAt(atk.path, beat, attackMotion(choreo, atk));
+      // 分岐で足した区間 (止まる・寄る・戻る) には拍の揺れを乗せる (テンポ把握)
+      return atk.branchFromBeat !== undefined && beat >= atk.branchFromBeat ? addIdle(p, beat, choreo) : p;
+    }
     if (beat < first.beat) {
       const from: Vec = prevEnd ?? restPos;
       const fromBeat = prevEnd?.beat ?? first.beat - 2;
@@ -305,6 +334,47 @@ export function resolveAttack(attack: Attack, target: Vec, cfg: Config, motion: 
   return { ...attack, path };
 }
 
+// 分岐の開始の拍 = 振り付けの動きが終わった所 (path の最後のキーフレーム)
+export function branchStartBeat(attack: Attack): number {
+  return attack.path[attack.path.length - 1].beat;
+}
+
+// 分岐の終わりの拍。normal (または無し) なら開始と同じ
+export function branchEndBeat(attack: Attack, branch: Branch | undefined): number {
+  if (!branch || branch.move === 'normal') return branchStartBeat(attack);
+  return branchStartBeat(attack) + (branch.beats ?? BRANCH_DEFAULT_BEATS);
+}
+
+// 分岐を path に反映した Attack を返す (純粋関数。v4 T1)。path の最後の点の後にキーフレームを足す。
+// playerPos と facing (自機が向いている側の単位ベクトル) は分岐を適用する瞬間のもの。restPos は休憩位置
+export function applyBranch(attack: Attack, branch: Branch | undefined, playerPos: Vec, facing: Vec, cfg: Config, restPos: Vec): Attack {
+  if (!branch || branch.move === 'normal') return attack;
+  const start = branchStartBeat(attack);
+  const last = attack.path[attack.path.length - 1];
+  const end = start + (branch.beats ?? BRANCH_DEFAULT_BEATS);
+  const added: PathPoint[] = [];
+  if (branch.move === 'stop') {
+    added.push({ beat: end, x: last.x, y: last.y });
+  } else {
+    const target = branch.move === 'approach' ? approachPoint(playerPos, facing, cfg) : restPos;
+    const arrive = Math.min(end, start + BRANCH_MOVE_BEATS);
+    added.push({ beat: arrive, x: target.x, y: target.y });
+    if (end > arrive + 1e-9) added.push({ beat: end, x: target.x, y: target.y });
+  }
+  return { ...attack, path: [...attack.path, ...added], branchFromBeat: start, branchMove: branch.move };
+}
+
+// 寄る先: 自機の正面 (facing の側) に、接触距離 × 1.5 離れた点。世界の中に収める
+function approachPoint(playerPos: Vec, facing: Vec, cfg: Config): Vec {
+  const dir = normalize(facing);
+  const d = dir.x === 0 && dir.y === 0 ? { x: 1, y: 0 } : dir;
+  const dist = (cfg.playerRadius + cfg.enemyRadius) * APPROACH_DISTANCE_RATIO;
+  return {
+    x: clamp(playerPos.x + d.x * dist, cfg.enemyRadius, WORLD.w - cfg.enemyRadius),
+    y: clamp(playerPos.y + d.y * dist, cfg.enemyRadius, WORLD.h - cfg.enemyRadius),
+  };
+}
+
 // dash の突進の終点: hitBeat より後の最初のキーフレーム。無ければ最後のキーフレーム
 function dashEnd(attack: Attack): Vec {
   const after = attack.path.find((p) => p.beat > attack.hitBeat);
@@ -362,7 +432,30 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
   });
 
   if (out.some((v) => v.rule === 'path-order' || v.rule === 'shot-target')) return out;
+  out.push(...checkBranches(choreo, grid, cfg));
   out.push(...checkDodgeable(choreo, grid, acceptance, cfg));
+  return out;
+}
+
+// 分岐 (after) の検査 (v4 T1): 開始 (path の最後) が結果の確定 (窓の終わり + 遅い側の相殺の窓) より前でないこと、
+// 終わりが次の攻撃の予告開始より後でないこと
+function checkBranches(choreo: Choreo, grid: Grid, cfg: Config): Violation[] {
+  const out: Violation[] = [];
+  const lateBeats = cfg.cancelLateMs / 1000 / grid.beatSec;
+  choreo.attacks.forEach((atk, i) => {
+    if (!atk.after) return;
+    const w = activeWindow(atk, grid.beatSec, cfg, attackMotion(choreo, atk));
+    const settle = w.endBeat + lateBeats;
+    const start = branchStartBeat(atk);
+    if (start < settle - 1e-9) {
+      out.push({ attackIndex: i, rule: 'after-order', message: `分岐の開始 (path の最後 ${start}) が結果の確定 ${settle.toFixed(3)} 拍より前` });
+    }
+    const next = choreo.attacks.filter((a) => a.telegraphBeat > atk.telegraphBeat).sort((a, b) => a.telegraphBeat - b.telegraphBeat)[0];
+    const end = Math.max(branchEndBeat(atk, atk.after.handled), branchEndBeat(atk, atk.after.hit));
+    if (next && end > next.telegraphBeat + 1e-9) {
+      out.push({ attackIndex: i, rule: 'after-overlap', message: `分岐の終わり ${end} が次の攻撃の予告開始 ${next.telegraphBeat} より後` });
+    }
+  });
   return out;
 }
 

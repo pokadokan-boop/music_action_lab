@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import acceptance from '../../acceptance.json';
 import { config } from '../config';
-import { enemyPosAt, hitboxAt, incomingDir, pathPosAt, resolveAttack, validateChoreo, type CircleHit, type SegmentHit } from './choreo';
+import {
+  applyBranch,
+  branchEndBeat,
+  branchStartBeat,
+  enemyPosAt,
+  hitboxAt,
+  incomingDir,
+  pathPosAt,
+  resolveAttack,
+  validateChoreo,
+  type CircleHit,
+  type SegmentHit,
+} from './choreo';
 import { distToSegment, easeIn } from './vec';
 import { WORLD } from './world';
 import { burstAttack, dashAttack, makeChoreo, makeGrid, shotAttack } from './test-fixtures';
@@ -245,6 +257,65 @@ describe('resolveAttack (自機狙い)', () => {
     const d = v.filter((x) => x.rule === 'dodgeable');
     expect(d.length).toBeGreaterThanOrEqual(1);
     expect(d.some((x) => /自機狙い: 予告開始時に \(\d\.\d{3}, \d\.\d{3}\) にいると/.test(x.message))).toBe(true);
+  });
+});
+
+describe('applyBranch (結果で分岐する次の動き。v4)', () => {
+  const rest = { x: 0.75, y: 0.28125 };
+  const player = { x: 0.5, y: 0.3 };
+
+  it('normal か無しなら同じものを返す', () => {
+    const atk = dashAttack();
+    expect(applyBranch(atk, undefined, player, { x: 1, y: 0 }, config, rest)).toBe(atk);
+    expect(applyBranch(atk, { move: 'normal' }, player, { x: 1, y: 0 }, config, rest)).toBe(atk);
+  });
+
+  it('stop は path の最後の点に beats (既定 1) とどまる点を足す', () => {
+    const atk = dashAttack();
+    const r = applyBranch(atk, { move: 'stop' }, player, { x: 1, y: 0 }, config, rest);
+    expect(branchStartBeat(atk)).toBe(10.5);
+    expect(r.path.slice(-1)[0]).toEqual({ beat: 11.5, x: 0.2, y: 0.5 });
+    expect(r.branchFromBeat).toBe(10.5);
+    expect(r.branchMove).toBe('stop');
+    expect(pathPosAt(r.path, 11, 'snap')).toEqual({ x: 0.2, y: 0.5 });
+    expect(atk.path).toHaveLength(3); // 元は変えない
+    expect(branchEndBeat(atk, { move: 'stop', beats: 2 })).toBe(12.5);
+    expect(branchEndBeat(atk, undefined)).toBe(10.5);
+  });
+
+  it('approach は 0.5 拍で自機の正面 (facing の側、接触距離 × 1.5) へ寄り、beats の終わりまでとどまる', () => {
+    const r = applyBranch(dashAttack(), { move: 'approach', beats: 2 }, player, { x: 0, y: 1 }, config, rest);
+    const d = (config.playerRadius + config.enemyRadius) * 1.5;
+    const added = r.path.slice(3);
+    expect(added).toHaveLength(2);
+    expect(added[0].beat).toBeCloseTo(11, 9);
+    expect(added[0].x).toBeCloseTo(0.5, 9);
+    expect(added[0].y).toBeCloseTo(0.3 + d, 9);
+    expect(added[1].beat).toBeCloseTo(12.5, 9);
+    expect(added[1].y).toBeCloseTo(0.3 + d, 9);
+    expect(r.branchMove).toBe('approach');
+  });
+
+  it('retreat は休憩位置へ。世界の外に出る寄り先は収まる', () => {
+    const r = applyBranch(dashAttack(), { move: 'retreat' }, player, { x: 1, y: 0 }, config, rest);
+    expect(r.path.slice(-1)[0]).toEqual({ beat: 11.5, x: rest.x, y: rest.y });
+    const edge = applyBranch(dashAttack(), { move: 'approach' }, { x: 0.99, y: 0.01 }, { x: 1, y: -1 }, config, rest);
+    const p = edge.path.slice(-1)[0];
+    expect(p.x).toBeCloseTo(1 - config.enemyRadius, 9);
+    expect(p.y).toBeCloseTo(config.enemyRadius, 9);
+  });
+
+  it('検査: 分岐の開始が結果の確定より前なら after-order、終わりが次の予告開始より後なら after-overlap', () => {
+    const ok = makeChoreo([dashAttack({ after: { handled: { move: 'stop', beats: 1 } } }), burstAttack()]);
+    expect(validateChoreo(ok, grid, acceptance, config)).toEqual([]);
+    // path が窓の終わり (10.25) で終わる: 結果の確定 (10.25 + 遅い側 50 ms = 10.35) より前
+    const early = makeChoreo([
+      dashAttack({ path: [{ beat: 8, x: 0.75, y: 0.5 }, { beat: 10, x: 0.3, y: 0.5 }, { beat: 10.25, x: 0.25, y: 0.5 }], after: { hit: { move: 'retreat' } } }),
+      burstAttack(),
+    ]);
+    expect(validateChoreo(early, grid, acceptance, config).map((v) => v.rule)).toContain('after-order');
+    const long = makeChoreo([dashAttack({ after: { handled: { move: 'stop', beats: 6 } } }), burstAttack()]);
+    expect(validateChoreo(long, grid, acceptance, config).map((v) => v.rule)).toContain('after-overlap');
   });
 });
 
