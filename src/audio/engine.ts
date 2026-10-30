@@ -3,7 +3,7 @@
 // 音色は拍とタイミングが分かる最低限。melody = 矩形波、bass = 三角波、drums = ノイズと短いサイン。
 // プレイヤーの 4 音は撥弦 (src/audio/pluck.ts)。曲の 3 声と別の系統 (docs/concept.md「曲と音の役割」)。
 
-import { midiToHz, pluckSpec, renderPluck, type PluckSpec } from './pluck';
+import { midiToHz, renderPluck, resolvePluckSpec, type PluckSpec } from './pluck';
 
 export { midiToHz };
 
@@ -94,9 +94,10 @@ export class AudioEngine {
   }
 
   // midi は cancel のときだけ使う (相殺した拍に最も近いメロディ音の 1 オクターブ上。docs/plan/v2-phase2.md「既定値の決め」)
-  // 4 音とも撥弦 (pluck.ts の pluckSpec の値)。曲の 3 声の合成器 (tone / drum / noise) は使わない
-  scheduleSfx(kind: SfxKind, atSec: number, midi: number = CANCEL_DEFAULT_MIDI): void {
-    this.pluck(kind, pluckSpec(kind, midi), atSec);
+  // 4 音とも撥弦 (pluck.ts の pluckSpec の値)。曲の 3 声の合成器 (tone / drum / noise) は使わない。
+  // override は音の口 (v4 T6): 音高・長さ・明るさ・音量を呼ぶ側が上書きできる。v4 では使わない (規則は v3 のまま)
+  scheduleSfx(kind: SfxKind, atSec: number, midi: number = CANCEL_DEFAULT_MIDI, override: Partial<PluckSpec> = {}): void {
+    this.pluck(kind, resolvePluckSpec(kind, midi, override), atSec);
   }
 
   private pluck(kind: SfxKind, spec: PluckSpec, at: number): void {
@@ -111,7 +112,8 @@ export class AudioEngine {
 
   private getPluck(kind: SfxKind, spec: PluckSpec): AudioBuffer {
     const sr = this.ctx.sampleRate;
-    const key = `${kind}:${spec.hz}:${sr}`;
+    // 波形を決める値を全部キーに入れる (上書きで変わりうるため)
+    const key = `${kind}:${spec.hz}:${spec.durSec}:${spec.decay}:${spec.brightness}:${sr}`;
     const cached = this.pluckBuffers.get(key);
     if (cached) return cached;
     const samples = renderPluck(sr, spec.hz, spec.durSec, spec);

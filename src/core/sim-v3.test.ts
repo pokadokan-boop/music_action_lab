@@ -1,6 +1,7 @@
-// v3 の完了条件 (docs/plan/v3-phase1.md): 実物の振り付け v3.json と曲の拍グリッドで、初期位置に立ったまま
+// v3 の完了条件 (docs/plan/v3-phase1.md): 実物の振り付け (v4.json。v3 と同じ動き) と曲の拍グリッドで、初期位置に立ったまま
 // 接触の前後に向きを合わせた押下を置けば dash と laser が相殺され、HP が減らないこと。Chrome の自動操作タブは描画が間引かれて
-// 時刻の検証に使えない (docs/plan/v2-phase1.md 完了記録の注意) ので、ここで sim を直接回して確かめる
+// 時刻の検証に使えない (docs/plan/v2-phase1.md 完了記録の注意) ので、ここで sim を直接回して確かめる。
+// v4 (docs/plan/v4-phase1.md): dash を相殺すると敵が path の最後 (19 拍) から 1 拍止まり、被弾すると止まらない
 import { Midi } from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -12,7 +13,7 @@ import { buildGrid } from './grid';
 import { createSim, effectiveChoreo, step, type InputState, type SimDeps, type SimState } from './sim';
 
 const root = resolve(__dirname, '..', '..');
-const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v3.json'), 'utf8')) as Choreo;
+const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v4.json'), 'utf8')) as Choreo;
 const grid = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${choreo.song}.mid`))));
 const deps: SimDeps = { choreo, grid, cfg: config, acceptance };
 const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
@@ -44,7 +45,7 @@ function pressFacingIncoming(state: SimState, idx: number, offsetMs: number, fli
   return { c };
 }
 
-describe('v3.json で立ったまま相殺できる', () => {
+describe('v4.json で立ったまま相殺できる (v3 の完了条件)', () => {
   const cancelable = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => !a.uncancelable);
 
   it('相殺できる攻撃は laser と dash の 5 つ、burst は 3 つとも uncancelable', () => {
@@ -100,5 +101,29 @@ describe('v3.json で立ったまま相殺できる', () => {
     const { c } = resolvedAndContact(state, 2);
     expect(c).toBeGreaterThan(18.3);
     expect(c).toBeLessThanOrEqual(18.5);
+  });
+});
+
+describe('v4.json の分岐: dash を捌けたら敵は path の最後 (19 拍) から 1 拍止まる', () => {
+  it('相殺した dash (攻撃 2) は 19〜20 拍の間、敵が同じ x にとどまり、結果は handled (止まる)', () => {
+    const state = createSim(deps);
+    pressFacingIncoming(state, 2, -60);
+    expect(state.cancelled.has(2)).toBe(true);
+    runUntil(state, 19.2);
+    expect(state.outcome.get(2)).toBe('handled');
+    const x0 = state.enemy.x;
+    runUntil(state, 19.9);
+    expect(state.enemy.x).toBeCloseTo(x0, 9);
+    expect(state.log.events.find((e) => e.kind === 'outcome' && e.attackIndex === 2)).toMatchObject({ outcome: 'handled', branch: 'stop' });
+  });
+
+  it('被弾した dash (攻撃 2) は止まらず、19 拍以降すぐ次の始点へ動く', () => {
+    const state = createSim(deps);
+    runUntil(state, 19.2);
+    expect(state.damagedBy.has(2)).toBe(true);
+    expect(state.outcome.get(2)).toBe('hit');
+    const x0 = state.enemy.x;
+    runUntil(state, 19.9);
+    expect(Math.abs(state.enemy.x - x0)).toBeGreaterThan(0.005);
   });
 });

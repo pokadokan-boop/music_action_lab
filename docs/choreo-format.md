@@ -35,6 +35,7 @@
 - `impactDelayBeats` (省略時 0、上限 0.25): 当たりの発生を `hitBeat` から遅らせる拍数。`hitBeat` は音のアンカーで検査に使い、実際の判定は `hitBeat + impactDelayBeats` に出る。音のアタックが立ち上がりきった瞬間に当てるためのもの (v1 の不満 3)。叩きつけなら、動き出しを hitBeat、着地のキーフレームを hitBeat + impactDelayBeats に置く
 - `aim` (省略時 `fixed`): `player` なら予告開始 (`telegraphBeat`) の瞬間のプレイヤー位置を狙う (v2 T4)。その瞬間に 1 回だけ狙いを決め、以後は追尾しない。型ごとの置き換え方 (`resolveAttack`): `dash` は突進の終点 (`hitBeat` より後の最初のキーフレーム。無ければ最後) が、`burst` は発生点 (`hitBeat + impactDelayBeats` 時点の位置) がプレイヤー位置に重なるよう、`telegraphBeat` より後のキーフレームを平行移動する (`telegraphBeat` 以前の点は変えないので予告開始時の敵は飛ばない。戻りのキーフレームも同じだけ動く)。移動後の点は x, y とも `[enemyRadius, 1 - enemyRadius]` に収める。`shot` / `laser` は本体を動かさず `target` をプレイヤー位置に置き換える。通り過ぎる突進は、終点の後にキーフレームを足して書く (仕組みに通り過ぎ量は持たせない。docs/plan/v2-phase2.md「既定値の決め」)
 - `uncancelable` (省略時 false): true なら相殺 (下記) の対象にならず、避けるしかない。相殺できる攻撃と避けるしかない攻撃を振り付けで混ぜるためのもの (v2 T5)
+- `after` (省略可。v4 T1): 結果で分岐する敵の次の動き。`{ "handled": Branch, "hit": Branch }` で、`Branch = { "move": "normal" | "stop" | "approach" | "retreat", "beats"?: 数 }`。結果は当たりの窓の終わり + 遅い側の相殺の窓 (`cancelLateMs`) で確定し、相殺済みか被弾していなければ `handled`、被弾していれば `hit` (相殺できない burst も避ければ handled)。分岐は path の最後のキーフレームの拍から始まる: `stop` は最後の点に `beats` (既定 1) とどまる、`approach` は 0.5 拍で自機の正面 (最後に攻撃した向きの側。無ければ右) の接触距離 × 1.5 の点へ snap で寄り `beats` の終わりまでとどまる、`retreat` は 0.5 拍で休憩位置へ戻り同様、`normal` は変えない。寄る先は分岐を適用する瞬間の自機の位置で決め、追従しない。分岐の区間には拍の揺れ (idle) が乗る。意味づけ (何がリターンか) は v5 で決める (docs/plan/v4-phase1.md)
 - `path`: 敵の移動キーフレーム。beat は単調増加。path の外側では端に留まる
 - `motion` (振り付け全体、攻撃ごとに上書き可): 区間の補間。`easeOut` = 区間の最初が速い (`1 - (1 - t)^3`、v0 の既定)。`snap` = 拍の頭に向けて加速する (`t^3`)。3 拍の移動なら最後の 1 拍で 70% 動く (v1。docs/decisions/v0-feedback.md 不満 1)。予告の動く輪も同じ補間に従う
 - `idle.amplitude`: 攻撃していない間、拍の頭で持ち上がって戻る上下の幅。拍を示すためのもの
@@ -68,5 +69,10 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - `shot-target`: shot / laser に target がある
 - `impact-delay`: impactDelayBeats が 0〜0.25 拍
 - `in-world`: path の全点と target が世界 (x 0〜1、y 0〜0.5625) の中にある。メッセージに外れた点の例と個数
+- `after-order`: `after` がある攻撃は、分岐の開始 (path の最後の拍) が結果の確定 (当たりの窓の終わり + `cancelLateMs`) 以降
+- `after-overlap`: 分岐の終わり (開始 + beats) が次の攻撃の予告開始以前
+
+## 構え (v4 T3)
+描画は `src/core/pose.ts` が決めた構えの名前だけを見る。敵: 予告開始〜当たりの窓の終わりは攻撃の型 (`laser` / `burst` / `dash`。shot は laser)、分岐で足した区間は `stopped` / `approach` / `retreat`、他は `idle`。自機: 被弾 → 相殺 → 攻撃 → 構える (敵が stopped か approach) → 立つ、の優先順。絵は `src/render/figures.ts` (線と面の人型と雫形の敵。画像ファイルは使わない)
 
 かっこいいかどうかは検査しない。それは遊んだ人間の不満で判定する。

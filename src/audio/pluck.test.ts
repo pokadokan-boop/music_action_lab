@@ -1,6 +1,6 @@
 // 撥弦の前計算 (pluck.ts) を波形の性質で確かめる
 import { describe, expect, it } from 'vitest';
-import { midiToHz, pluckSpec, renderPluck } from './pluck';
+import { midiToHz, pluckSpec, renderPluck, resolvePluckSpec } from './pluck';
 
 const SR = 48000;
 
@@ -118,5 +118,21 @@ describe('pluckSpec', () => {
       expect(s.gain).toBeGreaterThanOrEqual(0.25);
       expect(s.gain).toBeLessThanOrEqual(0.35);
     }
+  });
+});
+
+describe('resolvePluckSpec (音の口。v4 T6)', () => {
+  it('上書きが無ければ pluckSpec と同じ (規則は v3 のまま)', () => {
+    for (const kind of ['on', 'off', 'miss', 'cancel'] as const) {
+      expect(resolvePluckSpec(kind, 72)).toEqual(pluckSpec(kind, 72));
+    }
+  });
+
+  it('上書きした項目だけが変わる', () => {
+    const s = resolvePluckSpec('on', undefined, { hz: 523.25, brightness: 0.9 });
+    expect(s.hz).toBeCloseTo(523.25, 9);
+    expect(s.brightness).toBe(0.9);
+    expect(s.durSec).toBe(pluckSpec('on').durSec);
+    expect(s.gain).toBe(pluckSpec('on').gain);
   });
 });

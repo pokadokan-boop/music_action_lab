@@ -30,7 +30,7 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   panel.className = 'panel';
 
   const h1 = document.createElement('h1');
-  h1.textContent = 'music_action_lab v3';
+  h1.textContent = 'music_action_lab v4';
   const song = document.createElement('p');
   song.textContent = `曲: ${opts.songName}。20 秒、敵 1 体。`;
 

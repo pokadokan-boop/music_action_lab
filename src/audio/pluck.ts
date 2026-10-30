@@ -96,6 +96,12 @@ export function pluckSpec(kind: PluckKind, midi?: number): PluckSpec {
   }
 }
 
+// 音の口 (v4 T6): 既定の spec の上に呼ぶ側の上書きを重ねる。v4 では規則を変えないので上書きは空。
+// v5 以降が音高 (hz) や長さ・明るさを渡すための口 (docs/plan/v4-phase1.md「目的」3)
+export function resolvePluckSpec(kind: PluckKind, midi?: number, override: Partial<PluckSpec> = {}): PluckSpec {
+  return { ...pluckSpec(kind, midi), ...override };
+}
+
 export function midiToHz(midi: number): number {
   return 440 * 2 ** ((midi - 69) / 12);
 }

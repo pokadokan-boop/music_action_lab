@@ -1,7 +1,7 @@
 {
-  "id": "v3",
+  "id": "v4",
   "song": "candidate-2",
-  "intent": "v2 (自機狙いと相殺) と同じ振り付けを等方座標に写し、相殺が成立するようにした版。自機との接触の前後で相殺でき、範囲攻撃だけは相殺できず避けるしかない",
+  "intent": "v3 と同じ振り付けに、結果で分岐する動きを 1 箇所だけ試しに付けた版。突進を捌けたら敵はその場に 1 拍止まる。一連の流れの設計は v5 で決める",
   "idle": { "amplitude": 0.02 },
   "motion": "snap",
   "attacks": [
@@ -33,6 +33,7 @@
     {
       "phrase": 3, "type": "dash", "aim": "player",
       "telegraphBeat": 16, "hitBeat": 18, "activeBeats": 0.5,
+      "after": { "handled": { "move": "stop", "beats": 1 } },
       "path": [
         { "beat": 16, "x": 0.75, "y": 0.19688 },
         { "beat": 18, "x": 0.72, "y": 0.16875 },
@@ -69,6 +70,7 @@
     {
       "phrase": 6, "type": "dash", "aim": "player",
       "telegraphBeat": 32, "hitBeat": 34, "activeBeats": 0.5,
+      "after": { "handled": { "move": "stop", "beats": 1 } },
       "path": [
         { "beat": 32, "x": 0.75, "y": 0.19688 },
         { "beat": 34, "x": 0.72, "y": 0.16875 },
