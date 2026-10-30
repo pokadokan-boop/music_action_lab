@@ -90,7 +90,20 @@ graph TD
 2. 音の出力遅延 280 ms について: 有線の音声機器で遊べるなら、要約の値が変わるか見てほしい (docs/decisions/v3-feedback.md F6)
 3. v4 を遊んで不満ノートに書く。v5 に向けて、流れについて思うことがあれば一言
 
-## 未決 (Phase 2 で Claude が決めて記録)
-- 敵の形と構えの具体
-- 「捌けた」の定義の細部 (burst を避けたときも捌けた、で始める)
-- 分岐の項目名
+## 未決 (Phase 2 で決めた。docs/plan/v4-phase2.md「既定値の決め」)
+- 敵の形: 目のある雫形。構えは体の伸び縮みと目の形で描き分け
+- 「捌けた」: 相殺済み、または窓の終わり + 遅い側の相殺の窓 までに被弾していない (burst を避けたときも捌けた)
+- 分岐の項目名: `after: { handled, hit }`、`Branch = { move, beats }`
+
+## 完了記録 (2026-10-30)
+| 完了条件 | 結果 |
+|---|---|
+| 分岐: データで書け、検査があり、sim で dash の相殺 → 止まる / 被弾 → 通常 | `Attack.after`、`applyBranch`、検査 `after-order` / `after-overlap`。フィクスチャと実物の v4.json の両方でテスト (相殺した dash は 19〜20 拍止まり、被弾した dash は止まらない)。「止まる」は Phase 1 の 2 拍でなく 1 拍 (次の予告が 20 拍のため) |
+| 姿: 自機の人型 5 構え、敵の形と 4 構え、四角は消える、構えは名前で選ばれる | src/core/pose.ts (選択、テスト 4 件) と src/render/figures.ts (絵)。構えの一覧 (drawPoseSheet) と実際の画面を Chrome で確認: 人型 5 構えと敵 7 構えが見分けられる。四角は消えた |
+| 音の口: 音高・長さ・明るさ・音量を渡せ、既定は v3 と同じ | `resolvePluckSpec` と `scheduleSfx` の override。テスト: 上書き無しは v3 の spec と一致 |
+| 記録: 攻撃ごとの結果と分岐。要約の行と phrase 表の列 | `outcome` イベント。「捌けた n / 被弾 m (結果の出た攻撃、分岐した)」と「結果」列 (例「捌けた (止まる)」) |
+| v4.json (v3 と同じ動きに分岐 1 箇所)、検査、v3.json を外す | dash (phrase 3、6) に after.handled = stop 1 拍。validate-choreo: 違反なし。choreo-assets.test は `['v4.json']` |
+| 文書: choreo-format、README、assets/choreo/README、不満ノート、concept.md の注記 | 全て更新。vault:音楽アクション/v4 不満.md を作った。concept.md「入れないもの」に「書いた時点の判断」と姿の注記 |
+| テストが通り、公開 URL で遊べる。調整パネルは残す | `npm test` 148 件 (15 ファイル)、`npm run build` 通過。公開 URL はタイトル v4 で確認 (下) |
+
+注意: 自動操作タブでは描画が間引かれるので、構えの切り替わりの滑らかさや時刻は見ていない。手触りは本人の不満で。
