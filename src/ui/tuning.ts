@@ -71,7 +71,7 @@ export function formatTuningValue(v: number): string {
   return String(Math.round(v * 1000) / 1000);
 }
 
-// 結果の要約の 1 行目に付ける。既定値なら「調整 窓 前100/後50 ms 大きさ 0.6 扇 1.2 許容 60°」
+// 結果の要約の 1 行目に付ける。既定値なら「調整 窓 前100/後50 ms 大きさ 0.6 扇 1.6 許容 60°」
 export function describeTuning(t: Tuning): string {
   const f = formatTuningValue;
   return `調整 窓 前${f(t.cancelEarlyMs)}/後${f(t.cancelLateMs)} ms 大きさ ${f(t.sizeScale)} 扇 ${f(t.fanRatio)} 許容 ${f(t.cancelFacingDeg)}°`;

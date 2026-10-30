@@ -60,15 +60,15 @@ describe('tuning', () => {
   });
 
   it('describeTuning は既定値で計画どおりの 1 行になる', () => {
-    expect(describeTuning(defaultTuning)).toBe('調整 窓 前100/後50 ms 大きさ 0.6 扇 1.2 許容 60°');
+    expect(describeTuning(defaultTuning)).toBe('調整 窓 前100/後50 ms 大きさ 0.6 扇 1.6 許容 60°');
     expect(describeTuning({ ...defaultTuning, sizeScale: 0.1 + 0.2 + 0.3 })).toContain('大きさ 0.6 ');
   });
 
-  it('makeConfig(defaultTuning) の半径 (自機 0.024・敵 0.03・扇 0.0576)', () => {
+  it('makeConfig(defaultTuning) の半径 (自機 0.024・敵 0.03・扇 0.0768 = 直径 × 1.6)', () => {
     const cfg = makeConfig(defaultTuning);
     expect(cfg.playerRadius).toBeCloseTo(0.024, 9);
     expect(cfg.enemyRadius).toBeCloseTo(0.03, 9);
-    expect(cfg.attackRadius).toBeCloseTo(0.0576, 9);
+    expect(cfg.attackRadius).toBeCloseTo(0.0768, 9);
     expect(cfg.tuning).toBe(defaultTuning);
   });
 });

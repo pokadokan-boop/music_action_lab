@@ -11,7 +11,9 @@
 - docs/plan/loop-phase1.md: 回す仕組みの段階 1 (NEXT.md とセッション規律)。承認済み、実装済み
 - docs/plan/loop-phase2.md: 回す仕組みの段階 2 (無人の専門家と判断者)。承認済み 2026-10-29。判断者は Task Scheduler から毎日 `scripts/steward/run.js` で起動し、docs/steward/judge.md に従って規律と待ちの在庫を減らす。削除は承認なしで commit (接頭辞 `[仕組み] 判断者:`)、記録は docs/steward/runs/、提案は docs/steward/proposals/。削除に不満があれば不満ノートに書く
 - docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細。完了記録あり
-- docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認済み 2026-10-29。不満の分解は docs/decisions/v2-feedback.md
+- docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認済み 2026-10-29。完了記録あり。不満の分解は docs/decisions/v2-feedback.md
+- docs/plan/v4-phase1.md: v4 (呼びと応え。捌いた後に続くもの、応えの音、姿) の目的・完了条件・入れないもの。承認待ち。不満の分解は docs/decisions/v3-feedback.md。エンジン (ブラウザのまま) の判断もここ
+- docs/play-image.md: 理想の 20 秒の動作イメージ (Claude の下書き、本人が直す叩き台)
 - docs/decisions/commit-labels.md: commit とタスクの接頭辞の定義。[作品] = このゲームに属するもの (コードを含む)、[仕組み] = 開発の流れ (2026-10-29 に本人の指摘で直した)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査

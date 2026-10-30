@@ -15,10 +15,11 @@ export interface Tuning {
   cancelFacingDeg: number;
 }
 
-// 既定値の理由は docs/plan/v3-phase1.md「既定値」(早い側 100 ms は原本「判定緩め +前 6 フレーム」、0.6 倍と 1.2 倍は本人の値)
+// 既定値の理由は docs/plan/v3-phase1.md「既定値」(早い側 100 ms は原本「判定緩め +前 6 フレーム」、0.6 倍は本人の値)。
+// fanRatio 1.6 は本人が v3 の調整パネルで選んだ値 (vault:音楽アクション/v3 不満.md の要約、2026-10-30)
 export const defaultTuning: Tuning = {
   sizeScale: 0.6,
-  fanRatio: 1.2,
+  fanRatio: 1.6,
   cancelEarlyMs: 100,
   cancelLateMs: 50,
   cancelFacingDeg: 60,

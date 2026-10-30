@@ -1,22 +1,22 @@
 # NEXT.md: 次のセッションへの引き継ぎ
-更新 2026-10-29。区切りごとに Claude が書き直す (書き方は CLAUDE.md「区切りの作り方」)。
+更新 2026-10-30。区切りごとに Claude が書き直す (書き方は CLAUDE.md「区切りの作り方」)。
 
 ## 次の 1 手
-- v3 は完了 (docs/plan/v3-phase1.md「完了記録」)。次は本人が v3 を遊んで不満ノート (vault:音楽アクション/v3 不満.md か、v2 不満.md「v3 について」の下) に書くのを待つ。不満が来たら docs/concept.md → そのノート → docs/decisions/v2-feedback.md → docs/play-image.md の順に読み、不満を変更に落として docs/decisions/v3-feedback.md に分解を書き、v4 の目的・完了条件・入れないものを docs/plan/v4-phase1.md に書いて承認を求める
-- 不満がまだ無ければ: docs/play-image.md の「本人に直してほしい点」(6 節、10 件) に本人の返事が付いていないか見る。付いていれば文書に反映する。付いていなければ待つ (作品側の変更は不満を根拠にする)
-- 本人が選んだ調整値 (要約の先頭行「調整 窓 前…/後… ms 大きさ … 扇 … 許容 …°」) が不満ノートに貼られていたら、src/config.ts の `defaultTuning` に反映して `[作品]` で commit する (パネルは残す)
+- v4 の Phase 1 (docs/plan/v4-phase1.md) は本人の承認待ち。承認されたら、docs/concept.md → docs/decisions/v3-feedback.md → docs/plan/v4-phase1.md (「承認に含めるもの」の可否を本人の返事から拾う) → docs/play-image.md → docs/choreo-format.md → src/core/sim.ts・choreo.ts・render/canvas.ts・audio/pluck.ts の順に読み、docs/plan/v4-phase2.md を書いて承認を待たずに T1 (応えの窓) から実装に入る
+- 「承認に含めるもの」の既定: 返事が無い点は「可」として進める。ただし concept.md の注記 (姿) は承認が明示されるまで書かず、Unity への移行は「移らない」で進める
+- 返事が「Unity に移る」なら実装に入らず、回し方 (ビルド・確認・配置) の計画を docs/plan/engine-move.md に書いて止まる
 - 現状の確認: `npm test` (131 件、14 ファイル)、`npx tsx scripts/validate-choreo.ts assets/choreo/v3.json`
-- 終了条件: 不満の分解が docs/decisions/v3-feedback.md にあり、v4 の Phase 1 が本人の承認待ちになっている
+- 終了条件: v4 の完了条件が全て満たされ、公開 URL で遊べ、不満ノートに v4 の節がある
 
 ## 今の状態
-- 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v3。タイトルに調整パネル)
-- 最新 commit: v3 の完了記録と NEXT.md。v3 の本体は T1〜T7 の 8 commit (aae4d92 等方座標 → 6637719 楽器、+ sim-v3 のテスト)。同じ日に別セッションが段階 2 (無人の判断者) を commit しているので、履歴は交互に並んでいる
-- テスト: `npm test` 131 件 (14 ファイル) 通過。`npm run build` 通過
-- 未 push: なし。注意: push は gh の有効アカウントが pokadokan-boop のときだけ通る (`gh auth switch --user pokadokan-boop`)
-- 回す仕組み: 段階 1 (NEXT.md と区切りの規律) は稼働中。2026-10-29 に「切ってください」を廃止 (CLAUDE.md「区切りの作り方」)。段階 2 (無人の専門家と判断者、docs/plan/loop-phase2.md) は別セッションで承認・実装され、Task Scheduler に `music_action_lab-steward` (毎日 05:00) が登録済み。判断者の状態はそのセッションの記録 (docs/steward/runs/) を見る
-- 判断者: 最終実行 2026-10-29、削除 3、提案 0、質問 0、要望 0 (docs/steward/runs/2026-10-29.md)
-- 同じ作業ツリーで 2 つのセッションが動いた日の注意: 共有の index に相手のファイルがステージされていることがある。commit は `git commit -F <msg> -- <自分のパス>` でパスを指定する (この日の v3 の commit は全てそうした)
+- 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v3。扇の既定値だけ 1.6 に更新)
+- 最新 commit: v3 の不満の分解 (docs/decisions/v3-feedback.md)、扇の既定値 1.6、v4 Phase 1 (承認待ち)
+- テスト: `npm test` 131 件 (14 ファイル) 通過
+- 未 push: なし。注意: push は gh の有効アカウントが pokadokan-boop のときだけ通る
+- 回す仕組み: 段階 1 は稼働中。段階 2 の判断者は 2026-10-29 に初回実行 (削除 3)。v3 の不満は本人が遊んだ当日に分解と v4 の案まで進んだ (1 往復)
+- 本人の環境: 音の出力遅延の補正が 280 ms (Claude の Chrome は 56 ms)。自分の攻撃の音が押してから 0.65 拍遅れて聞こえる環境なので、「自分の音が曲に乗る」評価はこの値を見てから読む
 
 ## 本人に聞きたいこと
-1. v3 を遊んで、相殺が成立する手応え / 選んだ調整値 / 自分の音が曲と区別できるか / 捌きたくなるか、を不満ノートに。答えが無くても進められる範囲: なし (作品側の変更は不満を根拠にする)
-2. docs/play-image.md の 6 節 (10 件)。特に 2 (dash の接触が裏拍 18.5 に来るのが意図どおりか。v3 はそのまま、予告の輪を 18.5 に収束させた) と 3 (向きと移動が同じスティックで、相殺のために倒すと動いてしまう)。答えが無くても進められる範囲: 文書は叩き台のまま置いておく
+1. docs/plan/v4-phase1.md の承認と、「承認に含めるもの」4 点 (姿を入れる / 追いかけを無くす方向 / 応えの音は調の 5 音から選ぶ / ブラウザのまま続ける)。答えが無くても進められる範囲: なし (版の承認は 1 回要る)
+2. 音の出力遅延 280 ms は Bluetooth の音声機器の値に見える。有線で遊べるなら、要約の「音の出力遅延の補正」が何 ms になるか見てほしい。答えが無くても進められる範囲: 全部 (v4 の実装は進む)
+3. docs/play-image.md 6 節 (10 件) は未回答のまま。急がない
