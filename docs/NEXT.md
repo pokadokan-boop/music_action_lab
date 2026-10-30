@@ -2,7 +2,7 @@
 更新 2026-10-30。区切りごとに Claude が書き直す (書き方は CLAUDE.md「区切りの作り方」)。
 
 ## 次の 1 手
-- v4 の Phase 1 (docs/plan/v4-phase1.md) は本人の承認待ち。承認されたら、docs/concept.md → docs/decisions/v3-feedback.md → docs/plan/v4-phase1.md (「承認に含めるもの」の可否を本人の返事から拾う) → docs/play-image.md → docs/choreo-format.md → src/core/sim.ts・choreo.ts・render/canvas.ts・audio/pluck.ts の順に読み、docs/plan/v4-phase2.md を書いて承認を待たずに T1 (応えの窓) から実装に入る
+- v4 の Phase 1 (docs/plan/v4-phase1.md。2026-10-30 に本人の指摘で「流れを作るための部品」に絞った) は本人の承認待ち。承認されたら、docs/concept.md → docs/decisions/v3-feedback.md → docs/plan/v4-phase1.md (「承認に含めるもの」の可否を本人の返事から拾う) → docs/play-image.md → docs/choreo-format.md → src/core/sim.ts・choreo.ts・render/canvas.ts・audio/pluck.ts の順に読み、docs/plan/v4-phase2.md を書いて承認を待たずに T1 (結果で分岐する振り付け) から実装に入る。流れの設計と応えの音の規則は v4 に入れない (v5 で本人が言葉で決める)
 - 「承認に含めるもの」の既定: 返事が無い点は「可」として進める。ただし concept.md の注記 (姿) は承認が明示されるまで書かず、Unity への移行は「移らない」で進める
 - 返事が「Unity に移る」なら実装に入らず、回し方 (ビルド・確認・配置) の計画を docs/plan/engine-move.md に書いて止まる
 - 現状の確認: `npm test` (131 件、14 ファイル)、`npx tsx scripts/validate-choreo.ts assets/choreo/v3.json`
@@ -17,6 +17,6 @@
 - 本人の環境: 音の出力遅延の補正が 280 ms (Claude の Chrome は 56 ms)。自分の攻撃の音が押してから 0.65 拍遅れて聞こえる環境なので、「自分の音が曲に乗る」評価はこの値を見てから読む
 
 ## 本人に聞きたいこと
-1. docs/plan/v4-phase1.md の承認と、「承認に含めるもの」4 点 (姿を入れる / 追いかけを無くす方向 / 応えの音は調の 5 音から選ぶ / ブラウザのまま続ける)。答えが無くても進められる範囲: なし (版の承認は 1 回要る)
+1. docs/plan/v4-phase1.md の承認と、「承認に含めるもの」3 点 (姿を入れる / 流れの設計は v5 で本人が決める / ブラウザのまま続ける)。答えが無くても進められる範囲: なし (版の承認は 1 回要る)
 2. 音の出力遅延 280 ms は Bluetooth の音声機器の値に見える。有線で遊べるなら、要約の「音の出力遅延の補正」が何 ms になるか見てほしい。答えが無くても進められる範囲: 全部 (v4 の実装は進む)
 3. docs/play-image.md 6 節 (10 件) は未回答のまま。急がない
