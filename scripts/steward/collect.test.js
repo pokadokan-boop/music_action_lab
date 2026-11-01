@@ -5,8 +5,24 @@ import {
   firstSeenQuestions,
   parseQuestions,
   parseRunRecordNumbers,
+  silentDays,
   summarizeSession,
 } from './collect.js';
+
+describe('silentDays', () => {
+  it('最初の行の日から昨日までで、run.log に行の無い日を返す', () => {
+    const log = [
+      '2026-10-29T03:00:00.000Z start judge: x',
+      '2026-10-30T03:00:00.000Z skip: activity 2 min ago',
+      '2026-11-01T03:00:00.000Z start judge: x',
+    ].join('\n');
+    expect(silentDays(log, '2026-11-01')).toEqual(['2026-10-31']);
+    expect(silentDays(log, '2026-11-03')).toEqual(['2026-10-31', '2026-11-02']);
+  });
+  it('空のログは空', () => {
+    expect(silentDays('', '2026-11-01')).toEqual([]);
+  });
+});
 
 describe('classifyCommit (docs/decisions/commit-labels.md)', () => {
   it('接頭辞をそのまま読む (定義の日以降)', () => {

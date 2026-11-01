@@ -315,7 +315,28 @@ export function parseRunRecordNumbers(text) {
   return { deletions: +m[1], proposals: +m[2], questions: +m[3], requests: +m[4] };
 }
 
-export function collectSteward(repo) {
+// run.log に 1 行も無い日 (起動も飛ばしも無い = Scheduler が起動しなかった日)。最初の行の日から昨日まで。
+export function silentDays(logText, today) {
+  const days = new Set(
+    logText
+      .split('\n')
+      .map((l) => l.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/))
+      .filter(Boolean)
+      .map((m) => localDate(new Date(m[1]))),
+  );
+  if (days.size === 0) return [];
+  const out = [];
+  const d = new Date(`${[...days].sort()[0]}T00:00:00Z`);
+  for (;;) {
+    const s = d.toISOString().slice(0, 10);
+    if (s >= today) break;
+    if (!days.has(s)) out.push(s);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+export function collectSteward(repo, today = localDate()) {
   const runsDir = path.join(repo, 'docs/steward/runs');
   const runs = fs.existsSync(runsDir)
     ? fs
@@ -326,12 +347,14 @@ export function collectSteward(repo) {
     : [];
   const skipsPath = path.join(repo, '.steward', 'skips.log');
   const skips = fs.existsSync(skipsPath) ? fs.readFileSync(skipsPath, 'utf8').trim().split('\n').filter(Boolean).slice(-20) : [];
+  const logPath = path.join(repo, '.steward', 'run.log');
   const q = spawnSync('schtasks', ['/Query', '/TN', TASK_NAME], { encoding: 'utf8' });
   return {
     runs,
     runCount: runs.length,
     deletionsTotal: runs.reduce((a, r) => a + (r.deletions ?? 0), 0),
     skips,
+    silentDays: silentDays(fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '', today),
     scheduledTask: { name: TASK_NAME, registered: q.status === 0 },
   };
 }
@@ -357,7 +380,7 @@ export function collectAll(repo, today = localDate()) {
     sessions: collectSessions(repo),
     feedback: collectFeedback(repo),
     tests: collectTests(repo),
-    steward: collectSteward(repo),
+    steward: collectSteward(repo, today),
   };
 }
 
