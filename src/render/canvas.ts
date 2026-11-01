@@ -3,13 +3,13 @@
 // 自機と敵の姿 (v4 T3) は src/render/figures.ts。構えの名前は src/core/pose.ts で決まる
 import type { Config } from '../config';
 import {
-  activeWindow,
   aimLine,
   attackMotion,
   cancelAnchorBeat,
   easeFor,
   hitboxAt,
   incomingDir,
+  leadsChain,
   pathPosAt,
   type Attack,
   type Choreo,
@@ -17,7 +17,7 @@ import {
   type Motion,
 } from '../core/choreo';
 import type { Grid } from '../core/grid';
-import { enemyPose, playerPose } from '../core/pose';
+import { currentAttack, enemyPose, playerPose } from '../core/pose';
 import { effectiveChoreo, type SimState } from '../core/sim';
 import { easeOut, normalize, type Vec } from '../core/vec';
 import { drawEnemy, drawPlayer } from './figures';
@@ -89,7 +89,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
 
   drawBeatTicks(ctx, vp, grid, beat);
 
-  for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, cfg, attackMotion(choreo, atk));
+  for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, cfg, attackMotion(choreo, atk), leadsChain(choreo, atk));
 
   for (const [idx, atk] of choreo.attacks.entries()) {
     // 相殺された当たりは消えている (sim.checkDamage と同じ)。本体は path どおり動き続ける
@@ -202,11 +202,10 @@ function enemyDir(choreo: Choreo, state: SimState, beatSec: number, cfg: Config)
   const beat = state.beat;
   const toPlayer = normalize({ x: state.player.x - state.enemy.x, y: state.player.y - state.enemy.y });
   const fallback = toPlayer.x === 0 && toPlayer.y === 0 ? { x: -1, y: 0 } : toPlayer;
-  for (const atk of choreo.attacks) {
-    const motion = attackMotion(choreo, atk);
-    const w = activeWindow(atk, beatSec, cfg, motion);
-    if (beat < atk.telegraphBeat || beat > w.endBeat) continue;
-    const d = incomingDir(atk, beat, state.player, beatSec, cfg, motion);
+  // 来ている攻撃 (重なるときは先に当たるもの。構えと同じ選び方)
+  const current = currentAttack(choreo, beat, beatSec, cfg);
+  if (current) {
+    const d = incomingDir(current, beat, state.player, beatSec, cfg, attackMotion(choreo, current));
     return d.x === 0 && d.y === 0 ? fallback : d;
   }
   for (const atk of choreo.attacks) {
@@ -272,7 +271,7 @@ function drawBeatTicks(ctx: CanvasRenderingContext2D, vp: Viewport, grid: Grid, 
 
 // 予告: 拍の数に合わせた補助線。当たり点に同心円を予告拍数ぶん置き、中心 → 外側へ 1 拍ごとに動く輪を描く。
 // dash は進路の線、shot は射線を添える。輪が外側に届く瞬間 = 相殺の基準 (cancelAnchorBeat。dash は自機に届く瞬間)。
-// 色は相殺できる攻撃が黄、uncancelable が赤 (v3 T4)
+// 色は相殺できる攻撃が黄、uncancelable が赤 (v3 T4)。chainLead (同じフレーズに続く攻撃がある。v5 T6) なら動く輪を二重にする
 function drawTelegraph(
   ctx: CanvasRenderingContext2D,
   px: (v: Vec) => Vec,
@@ -281,6 +280,7 @@ function drawTelegraph(
   beat: number,
   cfg: Config,
   motion: Motion,
+  chainLead = false,
 ): void {
   const anchor = cancelAnchorBeat(atk);
   if (beat < atk.telegraphBeat || beat >= anchor) return;
@@ -309,6 +309,13 @@ function drawTelegraph(
   ctx.beginPath();
   ctx.arc(ip.x, ip.y, Math.max(1, pr(moving)), 0, Math.PI * 2);
   ctx.stroke();
+  if (chainLead) {
+    // 2 連の印: 動く輪のすぐ内側にもう 1 本
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(ip.x, ip.y, Math.max(1, pr(moving) - 6), 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 6]);

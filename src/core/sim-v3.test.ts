@@ -1,7 +1,7 @@
-// v3 の完了条件 (docs/plan/v3-phase1.md): 実物の振り付け (v4.json。v3 と同じ動き) と曲の拍グリッドで、初期位置に立ったまま
-// 接触の前後に向きを合わせた押下を置けば dash と laser が相殺され、HP が減らないこと。Chrome の自動操作タブは描画が間引かれて
+// v3 の完了条件 (docs/plan/v3-phase1.md) を実物の振り付けで保つ: 曲の拍グリッドで、初期位置に立ったまま接触の前後に向きを合わせた
+// 押下を置けば、相殺できる攻撃 (dash / laser / shot) が相殺され、HP が減らないこと。Chrome の自動操作タブは描画が間引かれて
 // 時刻の検証に使えない (docs/plan/v2-phase1.md 完了記録の注意) ので、ここで sim を直接回して確かめる。
-// v4 (docs/plan/v4-phase1.md): dash を相殺すると敵が path の最後 (19 拍) から 1 拍止まり、被弾すると止まらない
+// v5 (docs/plan/v5-phase2-enemy.md) で振り付けは v5.json (17 攻撃、burst 3 つだけ相殺不可) になった。v4 の分岐の試し (dash の後に止まる) は外した
 import { Midi } from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,12 +13,15 @@ import { buildGrid } from './grid';
 import { createSim, effectiveChoreo, step, type InputState, type SimDeps, type SimState } from './sim';
 
 const root = resolve(__dirname, '..', '..');
-const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v4.json'), 'utf8')) as Choreo;
+const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v5.json'), 'utf8')) as Choreo;
 const grid = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${choreo.song}.mid`))));
 const deps: SimDeps = { choreo, grid, cfg: config, acceptance };
 const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
 const dt = config.fixedDt;
 const msBeat = (ms: number) => ms / 1000 / grid.beatSec;
+// v5.json の番号: 0 dash (phrase 0) / 1 shot, 2 laser (phrase 1) / 3 laser, 4 burst (phrase 2) / 5 shot, 6 dash (phrase 3) / ...
+const DASH_P3 = 6;
+const LASER_P1 = 2;
 
 // 「次の step で beat が target に達する」直前まで進める
 function runUntil(state: SimState, target: number): void {
@@ -45,11 +48,13 @@ function pressFacingIncoming(state: SimState, idx: number, offsetMs: number, fli
   return { c };
 }
 
-describe('v4.json で立ったまま相殺できる (v3 の完了条件)', () => {
+describe('v5.json で立ったまま相殺できる (v3 の完了条件を v5 で保つ)', () => {
   const cancelable = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => !a.uncancelable);
 
-  it('相殺できる攻撃は laser と dash の 5 つ、burst は 3 つとも uncancelable', () => {
-    expect(cancelable.map(({ a }) => a.type)).toEqual(['laser', 'dash', 'laser', 'dash', 'laser']);
+  it('相殺できる攻撃は 14 (dash 3, shot 5, laser 6)、burst は 3 つとも uncancelable', () => {
+    const count = (t: string) => cancelable.filter(({ a }) => a.type === t).length;
+    expect(cancelable).toHaveLength(14);
+    expect([count('dash'), count('shot'), count('laser')]).toEqual([3, 5, 6]);
     expect(choreo.attacks.filter((a) => a.uncancelable).map((a) => a.type)).toEqual(['burst', 'burst', 'burst']);
   });
 
@@ -62,68 +67,68 @@ describe('v4.json で立ったまま相殺できる (v3 の完了条件)', () =>
     expect(state.log.events.filter((e) => e.kind === 'damage' && e.attackIndex === idx)).toHaveLength(0);
   });
 
-  it('dash (攻撃 2): 接触の 30 ms 後の押下でも相殺され、受けた被弾は取り消される', () => {
+  it('dash (phrase 3): 接触の 30 ms 後の押下でも相殺され、受けた被弾は取り消される', () => {
     const state = createSim(deps);
-    const hpBefore = () => state.player.hp;
-    runUntil(state, choreo.attacks[2].telegraphBeat + 0.05);
-    const { atk, motion, c } = resolvedAndContact(state, 2);
+    runUntil(state, choreo.attacks[DASH_P3].telegraphBeat + 0.05);
+    const { atk, motion, c } = resolvedAndContact(state, DASH_P3);
     runUntil(state, c + msBeat(30));
-    const hp0 = hpBefore();
-    expect(state.damagedBy.has(2)).toBe(true);
+    const hp0 = state.player.hp;
+    expect(state.damagedBy.has(DASH_P3)).toBe(true);
     const inc = incomingDir(atk, c, state.player, grid.beatSec, config, motion);
     step(state, { move: { x: -inc.x, y: -inc.y }, attackPressed: true }, dt, deps);
-    expect(state.cancelled.has(2)).toBe(true);
+    expect(state.cancelled.has(DASH_P3)).toBe(true);
     expect(state.player.hp).toBe(hp0 + 1);
-    expect(state.log.events.filter((e) => e.kind === 'damage-undone' && e.attackIndex === 2)).toHaveLength(1);
+    expect(state.log.events.filter((e) => e.kind === 'damage-undone' && e.attackIndex === DASH_P3)).toHaveLength(1);
   });
 
-  it('dash (攻撃 2): 来る方向と同じ向き (背を向ける) では向き違いで相殺されず、被弾する', () => {
+  it('dash (phrase 3): 来る方向と同じ向き (背を向ける) では向き違いで相殺されず、被弾する', () => {
     const state = createSim(deps);
-    const { c } = pressFacingIncoming(state, 2, -60, true);
-    expect(state.cancelled.has(2)).toBe(false);
-    expect(state.log.events.filter((e) => e.kind === 'cancel-miss' && e.attackIndex === 2)[0]).toMatchObject({ reason: 'angle' });
+    const { c } = pressFacingIncoming(state, DASH_P3, -60, true);
+    expect(state.cancelled.has(DASH_P3)).toBe(false);
+    expect(state.log.events.filter((e) => e.kind === 'cancel-miss' && e.attackIndex === DASH_P3)[0]).toMatchObject({ reason: 'angle' });
     runUntil(state, c + 0.6);
-    expect(state.damagedBy.has(2)).toBe(true);
+    expect(state.damagedBy.has(DASH_P3)).toBe(true);
   });
 
-  it('laser (攻撃 0): 接触の 150 ms 前は窓の外 (timing) で被弾する', () => {
+  it('laser (phrase 1): 接触の 150 ms 前は窓の外 (timing) で被弾する', () => {
     const state = createSim(deps);
-    const { c } = pressFacingIncoming(state, 0, -150);
-    expect(state.cancelled.has(0)).toBe(false);
-    expect(state.log.events.filter((e) => e.kind === 'cancel-miss' && e.attackIndex === 0)[0]).toMatchObject({ reason: 'timing' });
+    const { c } = pressFacingIncoming(state, LASER_P1, -150);
+    expect(state.cancelled.has(LASER_P1)).toBe(false);
+    expect(state.log.events.filter((e) => e.kind === 'cancel-miss' && e.attackIndex === LASER_P1)[0]).toMatchObject({ reason: 'timing' });
     runUntil(state, c + 0.6);
-    expect(state.damagedBy.has(0)).toBe(true);
+    expect(state.damagedBy.has(LASER_P1)).toBe(true);
   });
 
   it('dash の接触は突進の終点の拍 (18.5) の少し前で、予告の輪の収束 (cancelAnchorBeat) と 0.1 拍以内', () => {
     const state = createSim(deps);
-    runUntil(state, choreo.attacks[2].telegraphBeat + 0.05);
-    const { c } = resolvedAndContact(state, 2);
+    runUntil(state, choreo.attacks[DASH_P3].telegraphBeat + 0.05);
+    const { c } = resolvedAndContact(state, DASH_P3);
     expect(c).toBeGreaterThan(18.3);
     expect(c).toBeLessThanOrEqual(18.5);
   });
 });
 
-describe('v4.json の分岐: dash を捌けたら敵は path の最後 (19 拍) から 1 拍止まる', () => {
-  it('相殺した dash (攻撃 2) は 19〜20 拍の間、敵が同じ x にとどまり、結果は handled (止まる)', () => {
+describe('v5.json の連なる攻撃 (docs/plan/v5-phase2-enemy.md T6)', () => {
+  it('立ったままだと 17 攻撃の全てに被弾する (全てが自機を狙い、予告の重なりで当たりが消えない)', () => {
     const state = createSim(deps);
-    pressFacingIncoming(state, 2, -60);
-    expect(state.cancelled.has(2)).toBe(true);
-    runUntil(state, 19.2);
-    expect(state.outcome.get(2)).toBe('handled');
-    const x0 = state.enemy.x;
-    runUntil(state, 19.9);
-    expect(state.enemy.x).toBeCloseTo(x0, 9);
-    expect(state.log.events.find((e) => e.kind === 'outcome' && e.attackIndex === 2)).toMatchObject({ outcome: 'handled', branch: 'stop' });
+    // シーンは 20 秒 (46.7 拍) で終わり、以後 step は進まない (runUntil が止まらなくなる) ので、最後の当たり (42.7 拍) の後の 45 拍まで
+    runUntil(state, 45);
+    expect(state.damagedBy.size).toBe(17);
   });
 
-  it('被弾した dash (攻撃 2) は止まらず、19 拍以降すぐ次の始点へ動く', () => {
+  it('敵の位置は入れ子の単一キーフレーム (shot / laser) で飛ばない: 6.5 → 8 は同じ点にとどまり、3 → 4 は着地点から laser の始点へ', () => {
     const state = createSim(deps);
-    runUntil(state, 19.2);
-    expect(state.damagedBy.has(2)).toBe(true);
-    expect(state.outcome.get(2)).toBe('hit');
-    const x0 = state.enemy.x;
-    runUntil(state, 19.9);
-    expect(Math.abs(state.enemy.x - x0)).toBeGreaterThan(0.005);
+    runUntil(state, 7.0);
+    const a = { ...state.enemy };
+    runUntil(state, 7.9);
+    expect(state.enemy.x).toBeCloseTo(a.x, 9);
+    // 拍の揺れ (idle) だけが y に乗る
+    expect(Math.abs(state.enemy.y - a.y)).toBeLessThan(0.03);
+    // 3.5 拍: 自機狙いで平行移動した dash の終点 (path の最後) と laser の始点 (0.3) の間にいる
+    const s = createSim(deps);
+    runUntil(s, 3.5);
+    const dashLast = effectiveChoreo(s, choreo).attacks[0].path.at(-1)!;
+    expect(s.enemy.x).toBeGreaterThan(Math.min(dashLast.x, 0.3));
+    expect(s.enemy.x).toBeLessThan(Math.max(dashLast.x, 0.3));
   });
 });

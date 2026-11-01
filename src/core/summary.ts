@@ -7,16 +7,24 @@ export function buildSummary(log: GameLog, choreo: Choreo, grid: Grid, meta: Sum
   const head = log.summary(meta);
   const rows: string[] = ['', ...buildScore(log, grid), '', 'phrase | 攻撃 | 被弾 | 結果 | 相殺 | 自分の攻撃回数'];
   for (const p of grid.phrases) {
-    const atks = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => a.phrase === p.index);
+    const atks = choreo.attacks
+      .map((a, i) => ({ a, i }))
+      .filter(({ a }) => a.phrase === p.index)
+      .sort((x, y) => x.a.hitBeat - y.a.hitBeat);
     const types = atks.map(({ a }) => `${a.type}@${a.hitBeat}`).join(' ') || '-';
-    const ofPhrase = (kind: string) => log.events.filter((e) => e.kind === kind && atks.some(({ i }) => i === e.attackIndex));
+    // 攻撃ごとの列 (v5: 1 フレーズに 2 攻撃)。攻撃が 2 つ以上なら「/」で並べる
+    const perAttack = (f: (idx: number) => string) => (atks.length === 0 ? '-' : atks.map(({ i }) => f(i)).join('/'));
+    const ofAttack = (kind: string, idx: number) => log.events.filter((e) => e.kind === kind && e.attackIndex === idx);
     // 被弾列: 被弾して取り消されていなければ「被弾」、遅い側の相殺で取り消されたら「取り消し」
-    const damaged = ofPhrase('damage').length === 0 ? '-' : ofPhrase('damage-undone').length > 0 ? '取り消し' : '被弾';
+    const damaged = perAttack((i) => (ofAttack('damage', i).length === 0 ? '-' : ofAttack('damage-undone', i).length > 0 ? '取り消し' : '被弾'));
     const myAttacks = log.events.filter((e) => e.kind === 'attack' && e.beat >= p.startBeat && e.beat < p.endBeat).length;
     // 結果列 (v4): 確定した結果 (捌けた / 被弾)。分岐が選ばれていれば「捌けた (止まる)」のように添える
-    const oc = ofPhrase('outcome')[0];
-    const result = !oc || !oc.outcome ? '-' : `${OUTCOME_LABEL[oc.outcome]}${oc.branch && oc.branch !== 'normal' ? ` (${BRANCH_LABEL[oc.branch]})` : ''}`;
-    rows.push(`${String(p.index).padStart(2)} | ${types} | ${damaged} | ${result} | ${cancelColumn(ofPhrase('cancel').length, ofPhrase('cancel-miss'))} | ${myAttacks}`);
+    const result = perAttack((i) => {
+      const oc = ofAttack('outcome', i)[0];
+      return !oc || !oc.outcome ? '-' : `${OUTCOME_LABEL[oc.outcome]}${oc.branch && oc.branch !== 'normal' ? ` (${BRANCH_LABEL[oc.branch]})` : ''}`;
+    });
+    const cancels = perAttack((i) => cancelColumn(ofAttack('cancel', i).length, ofAttack('cancel-miss', i)));
+    rows.push(`${String(p.index).padStart(2)} | ${types} | ${damaged} | ${result} | ${cancels} | ${myAttacks}`);
   }
   return `${head}\n${rows.join('\n')}`;
 }

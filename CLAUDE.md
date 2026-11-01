@@ -13,7 +13,8 @@
 - docs/plan/v2-phase1.md: v2 (当たりの時刻の基準と「捌く」) の目的とタスク一覧。docs/plan/v2-phase2.md が各タスクの詳細。完了記録あり
 - docs/plan/v3-phase1.md: v3 (相殺を成立させる) の目的・完了条件・入れないもの。承認済み 2026-10-29。完了記録あり。不満の分解は docs/decisions/v2-feedback.md
 - docs/plan/v4-phase1.md: v4 (流れを作るための部品: 結果で分岐する振り付け、姿、音の口) の目的・完了条件・入れないもの。承認済み 2026-10-30、完了記録あり。不満の分解は docs/decisions/v3-feedback.md。エンジン (ブラウザのまま) の判断もここ
-- docs/plan/v5-flow-options.md: 捌いた後の流れの案 3 つ (A 弾き返す / B 呼びと応え / C 拍を奪い合う)。言葉だけで実装していない。本人が選ぶか直してから v5 の Phase 1 を書く
+- docs/plan/v5-flow-options.md: 捌いた後の流れの案 A〜D と本人の返事 3 回 (2026-11-02。A〜C は大味、D「プレイヤーの行動に拍の長さを持たせる」を軸に)。不満の分解は docs/decisions/v4-feedback.md
+- docs/plan/v5-phase1.md: v5 (行動に拍の長さを持たせる: ステップ・溜め・放ち・返し・音高 3 案、敵の攻撃を全メロディ音に) の目的・完了条件・入れないもの。承認済み 2026-11-02。詳細は docs/plan/v5-phase2-player.md (セッション A) と v5-phase2-enemy.md (セッション B)
 - docs/play-image.md: 理想の 20 秒の動作イメージ (Claude の下書き、本人が直す叩き台)
 - docs/decisions/commit-labels.md: commit とタスクの接頭辞の定義。[作品] = このゲームに属するもの (コードを含む)、[仕組み] = 開発の流れ (2026-10-29 に本人の指摘で直した)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査

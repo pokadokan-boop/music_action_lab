@@ -133,3 +133,17 @@ graph TD
 | 文書 | README「遊ぶ (v5)」、docs/plan/v5-phase2-player.md、この完了記録。concept.md の入力の注記と不満ノート v5 はセッション B の公開時 |
 
 セッション A で変えなかったもの: 振り付け (v4.json のまま。dash の after.stop も残っている。セッション B で v5.json に替える)、敵の構え、調整パネルの項目。
+
+## 完了記録 セッション B (敵の配置。2026-11-02)
+詳細は docs/plan/v5-phase2-enemy.md。承認事項 2 (連なる攻撃の予告先行を 1 拍に緩める) は使わなかった: 全てのメロディ音に 2 拍前の予告で置けたので、acceptance.json は変えていない (緩める必要が無い規則は緩めない)。
+| 完了条件 | 結果 |
+|---|---|
+| 敵の振り付け v5.json: 17 攻撃、同じモチーフに同じ 2 攻撃、相殺可 / 不可の混ぜ方、連なる攻撃の印と検査、v4.json を外す | X = shot → dash、Y = shot (裏拍) → laser、Z = laser → burst (相殺不可)。phrase 0 は dash だけ。`chained` と検査 `chain-order`。`validate-choreo` 違反なし。choreo-assets.test で 17 攻撃・全メロディ音 (拍 0 以外)・モチーフごとの型・uncancelable 3・chained 8・after 無しを見る。理由は assets/choreo/README.md |
+| 敵の位置・構え・向きが重なる攻撃で壊れない | `enemyPosAt` の前の終点を拍が最大の終点に (入れ子の単一キーフレームで飛ばない。テスト)、`currentAttack` で当たりの窓が先に終わる攻撃の構えと向き |
+| 予告の 2 連の印 | 1 つ目の攻撃の動く輪を二重に (`leadsChain`) |
+| phrase 表 | 攻撃ごとに「/」で並べる (攻撃 1 つなら今までどおり。既存のテストはそのまま通る) |
+| sim のテスト | sim-v3.test.ts を v5.json に (相殺できる 14 攻撃全てで立ったまま相殺できる、dash の取り消し、向き違い、timing、接触 18.5、立ったままだと 17 攻撃全てに被弾、敵の位置が飛ばない)。sim-v5.test.ts の攻撃番号を v5 に。`npm test` 182 件 (17 ファイル)、`npm run build` 通過 |
+| 文書 | docs/choreo-format.md「連なる攻撃」、assets/choreo/README.md (v5 の表)、README「遊ぶ (v5)」、concept.md「範囲」の入力の注記、vault:音楽アクション/v5 不満.md (書いてほしいこと 6 点)、CLAUDE.md の文書一覧 |
+| 公開 URL | push 後に GitHub Actions が配置。自動操作タブは描画が間引かれるので、2 攻撃の見え方と予告の二重の輪は本人が遊んで見る |
+
+v5 全体で確認できていないこと (本人の手で): 自分の音の列が曲に乗るか (有線でも)、2 攻撃のフレーズが読めるか、溜めの手触りと輪の見え方、音高 3 案の聴き比べ、R1 / ○ の実機。曲の最初の 2 拍から突進が来る (phrase 0 に dash) のは本人の指摘 (全メロディ音に置く) に従った結果で、忙しければ phrase 0 だけ外す案がある。

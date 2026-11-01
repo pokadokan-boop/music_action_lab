@@ -12,7 +12,7 @@
 - 敵の攻撃が自機に触れる瞬間の前 100 ms〜後 50 ms に、来る方向へ向けて攻撃すると相殺できる。触れた後でも 50 ms 以内なら被弾が取り消される。予告が黄の攻撃 (突進・レーザー) は相殺でき、赤 (叩きつけ) は相殺できず避けるしかない
 - タイトルの「調整」で相殺の窓・自機と敵の大きさ・扇の半径・向きの許容角を動かせる。選んだ値は結果の要約の先頭行に出るので、不満ノートに貼れば次の版の既定値に反映される
 - v4 で入ったもの: 自機は人型、敵は雫形で、構え (立つ・攻撃・相殺・被弾・構える / 攻撃の型ごと・止まっている) が変わる。突進を捌けた (相殺した、または当たらなかった) ときだけ、敵は通り過ぎた所で 1 拍止まる。これは「結果で分岐する動き」の部品を 1 箇所試したもので、一連の流れの設計は次の版 (docs/plan/v4-phase1.md)
-- 振り付けは 1 本 (セッション A の時点では v4.json のまま。セッション B で全メロディ音に攻撃を置いた v5.json に替える)。「はじめる」はクリックか Enter (ブラウザの制約で、最初の音の有効化にはクリックかキーが要る)
+- 振り付けは v5 の 1 本 (曲のメロディの全ての音に攻撃。1 フレーズに 2 攻撃、17 攻撃。assets/choreo/README.md)。「はじめる」はクリックか Enter (ブラウザの制約で、最初の音の有効化にはクリックかキーが要る)
 - 20 秒で終わり、結果画面に記録の要約が出る。「コピー」して不満ノートに貼る。v5 の要約には行動ごとの回数・溜めの回数と、小節ごとの「プレイヤーの譜」(16 分 1 マスに行動の記号) が入る
 - 曲候補を聴く: https://pokadokan-boop.github.io/music_action_lab/candidates.html
 
@@ -36,13 +36,13 @@ npm test                 # Vitest (拍グリッド、振り付けの検査、決
 npm run build            # 型チェック + ビルド
 npm run gen:candidates   # 曲候補の再生成
 npx tsx scripts/print-grid.ts assets/midi/candidate-2.mid        # 拍グリッドとフレーズ一覧
-npx tsx scripts/validate-choreo.ts assets/choreo/v4.json         # 振り付けの検査 (自機狙い・等方座標・分岐の検査を含む)
-npx tsx scripts/sync-report.ts assets/choreo/v4.json             # 音と動き・当たりのずれを ms で見る
+npx tsx scripts/validate-choreo.ts assets/choreo/v5.json         # 振り付けの検査 (自機狙い・等方座標・分岐・連なる攻撃の検査を含む)
+npx tsx scripts/sync-report.ts assets/choreo/v5.json             # 音と動き・当たりのずれを ms で見る
 node scripts/steward/collect.js                                  # 判断者が使うデータ (JSON) を見る
 node scripts/steward/run.js --force                              # 無人の判断者を今すぐ走らせる (docs/plan/loop-phase2.md)
 node scripts/steward/register.js query                           # Task Scheduler の登録状態 (create / delete / run もある)
 ```
 - 合否条件は `acceptance.json`。Claude Code の hook が Edit/Write を止める (docs/decisions/acceptance-guard.md)
-- 振り付けの形式: docs/choreo-format.md。v4 の狙い: assets/choreo/README.md。理想の動作イメージ (本人が直す叩き台): docs/play-image.md
+- 振り付けの形式: docs/choreo-format.md。v5 の狙い: assets/choreo/README.md。理想の動作イメージ (本人が直す叩き台): docs/play-image.md
 - 設計と計画: docs/system-design.md、docs/plan/
 - push すると GitHub Actions が Pages に配置する

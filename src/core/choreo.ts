@@ -55,6 +55,8 @@ export interface Attack {
   // applyBranch が付ける。この拍以降の path は分岐で足した区間 (拍の揺れを乗せ、構えを分岐の種類にする)
   branchFromBeat?: number;
   branchMove?: BranchMove;
+  // 連なる攻撃 (v5 T6): 同じフレーズの 2 つ目の攻撃に付ける印。検査 chain-order と、1 つ目の予告の二重の輪に使う。予告の先行は 2 拍のまま
+  chained?: boolean;
 }
 
 export interface Choreo {
@@ -86,7 +88,8 @@ export type ViolationRule =
   | 'impact-delay'
   | 'in-world'
   | 'after-order'
-  | 'after-overlap';
+  | 'after-overlap'
+  | 'chain-order';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -162,6 +165,8 @@ function sortedByPathStart(choreo: Choreo): Attack[] {
 
 // 攻撃中は path に従う。攻撃の間は前の終点から次の始点へ振り付けの補間で移る。
 // 攻撃していない間は拍の頭で持ち上がり戻る小さな上下 (idle) を足し、拍を示す。
+// 「前の終点」は拍が最大の終点 (v5 T6)。単一キーフレームの攻撃 (shot / laser) を別の攻撃の path の中に入れ子にしたとき、
+// 並び順で最後に見た (拍の古い) 終点へ戻る動きが出ないようにするため
 export function enemyPosAt(choreo: Choreo, beat: number, restPos: Vec): Vec {
   const attacks = sortedByPathStart(choreo);
   const gapEase = easeFor(choreo.motion ?? 'easeOut');
@@ -181,9 +186,14 @@ export function enemyPosAt(choreo: Choreo, beat: number, restPos: Vec): Vec {
       const t = span <= 0 ? 1 : (beat - fromBeat) / span;
       return addIdle(lerpVec(from, first, gapEase(t)), beat, choreo);
     }
-    prevEnd = last;
+    if (!prevEnd || last.beat > prevEnd.beat) prevEnd = last;
   }
   return addIdle(prevEnd ? { x: prevEnd.x, y: prevEnd.y } : restPos, beat, choreo);
+}
+
+// 連なる攻撃の 1 つ目か (v5 T6): 同じフレーズに、自分より後に当たる chained の攻撃がある。予告の二重の輪に使う
+export function leadsChain(choreo: Choreo, attack: Attack): boolean {
+  return choreo.attacks.some((a) => a.chained && a.phrase === attack.phrase && a.hitBeat > attack.hitBeat);
 }
 
 function addIdle(pos: Vec, beat: number, choreo: Choreo): Vec {
@@ -418,6 +428,10 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
     const delay = atk.impactDelayBeats ?? 0;
     if (delay < 0 || delay > IMPACT_DELAY_MAX_BEATS) {
       out.push({ attackIndex: i, rule: 'impact-delay', message: `impactDelayBeats ${delay} は 0〜${IMPACT_DELAY_MAX_BEATS} 拍の範囲` });
+    }
+    // 連なる攻撃 (v5 T6): chained は同じフレーズに自分より先に当たる chained でない攻撃を持つこと
+    if (atk.chained && !choreo.attacks.some((a) => !a.chained && a.phrase === atk.phrase && a.hitBeat < atk.hitBeat)) {
+      out.push({ attackIndex: i, rule: 'chain-order', message: `chained だが phrase ${atk.phrase} に先に当たる 1 つ目の攻撃が無い` });
     }
     // 位置が世界座標の中にあること。v2 までの正規化座標 (y が 0.5625 を超える) をそのまま使うとここで弾かれる
     const outside = [...atk.path, ...(atk.target ? [atk.target] : [])].filter((p) => !inWorld(p));

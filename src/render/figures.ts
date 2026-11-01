@@ -398,7 +398,7 @@ export function drawPoseSheet(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
-  const columns: { pose: PlayerPose; pulse: number }[] = PLAYER_POSES.flatMap((pose) =>
+  const columns: { pose: PlayerPose; pulse: number }[] = PLAYER_POSES.flatMap((pose): { pose: PlayerPose; pulse: number }[] =>
     pose === 'idle' || pose === 'charge' ? [{ pose, pulse: 0 }, { pose, pulse: 1 }] : [{ pose, pulse: 0 }],
   );
   const pr = w * 0.026;

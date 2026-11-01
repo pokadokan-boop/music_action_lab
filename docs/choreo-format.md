@@ -76,3 +76,10 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 描画は `src/core/pose.ts` が決めた構えの名前だけを見る。敵: 予告開始〜当たりの窓の終わりは攻撃の型 (`laser` / `burst` / `dash`。shot は laser)、分岐で足した区間は `stopped` / `approach` / `retreat`、他は `idle`。自機: 被弾 → 相殺 → 攻撃 → 構える (敵が stopped か approach) → 立つ、の優先順。絵は `src/render/figures.ts` (線と面の人型と雫形の敵。画像ファイルは使わない)
 
 かっこいいかどうかは検査しない。それは遊んだ人間の不満で判定する。
+
+## 連なる攻撃 (v5 T6。2026-11-02)
+- `chained` (省略時 false): 同じフレーズの 2 つ目の攻撃に付ける印。検査 `chain-order`: chained の攻撃は、同じフレーズに自分より hitBeat が小さい chained でない攻撃を持つこと。予告の先行 (`telegraph-lead`) は chained でも 2 拍のまま (全てのメロディ音に 2 拍前の予告で置けたので、acceptance.json は変えていない。docs/plan/v5-phase2-enemy.md)
+- 予告は時間的に重なってよい (前の攻撃の当たりの瞬間に次の予告が出る)。1 つ目の攻撃 (同じフレーズに chained の攻撃が続く) の動く輪は二重に描く (2 連の印。`leadsChain`)
+- 敵の位置 (`enemyPosAt`): 攻撃の間の補間に使う「前の終点」は、拍が最大の終点。単一キーフレームの攻撃 (shot / laser の path が 1 点) を別の攻撃の path の中に入れ子にするときは、その点を外側の攻撃の同じ拍の位置に置く (敵が飛ばない)
+- 構えと向き (`currentAttack`): 予告〜当たりの窓が重なる攻撃が複数あるときは、当たりの窓が先に終わる攻撃を採る
+- 要約の phrase 表: 攻撃が 2 つのフレーズは 被弾 / 結果 / 相殺 の列を攻撃ごとに「/」で並べる (hitBeat の順)

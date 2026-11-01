@@ -6,13 +6,22 @@ export type EnemyPose = 'idle' | 'laser' | 'burst' | 'dash' | 'stopped' | 'appro
 // v5 で step (ステップ)、charge (溜め)、release (放ち)、riposte (返し) を足した
 export type PlayerPose = 'idle' | 'attack' | 'cancel' | 'hit' | 'ready' | 'step' | 'charge' | 'release' | 'riposte';
 
-// 敵の構え。攻撃の予告開始〜当たりの窓の終わりはその型 (shot は laser と同じ構え)、分岐で足した区間は分岐の種類、他は idle。
-// choreo は解決済み (effectiveChoreo) のものを渡す
-export function enemyPose(choreo: Choreo, beat: number, beatSec: number, cfg: Config): EnemyPose {
+// 今まさに来ている攻撃 (予告開始〜当たりの窓の終わり)。複数が重なるとき (v5 の連なる攻撃) は当たりの窓が先に終わるものを採る。
+// 構えと敵の向きで使う。choreo は解決済み (effectiveChoreo) のものを渡す
+export function currentAttack(choreo: Choreo, beat: number, beatSec: number, cfg: Config): Attack | null {
+  let best: { atk: Attack; end: number } | null = null;
   for (const atk of choreo.attacks) {
     const w = activeWindow(atk, beatSec, cfg, attackMotion(choreo, atk));
-    if (beat >= atk.telegraphBeat && beat <= w.endBeat) return attackPose(atk);
+    if (beat < atk.telegraphBeat || beat > w.endBeat) continue;
+    if (!best || w.endBeat < best.end) best = { atk, end: w.endBeat };
   }
+  return best?.atk ?? null;
+}
+
+// 敵の構え。攻撃の予告開始〜当たりの窓の終わりはその型 (shot は laser と同じ構え)、分岐で足した区間は分岐の種類、他は idle
+export function enemyPose(choreo: Choreo, beat: number, beatSec: number, cfg: Config): EnemyPose {
+  const current = currentAttack(choreo, beat, beatSec, cfg);
+  if (current) return attackPose(current);
   for (const atk of choreo.attacks) {
     if (atk.branchFromBeat === undefined || atk.branchMove === undefined) continue;
     const last = atk.path[atk.path.length - 1].beat;

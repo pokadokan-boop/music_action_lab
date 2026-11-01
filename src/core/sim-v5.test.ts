@@ -1,5 +1,5 @@
 // v5 セッション A (docs/plan/v5-phase2-player.md): ステップ・溜め・放ち・強い相殺・返しを sim を直接回して確かめる。
-// 位置と拍はテスト用の Grid (120 BPM、1 拍 0.5 秒、1 step = 1/60 拍)。強い相殺と返しは実物の v4.json の dash と laser で見る
+// 位置と拍はテスト用の Grid (120 BPM、1 拍 0.5 秒、1 step = 1/60 拍)。強い相殺と返しは実物の v5.json の dash (phrase 3) と laser (phrase 1) で見る
 import { Midi } from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -172,7 +172,7 @@ describe('溜めと放ち (T2)', () => {
 
 // 実物の振り付けで強い相殺と返しを見る
 const root = resolve(__dirname, '..', '..');
-const realChoreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v4.json'), 'utf8')) as Choreo;
+const realChoreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v5.json'), 'utf8')) as Choreo;
 const realGrid = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${realChoreo.song}.mid`))));
 const realDeps: SimDeps = { choreo: realChoreo, grid: realGrid, cfg: config, acceptance };
 const msBeatReal = (ms: number) => ms / 1000 / realGrid.beatSec;
@@ -190,41 +190,41 @@ function resolvedContact(state: SimState, idx: number) {
   return { c: c!, facing: { x: -inc.x, y: -inc.y } };
 }
 
-describe('強い相殺 (T2) と返し (T3)。v4.json の dash (攻撃 2) と laser (攻撃 0)', () => {
+describe('強い相殺 (T2) と返し (T3)。v5.json の dash (攻撃 6) と laser (攻撃 2)', () => {
   it('溜めの放ちで dash を相殺すると cancel に strong が付き、敵 HP が 3 減る。通常の相殺では減らない', () => {
     const state = createSim(realDeps);
-    runUntil(state, realChoreo.attacks[2].telegraphBeat + 0.05);
-    const { c, facing } = resolvedContact(state, 2);
+    runUntil(state, realChoreo.attacks[6].telegraphBeat + 0.05);
+    const { c, facing } = resolvedContact(state, 6);
     // 接触の 1 拍前に押して (通常攻撃 1 回。空振り)、押したまま待ち、接触の 60 ms 前に来る方向の逆を向いて離す
     runUntil(state, c - 1);
     step(state, { move: { x: 0, y: 0 }, attackPressed: true }, dt, realDeps);
     runUntil(state, c - msBeatReal(60), { move: { x: 0, y: 0 }, attackPressed: true });
     expect(state.charge?.armed).toBe(true);
     step(state, { move: facing, attackPressed: false }, dt, realDeps);
-    expect(state.cancelled.has(2)).toBe(true);
-    const cancel = state.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 2);
+    expect(state.cancelled.has(6)).toBe(true);
+    const cancel = state.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 6);
     expect(cancel).toMatchObject({ strong: true });
     expect(state.enemy.hp).toBe(config.enemyHp - config.damage.release);
     expect(state.log.events.filter((e) => e.kind === 'attack').at(-1)).toMatchObject({ action: 'release' });
 
     // 通常の相殺 (別の走り)
     const plain = createSim(realDeps);
-    runUntil(plain, realChoreo.attacks[2].telegraphBeat + 0.05);
-    const p = resolvedContact(plain, 2);
+    runUntil(plain, realChoreo.attacks[6].telegraphBeat + 0.05);
+    const p = resolvedContact(plain, 6);
     runUntil(plain, p.c - msBeatReal(60));
     step(plain, { move: p.facing, attackPressed: true }, dt, realDeps);
-    expect(plain.cancelled.has(2)).toBe(true);
-    expect(plain.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 2)).not.toHaveProperty('strong');
+    expect(plain.cancelled.has(6)).toBe(true);
+    expect(plain.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 6)).not.toHaveProperty('strong');
     expect(plain.enemy.hp).toBe(config.enemyHp);
   });
 
   it('相殺から 1 拍以内の押下は返し (riposte)。スティックがあればその向きへ 0.1 踏み込み、無ければ踏み込まない。1 拍を過ぎれば通常', () => {
     const withStick = createSim(realDeps);
-    runUntil(withStick, realChoreo.attacks[0].telegraphBeat + 0.05);
-    const a = resolvedContact(withStick, 0);
+    runUntil(withStick, realChoreo.attacks[2].telegraphBeat + 0.05);
+    const a = resolvedContact(withStick, 2);
     runUntil(withStick, a.c - msBeatReal(60));
     step(withStick, { move: a.facing, attackPressed: true }, dt, realDeps);
-    expect(withStick.cancelled.has(0)).toBe(true);
+    expect(withStick.cancelled.has(2)).toBe(true);
     step(withStick, stay, dt, realDeps);
     runUntil(withStick, withStick.lastCancelBeat! + 0.5);
     const x0 = withStick.player.x;
@@ -237,8 +237,8 @@ describe('強い相殺 (T2) と返し (T3)。v4.json の dash (攻撃 2) と las
     expect(y0 - withStick.player.y).toBeCloseTo(config.lungeDistance + config.playerSpeed * dt, 6);
 
     const noStick = createSim(realDeps);
-    runUntil(noStick, realChoreo.attacks[0].telegraphBeat + 0.05);
-    const b = resolvedContact(noStick, 0);
+    runUntil(noStick, realChoreo.attacks[2].telegraphBeat + 0.05);
+    const b = resolvedContact(noStick, 2);
     runUntil(noStick, b.c - msBeatReal(60));
     step(noStick, { move: b.facing, attackPressed: true }, dt, realDeps);
     step(noStick, stay, dt, realDeps);
@@ -249,8 +249,8 @@ describe('強い相殺 (T2) と返し (T3)。v4.json の dash (攻撃 2) と las
     expect(noStick.player.x).toBeCloseTo(nx, 9);
 
     const late = createSim(realDeps);
-    runUntil(late, realChoreo.attacks[0].telegraphBeat + 0.05);
-    const l = resolvedContact(late, 0);
+    runUntil(late, realChoreo.attacks[2].telegraphBeat + 0.05);
+    const l = resolvedContact(late, 2);
     runUntil(late, l.c - msBeatReal(60));
     step(late, { move: l.facing, attackPressed: true }, dt, realDeps);
     step(late, stay, dt, realDeps);
