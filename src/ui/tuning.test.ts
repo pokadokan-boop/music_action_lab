@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultTuning, makeConfig } from '../config';
-import { TUNING_KEY, clampTuning, describeTuning, loadTuning, saveTuning } from './tuning';
+import { PITCH_RULE_KEY, TUNING_KEY, clampTuning, describeTuning, loadPitchRule, loadTuning, savePitchRule, saveTuning } from './tuning';
 
 // vitest の environment は node なので localStorage の代わりに Map で Storage を模す
 function memoryStorage(initial: Record<string, string> = {}): Storage {
@@ -70,5 +70,18 @@ describe('tuning', () => {
     expect(cfg.enemyRadius).toBeCloseTo(0.03, 9);
     expect(cfg.attackRadius).toBeCloseTo(0.0768, 9);
     expect(cfg.tuning).toBe(defaultTuning);
+  });
+});
+
+describe('pitch rule (v5 T4) の保存', () => {
+  it('無ければ既定 (chord)、知らない値も既定、保存と読み出しが往復する', () => {
+    expect(loadPitchRule(null)).toBe('chord');
+    expect(loadPitchRule(memoryStorage())).toBe('chord');
+    expect(loadPitchRule(memoryStorage({ [PITCH_RULE_KEY]: 'bogus' }))).toBe('chord');
+    const s = memoryStorage();
+    savePitchRule('motif', s);
+    expect(loadPitchRule(s)).toBe('motif');
+    savePitchRule('fixed', s);
+    expect(loadPitchRule(s)).toBe('fixed');
   });
 });

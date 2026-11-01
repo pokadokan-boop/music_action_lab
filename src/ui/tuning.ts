@@ -1,8 +1,30 @@
 // 調整パネルの値 (Tuning) の範囲・保存・要約。DOM には触らない (パネルの組み立ては title.ts)。
 // 本人が選んだ値は結果の要約の先頭行に出て、不満ノートに貼ると次の版の既定値に反映される (docs/plan/v3-phase2.md「既定値の決め」)
+import { DEFAULT_PITCH_RULE, PITCH_RULES, type PitchRule } from '../audio/pitch';
 import { defaultTuning, type Tuning } from '../config';
 
 export const TUNING_KEY = 'mal.tuning';
+// 音高の案 (v5 T4) の保存先。調整パネルの項目ではなく別の選択
+export const PITCH_RULE_KEY = 'mal.pitchRule';
+
+export function loadPitchRule(storage: Storage | null = defaultStorage()): PitchRule {
+  if (!storage) return DEFAULT_PITCH_RULE;
+  try {
+    const raw = storage.getItem(PITCH_RULE_KEY);
+    return (PITCH_RULES as string[]).includes(raw ?? '') ? (raw as PitchRule) : DEFAULT_PITCH_RULE;
+  } catch {
+    return DEFAULT_PITCH_RULE;
+  }
+}
+
+export function savePitchRule(rule: PitchRule, storage: Storage | null = defaultStorage()): void {
+  if (!storage) return;
+  try {
+    storage.setItem(PITCH_RULE_KEY, rule);
+  } catch {
+    // 握りつぶす
+  }
+}
 
 export interface TuningRange {
   min: number;

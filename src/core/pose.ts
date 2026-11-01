@@ -3,7 +3,8 @@ import { activeWindow, attackMotion, type Attack, type Choreo } from './choreo';
 import type { Config } from '../config';
 
 export type EnemyPose = 'idle' | 'laser' | 'burst' | 'dash' | 'stopped' | 'approach' | 'retreat';
-export type PlayerPose = 'idle' | 'attack' | 'cancel' | 'hit' | 'ready';
+// v5 で step (ステップ)、charge (溜め)、release (放ち)、riposte (返し) を足した
+export type PlayerPose = 'idle' | 'attack' | 'cancel' | 'hit' | 'ready' | 'step' | 'charge' | 'release' | 'riposte';
 
 // 敵の構え。攻撃の予告開始〜当たりの窓の終わりはその型 (shot は laser と同じ構え)、分岐で足した区間は分岐の種類、他は idle。
 // choreo は解決済み (effectiveChoreo) のものを渡す
@@ -33,13 +34,19 @@ export interface PlayerPoseInput {
   attacking: boolean;
   cancelling: boolean;
   damaged: boolean;
+  // v5: 攻撃の種類 (attacking が true のとき。省略は通常)、ステップ中か、溜め状態か
+  action?: 'normal' | 'riposte' | 'release';
+  stepping?: boolean;
+  charging?: boolean;
 }
 
-// 自機の構え。優先順: 被弾 → 相殺 → 攻撃 → 構える (敵が止まっているか寄っている) → 立つ
+// 自機の構え。優先順: 被弾 → 相殺 → 放ち → 返し → 攻撃 → ステップ → 溜め → 構える (敵が止まっているか寄っている) → 立つ
 export function playerPose(input: PlayerPoseInput, enemy: EnemyPose): PlayerPose {
   if (input.damaged) return 'hit';
   if (input.cancelling) return 'cancel';
-  if (input.attacking) return 'attack';
+  if (input.attacking) return input.action === 'release' ? 'release' : input.action === 'riposte' ? 'riposte' : 'attack';
+  if (input.stepping) return 'step';
+  if (input.charging) return 'charge';
   if (enemy === 'stopped' || enemy === 'approach') return 'ready';
   return 'idle';
 }

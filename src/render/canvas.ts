@@ -122,14 +122,38 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   const eDir = enemyDir(choreo, state, grid.beatSec, cfg);
   drawEnemy(ctx, e, pr(cfg.enemyRadius), ePose, eDir, pulse, mix(COLOR.enemy, '#ffffff', pulse * 0.35), flash.enemyHit > 0);
 
-  // プレイヤー: 構えは core が決める。向きは攻撃の向きがあればその側、無ければ敵のいる側
+  // プレイヤー: 構えは core が決める。向きは攻撃の向きがあればその側、無ければ敵のいる側。
+  // ステップ中と溜め状態は sim の状態をそのまま読む (v5)
   const p = px(state.player);
   let pc = mix(COLOR.player, '#ffffff', pulse * 0.2);
   if (flash.attackClass) pc = COLOR[flash.attackClass];
+  if (flash.step) pc = COLOR[flash.step.cls];
   if (flash.damaged > 0) pc = COLOR.hpLow;
-  const pPose = playerPose({ attacking: !!flash.attackClass, cancelling: !!flash.cancel, damaged: flash.damaged > 0 }, ePose);
+  const charging = state.charge?.armed === true;
+  const pPose = playerPose(
+    {
+      attacking: !!flash.attackClass,
+      cancelling: !!flash.cancel,
+      damaged: flash.damaged > 0,
+      action: flash.action ?? undefined,
+      stepping: state.stepping !== null,
+      charging,
+    },
+    ePose,
+  );
   const facingX = flash.aim && flash.aim.x !== 0 ? flash.aim.x : state.enemy.x - state.player.x;
   drawPlayer(ctx, p, pr(cfg.playerRadius), pPose, facingX < 0 ? -1 : 1, pulse, pc);
+  if (charging && state.charge) {
+    // 溜めの印 (v5): 自機の周りの細い輪。閾値を超えてから chargeFullBeats で半径 1.2 → 1.8 倍。判定の形ではない (状態の印)
+    const k = Math.min(1, (beat - state.charge.startBeat - cfg.chargeThresholdBeats) / cfg.chargeFullBeats);
+    ctx.strokeStyle = COLOR.player;
+    ctx.globalAlpha = 0.35 + 0.35 * k;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, pr(cfg.playerRadius * (1.2 + 0.6 * k)), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   if (flash.attackClass) {
     // 攻撃の瞬間: 向いた方向へ attackRadius の扇 (塗り + 縁) を出す。判定と同じ半径・同じ角度。向きが無い (古い状態) なら円で代える。
     // 相殺が成立した押下なら扇は白 (拍の色より「捌けた」を優先して見せる)
@@ -223,6 +247,9 @@ export interface FlashState {
   attackClass: 'on' | 'off' | 'miss' | null;
   // attackClass が立っている間に描く扇の向き (sim.lastAim を写す)
   aim: Vec | null;
+  // v5: 攻撃の種類 (構えの選択に使う) と、ステップの始まりの演出 (拍の色)
+  action: 'normal' | 'riposte' | 'release' | null;
+  step: { cls: 'on' | 'miss'; t: number } | null;
   enemyHit: number;
   damaged: number;
   // 相殺の閃光。pos は消した当たりの位置、hitbox は消した当たりの形 (sim.lastCancel)、t は残り秒

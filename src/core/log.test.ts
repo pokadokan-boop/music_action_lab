@@ -36,3 +36,23 @@ describe('GameLog', () => {
     expect(text).toContain('相殺 1 回、失敗 3 回 (タイミング 1 / 届かず 1 / 向き 1)');
   });
 });
+
+describe('GameLog の v5 の行 (行動・溜め)', () => {
+  it('行動ごとの回数と拍の乗り、溜めの回数、強い相殺の回数が入る', () => {
+    const log = new GameLog();
+    log.push({ t: 1, beat: 2, kind: 'step', cls: 'on', offsetMs: 0 });
+    log.push({ t: 1.1, beat: 2.25, kind: 'step', cls: 'miss', offsetMs: 50 });
+    log.push({ t: 2, beat: 4, kind: 'attack', cls: 'on', offsetMs: 0, action: 'normal' });
+    log.push({ t: 2.5, beat: 5, kind: 'attack', cls: 'off', offsetMs: 0 }); // action 省略は通常
+    log.push({ t: 3, beat: 6, kind: 'charge' });
+    log.push({ t: 4, beat: 8, kind: 'attack', cls: 'on', offsetMs: 0, action: 'release' });
+    log.push({ t: 4, beat: 8, kind: 'cancel', attackIndex: 0, phrase: 1, strong: true });
+    log.push({ t: 5, beat: 10, kind: 'attack', cls: 'miss', offsetMs: 80, action: 'riposte', lunge: true });
+    log.push({ t: 6, beat: 12, kind: 'charge' });
+    log.push({ t: 6.5, beat: 13, kind: 'charge-break' });
+    const text = log.summary({ choreoId: 'a', song: 'c1', date: '2026-11-02' });
+    expect(text).toContain('攻撃 4 回 (表 2, 裏 1, 外 1)');
+    expect(text).toContain('行動: ステップ 2 回 (乗った 1) / 通常 2 (表 1 裏 1 外 0) / 返し 1 (表 0 裏 0 外 1、踏み込み 1) / 放ち 1 (表 1 裏 0 外 0)');
+    expect(text).toContain('溜め 2 回 (放ち 1 / 被弾で解除 1) 強い相殺 1 回');
+  });
+});

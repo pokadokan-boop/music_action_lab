@@ -1,5 +1,5 @@
 # v5 計画 Phase 1: 行動に拍の長さを持たせる (相乗りのメロディ)
-作成 2026-11-02。承認待ち。同日に本人の返事で 3 点を直した: 攻撃ボタンを R1 に (○ で回避しながら溜めを持てるように)、返しはスティックが入力されていれば踏み込みあり、被弾で溜めは解除。前提は docs/concept.md (保護対象)、docs/decisions/v4-feedback.md (不満の分解)、docs/plan/v5-flow-options.md (案 A〜D と本人の返事 2 回)、docs/play-image.md、docs/choreo-format.md、現在のコード (src/core/sim.ts、choreo.ts、grid.ts、audio/engine.ts、audio/pluck.ts、input/、render/figures.ts、ui/title.ts)。
+作成 2026-11-02。承認済み 2026-11-02 (「承認に含めるもの」5 点も可。拍 0 のカウントインは答え無しで既定の「置かない」)。同日に本人の返事で 3 点を直した: 攻撃ボタンを R1 に (○ で回避しながら溜めを持てるように)、返しはスティックが入力されていれば踏み込みあり、被弾で溜めは解除。前提は docs/concept.md (保護対象)、docs/decisions/v4-feedback.md (不満の分解)、docs/plan/v5-flow-options.md (案 A〜D と本人の返事 2 回)、docs/play-image.md、docs/choreo-format.md、現在のコード (src/core/sim.ts、choreo.ts、grid.ts、audio/engine.ts、audio/pluck.ts、input/、render/figures.ts、ui/title.ts)。
 
 ## 新しいセッションの始め方
 docs/NEXT.md の「次の 1 手」に従う。Phase 2 は承認後に Claude が 2 つに分けて書き (下の「タスク」)、承認を待たずに実装に入る。接頭辞は全て `[作品]`。
@@ -65,7 +65,7 @@ graph TD
 ```
 
 ### T1 (回避ボタンとステップ)
-- input に `dodgePressed` (○ = buttons[13] / K)。攻撃を R1 (buttons[5]) / J / Space に移し、× は決定のみに。sim にステップの状態 (開始拍、向き、0.5 拍)。速度は Phase 2 の既定値。溜め中も可。音は T4、判定は T3
+- input に `dodgePressed` (○ = buttons[1] / K)。攻撃を R1 (buttons[5]) / J / Space に移し、× は決定のみに。sim にステップの状態 (開始拍、向き、0.5 拍)。速度は Phase 2 の既定値。溜め中も可。音は T4、判定は T3
 
 ### T2 (溜め・放ち・強い相殺)
 - 攻撃ボタンの押し続けを input から渡す (`attackHeld`)。押した瞬間は今の通常攻撃。閾値を超えたら溜め状態、離した瞬間に放つ。放ちは命中と相殺の判定を通常と同じ幾何で行い、相殺が成立すれば `cancel` に `strong: true` とダメージ
@@ -116,3 +116,20 @@ graph TD
 1. 曲の前に 2 拍のカウント (ハットだけ) を足して、拍 0 の A♭4 にも攻撃を置くか。既定: 置かない (17 攻撃)
 
 答え済み (2026-11-02): 返しの踏み込みはスティック入力があれば付ける / 攻撃は R1、回避は ○ / 被弾で溜めは解除 / 音の遅延は何も感じていない (イヤホンも Bluetooth)
+
+## 完了記録 セッション A (プレイヤーの行動。2026-11-02)
+詳細は docs/plan/v5-phase2-player.md。コードは src/core/sim.ts (ステップ・溜め・放ち・返し・強い相殺)、src/audio/pitch.ts (音高 3 案)、src/audio/pluck.ts と engine.ts (音色 3 つと溜めの持続音)、src/core/pose.ts と src/render/figures.ts (構え 4 つ)、src/core/log.ts と summary.ts (記録・行動の行・譜)、src/input/ (R1 / ○ / K)、src/ui/title.ts (音の案の選択)。
+| 完了条件 | 結果 |
+|---|---|
+| ステップ | 回避ボタンで 0.5 拍、スティックの向き (無入力なら敵と逆) へ 0.18。スティックは無視、無敵なし、溜めは切れない、0.25 拍後の押し直しで置き換わる。16 分の格子 ±40 ms で乗った / 外。テスト 5 件 (src/core/sim-v5.test.ts)。決め: 押した step は動かず、次の 30 step (0.5 拍) でちょうど 0.18 動く |
+| 溜め攻撃 | 押した瞬間に通常攻撃、0.5 拍で溜め (charge)、離すと放ち (ダメージ 3)、閾値未満の離しは何も起きない、被弾で解除 (charge-break。押したままでは溜め直せず、押し直せば溜め直せる)。テスト 3 件 |
+| 強い相殺 | v4.json の dash を放ちで相殺すると cancel に strong、敵 HP −3。通常の相殺では減らない。要約に「強い相殺 n 回」。テスト 1 件 |
+| 返し | 相殺から 1 拍以内の押下は riposte、スティック入力があれば 0.1 踏み込み、無ければ踏み込まない、1 拍を過ぎれば通常。テスト 1 件 |
+| 音 | 音色: step (短い打音) / riposte (短く高い) / release (長く低い) を撥弦に足し、溜めの持続音は鋸歯状波 + ローパスで 2 拍かけて 1 オクターブ上がる。音高の 3 案 (chord / motif / fixed) は src/audio/pitch.ts の純粋関数で、タイトルのラジオで選び localStorage に保存、要約の先頭行に「音の案 n」。fixed は v3 の Hz に一致 (テスト)。テスト 5 件 (src/audio/pitch.test.ts)。聴き比べは本人 |
+| 記録と要約 | attack に action / lunge、hit に damage、cancel に strong、step / charge / charge-break イベント。要約に「行動: ステップ n 回 (乗った m) / 通常 / 返し (踏み込み k) / 放ち」と「溜め n 回 (放ち / 被弾で解除) 強い相殺 n 回」、凡例つきの「プレイヤーの譜」(1 行 1 小節、16 分 1 マス、記号 ・スス攻返放溜相強、優先順)。Chrome の結果画面で表示を確認。phrase 表の「2 音目」の列はセッション B |
+| 構え | step / charge / release / riposte を足し、優先順 被弾 → 相殺 → 放ち → 返し → 攻撃 → ステップ → 溜め → 構える → 立つ。構えの一覧 (drawPoseSheet) を Chrome で確認: 4 つとも見分けられる (ステップは前傾と速さの線、溜めは腰を落として腕を後ろに、放ちは両腕を大きく振り切る、返しは低く突く)。溜め中の輪 (半径 1.2 → 1.8 倍) はコードで入れたが、自動操作タブは描画が間引かれて溜め中の画面を撮れなかった。本人が遊んで見る |
+| 入力 | DualSense: 攻撃 R1 (buttons[5])、回避 ○ (buttons[1])、× は決定のみ。キーボード: J / Space、K。タイトルの操作説明を更新。実機のコントローラーは本人の手で |
+| テスト・ビルド | `npm test` 172 件 (17 ファイル) 通過 (v4 までの 150 件 + 22 件)。`npm run build` 通過 |
+| 文書 | README「遊ぶ (v5)」、docs/plan/v5-phase2-player.md、この完了記録。concept.md の入力の注記と不満ノート v5 はセッション B の公開時 |
+
+セッション A で変えなかったもの: 振り付け (v4.json のまま。dash の after.stop も残っている。セッション B で v5.json に替える)、敵の構え、調整パネルの項目。

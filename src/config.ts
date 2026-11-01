@@ -48,6 +48,21 @@ export interface Config {
   playerHp: number;
   enemyHp: number;
   tuning: Tuning;
+  // v5: プレイヤーの行動 (docs/plan/v5-phase2-player.md「既定値」)
+  // ステップ: 回避ボタンで stepDistance を stepBeats 拍で等速に動く。始まって stepRetriggerBeats 以上たてば次の押下で置き換わる。
+  // 拍の判定は 16 分の格子に ±stepWindowMs
+  stepBeats: number;
+  stepDistance: number;
+  stepRetriggerBeats: number;
+  stepWindowMs: number;
+  // 溜め: 攻撃を押し続けて chargeThresholdBeats を超えると溜め状態。持続音は chargeFullBeats で上がり切る
+  chargeThresholdBeats: number;
+  chargeFullBeats: number;
+  // 返し: 相殺から riposteWindowBeats 以内の押下。スティック入力があれば lungeDistance 踏み込む
+  riposteWindowBeats: number;
+  lungeDistance: number;
+  // ダメージ (敵 HP 12)。release は溜めの放ちで、強い相殺 (放ちで相殺が成立) も同じ値
+  damage: { normal: number; riposte: number; release: number };
 }
 
 export function makeConfig(tuning: Tuning = defaultTuning): Config {
@@ -70,6 +85,15 @@ export function makeConfig(tuning: Tuning = defaultTuning): Config {
     playerHp: 5,
     enemyHp: 12,
     tuning,
+    stepBeats: 0.5,
+    stepDistance: 0.18, // 1 歩で burst の半径 0.16 の中心から外へ。速さ 0.84/秒 (素の移動の 1.4 倍)
+    stepRetriggerBeats: 0.25,
+    stepWindowMs: 40,
+    chargeThresholdBeats: 0.5,
+    chargeFullBeats: 2,
+    riposteWindowBeats: 1,
+    lungeDistance: 0.1,
+    damage: { normal: 1, riposte: 1, release: 3 },
   };
 }
 

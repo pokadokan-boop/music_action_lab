@@ -47,3 +47,18 @@ describe('playerPose', () => {
     expect(playerPose(none, 'idle')).toBe('idle');
   });
 });
+
+describe('playerPose (v5: ステップ・溜め・放ち・返し)', () => {
+  const none = { attacking: false, cancelling: false, damaged: false };
+
+  it('攻撃の種類で attack / riposte / release に分かれ、ステップと溜めは攻撃より下、構えるより上', () => {
+    expect(playerPose({ ...none, attacking: true, action: 'release' }, 'idle')).toBe('release');
+    expect(playerPose({ ...none, attacking: true, action: 'riposte' }, 'idle')).toBe('riposte');
+    expect(playerPose({ ...none, attacking: true, action: 'normal' }, 'idle')).toBe('attack');
+    expect(playerPose({ ...none, attacking: true, stepping: true, charging: true }, 'idle')).toBe('attack');
+    expect(playerPose({ ...none, stepping: true, charging: true }, 'stopped')).toBe('step');
+    expect(playerPose({ ...none, charging: true }, 'stopped')).toBe('charge');
+    expect(playerPose({ ...none, cancelling: true, action: 'release' }, 'idle')).toBe('cancel');
+    expect(playerPose({ ...none, damaged: true, stepping: true }, 'idle')).toBe('hit');
+  });
+});

@@ -88,6 +88,48 @@ function playerFigure(pose: PlayerPose, pulse: number): PlayerFigure {
         backLeg: { a: { x: -0.7, y: 1.3 }, b: { x: -0.9, y: FOOT_Y } },
       };
     }
+    case 'step':
+      // ステップ (v5)。強く前傾し、脚を前後に伸ばして走る形。腕は後ろへ流れる
+      return {
+        lean: 0.5,
+        drop: 0.1,
+        frontArm: { a: { x: -0.4, y: -0.3 }, b: { x: -0.9, y: 0.2 } },
+        backArm: { a: { x: -0.5, y: -0.5 }, b: { x: -1.1, y: -0.2 } },
+        frontLeg: { a: { x: 0.9, y: 1.2 }, b: { x: 1.3, y: 1.7 } },
+        backLeg: { a: { x: -0.8, y: 1.3 }, b: { x: -1.3, y: 1.6 } },
+      };
+    case 'charge': {
+      // 溜め (v5)。腰を落とし、両腕を後ろへ引いて力を溜める。拍で少し沈む
+      const d = 0.4 + 0.1 * pulse;
+      return {
+        lean: -0.1,
+        drop: d,
+        frontArm: { a: { x: -0.4, y: -0.6 + d }, b: { x: -1.0, y: -1.0 + d } },
+        backArm: { a: { x: -0.5, y: -0.5 + d }, b: { x: -1.1, y: -0.8 + d } },
+        frontLeg: { a: { x: 0.7, y: 1.3 }, b: { x: 0.85, y: FOOT_Y } },
+        backLeg: { a: { x: -0.7, y: 1.3 }, b: { x: -0.85, y: FOOT_Y } },
+      };
+    }
+    case 'release':
+      // 放ち (v5)。両腕を前へ大きく振り切り、体ごと前へ。攻撃より大きい
+      return {
+        lean: 0.45,
+        drop: 0,
+        frontArm: { a: { x: 0.9, y: -1.1 }, b: { x: 1.9, y: -1.3 } },
+        backArm: { a: { x: 0.7, y: -0.8 }, b: { x: 1.7, y: -0.9 } },
+        frontLeg: { a: { x: 0.8, y: 1.3 }, b: { x: 1.1, y: FOOT_Y } },
+        backLeg: { a: { x: -0.6, y: 1.4 }, b: { x: -1.1, y: FOOT_Y } },
+      };
+    case 'riposte':
+      // 返し (v5)。低く速く突く。前の腕を水平に伸ばし、後ろの腕は引く。腰を落とす
+      return {
+        lean: 0.35,
+        drop: 0.3,
+        frontArm: { a: { x: 0.9, y: -0.4 }, b: { x: 1.9, y: -0.35 } },
+        backArm: { a: { x: -0.6, y: -0.6 }, b: { x: -1.0, y: -0.3 } },
+        frontLeg: { a: { x: 0.9, y: 1.3 }, b: { x: 1.2, y: FOOT_Y } },
+        backLeg: { a: { x: -0.6, y: 1.4 }, b: { x: -1.0, y: FOOT_Y } },
+      };
   }
 }
 
@@ -161,15 +203,26 @@ export function drawPlayer(
   // 前の腕
   strokeLimb(ctx, { x: shoulder.x + 0.1, y: shoulder.y + 0.1 }, fig.frontArm);
 
-  if (pose === 'attack') {
-    // 振り: 肩から手先へ掃いた跡を薄い面で残す
-    ctx.globalAlpha = 0.3;
+  if (pose === 'attack' || pose === 'release' || pose === 'riposte') {
+    // 振り: 肩から手先へ掃いた跡を薄い面で残す。放ちは大きく、返しは低く細い
+    const sweepTop = pose === 'release' ? { x: 1.3, y: -2.4 } : pose === 'riposte' ? { x: 1.6, y: -0.9 } : { x: 1.2, y: -1.95 };
+    ctx.globalAlpha = pose === 'release' ? 0.4 : 0.3;
     ctx.beginPath();
     ctx.moveTo(shoulder.x, shoulder.y);
     ctx.lineTo(fig.frontArm.b.x, fig.frontArm.b.y);
-    ctx.lineTo(1.2, -1.95);
+    ctx.lineTo(sweepTop.x, sweepTop.y);
     ctx.closePath();
     ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (pose === 'step') {
+    // ステップ: 後ろへ流れる速さの線を 2 本
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(-0.9, -0.6);
+    ctx.lineTo(-1.8, -0.5);
+    ctx.moveTo(-0.9, 0.4);
+    ctx.lineTo(-1.7, 0.5);
+    ctx.stroke();
     ctx.globalAlpha = 1;
   } else if (pose === 'cancel') {
     // 受け: 立てた前腕の前に小さな盾の面
@@ -333,28 +386,29 @@ export function drawEnemy(
 
 // ---- 確認用: 構えを 1 枚に並べる (本体が Chrome で呼んで見る。ゲームからは呼ばない) ----
 
-const PLAYER_POSES: PlayerPose[] = ['idle', 'attack', 'cancel', 'hit', 'ready'];
+const PLAYER_POSES: PlayerPose[] = ['idle', 'attack', 'cancel', 'hit', 'ready', 'step', 'charge', 'release', 'riposte'];
 const ENEMY_POSES: EnemyPose[] = ['idle', 'laser', 'burst', 'dash', 'stopped', 'approach', 'retreat'];
 
-// 上段に自機の 5 構え (pulse 0 と 1 の 2 列ずつ)、下段に敵の 7 構え。w × h のピクセル領域に描く
+// 上段に自機の 9 構え (pulse 0。拍で揺れる idle と charge は pulse 1 も)、下段に敵の 7 構え。w × h のピクセル領域に描く
 export function drawPoseSheet(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   ctx.save();
   ctx.fillStyle = INK;
   ctx.fillRect(0, 0, w, h);
-  ctx.font = `${Math.max(10, Math.round(w * 0.014))}px sans-serif`;
+  ctx.font = `${Math.max(10, Math.round(w * 0.012))}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
-  const pr = w * 0.028;
+  const columns: { pose: PlayerPose; pulse: number }[] = PLAYER_POSES.flatMap((pose) =>
+    pose === 'idle' || pose === 'charge' ? [{ pose, pulse: 0 }, { pose, pulse: 1 }] : [{ pose, pulse: 0 }],
+  );
+  const pr = w * 0.026;
   const rowP = h * 0.3;
-  const colP = w / (PLAYER_POSES.length * 2 + 1);
-  PLAYER_POSES.forEach((pose, i) => {
-    [0, 1].forEach((pulse, k) => {
-      const x = colP * (i * 2 + k + 1);
-      drawPlayer(ctx, { x, y: rowP }, pr, pose, 1, pulse, '#e8e8f0');
-      ctx.fillStyle = '#8a8a8a';
-      ctx.fillText(`${pose} p${pulse}`, x, rowP + pr * 2.6);
-    });
+  const colP = w / (columns.length + 1);
+  columns.forEach(({ pose, pulse }, i) => {
+    const x = colP * (i + 1);
+    drawPlayer(ctx, { x, y: rowP }, pr, pose, 1, pulse, '#e8e8f0');
+    ctx.fillStyle = '#8a8a8a';
+    ctx.fillText(`${pose} p${pulse}`, x, rowP + pr * 2.6);
   });
 
   const er = w * 0.035;

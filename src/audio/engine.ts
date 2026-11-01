@@ -3,14 +3,18 @@
 // 音色は拍とタイミングが分かる最低限。melody = 矩形波、bass = 三角波、drums = ノイズと短いサイン。
 // プレイヤーの 4 音は撥弦 (src/audio/pluck.ts)。曲の 3 声と別の系統 (docs/concept.md「曲と音の役割」)。
 
-import { midiToHz, renderPluck, resolvePluckSpec, type PluckSpec } from './pluck';
+import { midiToHz, renderPluck, resolvePluckSpec, type PluckKind, type PluckSpec } from './pluck';
 
 export { midiToHz };
 
 export type VoiceName = 'melody' | 'bass' | 'drums';
-// cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す
-export type SfxKind = 'on' | 'off' | 'miss' | 'cancel';
+// cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す。step / riposte / release は v5
+export type SfxKind = PluckKind;
 const CANCEL_DEFAULT_MIDI = 72;
+// 溜めの持続音 (v5 T2): 鋸歯状波 + ローパス。曲の矩形・三角と区別できる。小さく鳴らす
+const CHARGE_GAIN = 0.08;
+const CHARGE_LOWPASS_HZ = 1200;
+const CHARGE_FADE_SEC = 0.04;
 
 export interface SongNote {
   time: number;
@@ -41,6 +45,8 @@ export class AudioEngine {
   // 撥弦の前計算をキャッシュする。キーは kind + hz + sampleRate (相殺は音高が変わるので hz を含める)
   private readonly pluckBuffers = new Map<string, AudioBuffer>();
   private active: AudioScheduledSourceNode[] = [];
+  // 鳴っている溜めの持続音 (1 つだけ)
+  private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
 
   constructor(ctx?: BaseAudioContext) {
     this.ctx = ctx ?? new AudioContext();
@@ -91,6 +97,45 @@ export class AudioEngine {
       }
     }
     this.active = [];
+    this.stopCharge(this.ctx.currentTime);
+  }
+
+  // 溜めの持続音を atSec から鳴らす。音高は fromMidi から toMidi へ riseSec かけて上がり、以後保つ。鳴っていれば置き換える
+  startCharge(atSec: number, fromMidi: number, toMidi: number, riseSec: number): void {
+    this.stopCharge(atSec);
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(midiToHz(fromMidi), atSec);
+    osc.frequency.exponentialRampToValueAtTime(midiToHz(toMidi), atSec + Math.max(0.05, riseSec));
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = CHARGE_LOWPASS_HZ;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, atSec);
+    gain.gain.linearRampToValueAtTime(CHARGE_GAIN, atSec + CHARGE_FADE_SEC);
+    osc.connect(f).connect(gain).connect(this.master);
+    osc.start(atSec);
+    this.track(osc);
+    this.charge = { osc, gain };
+  }
+
+  // 溜めの持続音を atSec で止める (放ちか解除)。鳴っていなければ何もしない
+  stopCharge(atSec: number): void {
+    if (!this.charge) return;
+    const { osc, gain } = this.charge;
+    this.charge = null;
+    gain.gain.cancelScheduledValues(atSec);
+    gain.gain.setValueAtTime(gain.gain.value, atSec);
+    gain.gain.linearRampToValueAtTime(0, atSec + CHARGE_FADE_SEC);
+    try {
+      osc.stop(atSec + CHARGE_FADE_SEC + 0.01);
+    } catch {
+      // 既に止まっている
+    }
+  }
+
+  charging(): boolean {
+    return this.charge !== null;
   }
 
   // midi は cancel のときだけ使う (相殺した拍に最も近いメロディ音の 1 オクターブ上。docs/plan/v2-phase2.md「既定値の決め」)

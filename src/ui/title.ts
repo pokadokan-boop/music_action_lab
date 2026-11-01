@@ -1,5 +1,6 @@
 // タイトル画面。曲名、振り付けの狙い、操作説明、調整パネル (v3)。音の有効化はユーザー操作 (クリックかキー) が要る。
 // 振り付けは 1 版 = 1 本 (v3) なので選択は出さない。1 軸の比較で一時的に 2 本目を足したときだけ選択カードが出る (docs/plan/v2-phase1.md)
+import { PITCH_RULES, PITCH_RULE_LABEL, type PitchRule } from '../audio/pitch';
 import { defaultTuning, type Tuning } from '../config';
 import { TUNING_KEYS, TUNING_RANGES, clampTuning, formatTuningValue } from './tuning';
 
@@ -15,6 +16,9 @@ export interface TitleOptions {
   // 調整パネルの初期値と、変更のたびに呼ぶ通知 (呼び出し側が保存する)
   tuning: Tuning;
   onTuningChange: (t: Tuning) => void;
+  // 音高の案 (v5 T4)。3 案を聴き比べる。調整パネルとは別の選択
+  pitchRule: PitchRule;
+  onPitchRuleChange: (rule: PitchRule) => void;
 }
 
 export interface TitleView {
@@ -30,7 +34,7 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   panel.className = 'panel';
 
   const h1 = document.createElement('h1');
-  h1.textContent = 'music_action_lab v4';
+  h1.textContent = 'music_action_lab v5';
   const song = document.createElement('p');
   song.textContent = `曲: ${opts.songName}。20 秒、敵 1 体。`;
 
@@ -62,7 +66,9 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   const controls = document.createElement('p');
   controls.className = 'muted';
   controls.innerHTML =
-    'DualSense: 左スティックで移動、× で攻撃<br>キーボード: WASD / 矢印で移動、Space か J で攻撃、Enter で開始';
+    'DualSense: 左スティックで移動、R1 で攻撃 (押し続けて溜め、離して放つ)、○ でステップ<br>' +
+    'キーボード: WASD / 矢印で移動、Space か J で攻撃、K でステップ、Enter で開始<br>' +
+    '相殺した直後 1 拍の攻撃は「返し」(スティックを倒していればその向きへ踏み込む)';
 
   const gamepad = document.createElement('p');
   gamepad.className = 'muted';
@@ -71,13 +77,14 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   const hint = document.createElement('p');
   hint.className = 'hint';
 
+  const pitch = buildPitchRuleRow(opts.pitchRule, opts.onPitchRuleChange);
   const tuning = buildTuningPanel(opts.tuning, opts.onTuningChange);
 
   const start = document.createElement('button');
   start.textContent = 'はじめる';
   start.addEventListener('click', () => opts.onStart(selected));
 
-  panel.append(h1, song, single ? intent : choice, controls, gamepad, hint, tuning, start);
+  panel.append(h1, song, single ? intent : choice, controls, gamepad, hint, pitch, tuning, start);
   overlay.appendChild(panel);
 
   let selected = 0;
@@ -98,6 +105,29 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   };
   view.setSelection(0);
   return view;
+}
+
+// 音高の案 (v5 T4)。3 つのラジオ。選んだ案は結果の要約の先頭行に出る
+function buildPitchRuleRow(initial: PitchRule, onChange: (rule: PitchRule) => void): HTMLElement {
+  const row = document.createElement('p');
+  row.className = 'muted pitch-rule';
+  const label = document.createElement('span');
+  label.textContent = '自分の音の音高: ';
+  row.appendChild(label);
+  for (const rule of PITCH_RULES) {
+    const l = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'pitch-rule';
+    input.value = rule;
+    input.checked = rule === initial;
+    input.addEventListener('change', () => {
+      if (input.checked) onChange(rule);
+    });
+    l.append(input, document.createTextNode(` ${PITCH_RULE_LABEL[rule]} `));
+    row.appendChild(l);
+  }
+  return row;
 }
 
 // 調整パネル。5 本の range と現在値、「既定値に戻す」。変更は即 onChange に渡す (範囲は clampTuning で収める)

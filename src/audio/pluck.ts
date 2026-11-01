@@ -5,7 +5,8 @@
 // DelayNode の帰還は 1 量子 (128 サンプル) の最小遅延があり 375 Hz 以上が出ないので、前計算にしている。
 // 前計算なら OfflineAudioContext でも同じ波形になり、measure.html で確かめられる。
 
-export type PluckKind = 'on' | 'off' | 'miss' | 'cancel';
+// v5 で step (ステップの打音)、riposte (返し)、release (溜めの放ち) を足した。音高は呼ぶ側が音の口 (override.hz) で渡す
+export type PluckKind = 'on' | 'off' | 'miss' | 'cancel' | 'step' | 'riposte' | 'release';
 
 export interface PluckOptions {
   // 1 周期ごとの減衰係数 (0〜1)。小さいほど早く消える。周期あたりなので、低い音ほど同じ値でも長く残る。既定 0.99
@@ -93,6 +94,15 @@ export function pluckSpec(kind: PluckKind, midi?: number): PluckSpec {
     case 'cancel':
       // 相殺: 最も近いメロディ音の 1 オクターブ上を、明るく長く
       return { hz: midiToHz(midi ?? CANCEL_DEFAULT_MIDI), durSec: 0.5, decay: 0.993, brightness: 0.7, gain: 0.35 };
+    case 'step':
+      // ステップ (v5): 短い打音。鈍く、すぐ消える。2 連で「タタンッ」になる
+      return { hz: 440, durSec: 0.08, decay: 0.9, brightness: 0.25, gain: 0.25 };
+    case 'riposte':
+      // 返し (v5): 短く高く明るい
+      return { hz: 1046.5, durSec: 0.15, decay: 0.985, brightness: 0.8, gain: 0.3 };
+    case 'release':
+      // 放ち (v5): 長く低い
+      return { hz: 220, durSec: 0.8, decay: 0.996, brightness: 0.6, gain: 0.35 };
   }
 }
 
