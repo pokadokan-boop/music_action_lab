@@ -21,7 +21,7 @@
 
 ```mermaid
 graph TD
-    TS[1: Task Scheduler 毎日 05:00] --> RUN[2: scripts/steward/run.js]
+    TS[1: Task Scheduler] --> RUN[2: scripts/steward/run.js]
     RUN --> WG{3: 直近 30 分に活動があるか}
     WG -->|あり| SKIP[4: 飛ばして記録]
     WG -->|なし| COL[5: collect.js がデータを JSON にする]
