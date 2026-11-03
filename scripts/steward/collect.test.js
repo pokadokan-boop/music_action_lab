@@ -100,6 +100,20 @@ describe('summarizeSession', () => {
   });
 });
 
+describe('summarizeSession の updatedNext (Bash)', () => {
+  const run = (command) =>
+    summarizeSession(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command } }] } })).updatedNext;
+  it('リダイレクトで NEXT.md に書けば更新に数える', () => {
+    expect(run(`cat > "C:/x/docs/NEXT.md" <<'EOF'\n本文\nEOF`)).toBe(true);
+    expect(run('echo x >> docs/NEXT.md')).toBe(true);
+  });
+  it('読むだけ、別のファイルへの書き込みで本文に NEXT.md があるだけなら数えない', () => {
+    expect(run('cat docs/NEXT.md')).toBe(false);
+    expect(run(`cat > "C:/x/msg.txt" <<'EOF'\nNEXT.md を直す\nEOF`)).toBe(false);
+    expect(run('git -C C:/x add docs/NEXT.md')).toBe(false);
+  });
+});
+
 describe('parseRunRecordNumbers', () => {
   it('実行記録の 1 行目の数値を読む', () => {
     expect(parseRunRecordNumbers('数値: 削除 1、提案 0、質問 2、要望 0\n')).toEqual({ deletions: 1, proposals: 0, questions: 2, requests: 0 });

@@ -246,6 +246,8 @@ export function summarizeSession(jsonlText) {
         const input = JSON.stringify(part.input ?? {});
         if (earlyTools.length < 10) earlyTools.push(input);
         if ((part.name === 'Edit' || part.name === 'Write') && input.includes('NEXT.md')) updatedNext = true;
+        // Bash のリダイレクトで書いた場合も更新に数える (cat > "…/docs/NEXT.md" <<EOF)
+        if (part.name === 'Bash' && />{1,2}\s*"?[^\s"'<>|;&]*NEXT\.md/u.test(part.input?.command ?? '')) updatedNext = true;
         if (part.name === 'Bash' && /git (-C \S+ )?commit/u.test(input)) commits += 1;
       }
     }
