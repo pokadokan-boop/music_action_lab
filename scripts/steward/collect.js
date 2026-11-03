@@ -6,8 +6,8 @@
 //   rules     : 規律の文書の行数と義務語の数、git 履歴での行数の推移
 //   global    : global CLAUDE.md の行数と義務語 (測るだけ。変更は提案に留める)
 //   questions : NEXT.md「本人に聞きたいこと」の各項目の初出日、system-design.md の未決事項、proposals/ の承認待ち
-//   sessions  : ~/.claude/projects/<slug>/*.jsonl から、本人の発言数、NEXT.md を最初に読んだか、終わりに更新したか
-//   feedback  : vault の不満ノートの更新日時
+//   sessions  : ~/.claude/projects/<slug>/*.jsonl から、本人の発言数、NEXT.md を最初に読んだか、終わりに更新したか、本人が判断者に触れた時刻
+//   feedback  : vault の不満ノートの更新日時と、判断者への言及の数
 //   tests     : vitest の件数
 //   steward   : これまでの実行記録と Scheduler の登録状態
 
@@ -220,7 +220,21 @@ export function projectSlug(repo) {
   return path.resolve(repo).replace(/[^A-Za-z0-9]/gu, '-');
 }
 
+// 判断者 (本人は「専門家」とも呼ぶ) への言及。削除への本人の反応が返っているかを見る。
+export const STEWARD_MENTION = /判断者|専門家/gu;
+
+export function countStewardMentions(text) {
+  return (text.match(STEWARD_MENTION) ?? []).length;
+}
+
+function messageText(message) {
+  const c = message?.content;
+  if (typeof c === 'string') return c;
+  return Array.isArray(c) ? c.filter((p) => p.type === 'text').map((p) => p.text).join(' ') : '';
+}
+
 export function summarizeSession(jsonlText) {
+  const humanStewardMentions = [];
   let humanTurns = 0;
   let first = null;
   let last = null;
@@ -239,7 +253,10 @@ export function summarizeSession(jsonlText) {
       if (!first || o.timestamp < first) first = o.timestamp;
       if (!last || o.timestamp > last) last = o.timestamp;
     }
-    if (o.type === 'user' && !o.isMeta && o.origin && o.origin.kind === 'human') humanTurns += 1;
+    if (o.type === 'user' && !o.isMeta && o.origin && o.origin.kind === 'human') {
+      humanTurns += 1;
+      if (countStewardMentions(messageText(o.message)) > 0) humanStewardMentions.push(o.timestamp ?? null);
+    }
     if (o.type === 'assistant' && o.message && Array.isArray(o.message.content)) {
       for (const part of o.message.content) {
         if (part.type !== 'tool_use') continue;
@@ -259,6 +276,7 @@ export function summarizeSession(jsonlText) {
     readNextEarly: earlyTools.some((i) => i.includes('NEXT.md')),
     updatedNext,
     commits,
+    humanStewardMentions,
   };
 }
 
@@ -292,7 +310,11 @@ export function collectFeedback(repo) {
   const notes = fs
     .readdirSync(dir)
     .filter((n) => /不満\.md$/u.test(n))
-    .map((n) => ({ note: `音楽アクション/${n}`, mtime: fs.statSync(path.join(dir, n)).mtime.toISOString() }));
+    .map((n) => ({
+      note: `音楽アクション/${n}`,
+      mtime: fs.statSync(path.join(dir, n)).mtime.toISOString(),
+      stewardMentions: countStewardMentions(fs.readFileSync(path.join(dir, n), 'utf8')),
+    }));
   return { vaultRoot: root, notes };
 }
 

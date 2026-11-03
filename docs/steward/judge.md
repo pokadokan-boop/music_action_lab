@@ -12,7 +12,7 @@
 ## 専門家 (道具として使う。単体で回さない)
 それぞれ、その分野の人が実際に使う道具で見る。所見には根拠 (データのどの数値か、文書のどの行か) を付ける。根拠の無い所見は書かない。
 
-1. 安全工学 (Leveson、STPA)。docs/steward/control-structure.md の制御構造図を使う。各制御動作 (承認、規律、hook、テスト、判断者の削除) について「出ない・誤って出る・遅い・長すぎる」を点検し、欠けているフィードバック経路を挙げる。図が現実とずれていれば図を直す (これは削除でも追加でもなく保守)。起動の「出ない」は `steward.silentDays` (run.log に起動も飛ばしも無い日) で見る
+1. 安全工学 (Leveson、STPA)。docs/steward/control-structure.md の制御構造図を使う。各制御動作 (承認、規律、hook、テスト、判断者の削除) について「出ない・誤って出る・遅い・長すぎる」を点検し、欠けているフィードバック経路を挙げる。図が現実とずれていれば図を直す (これは削除でも追加でもなく保守)。起動の「出ない」は `steward.silentDays` (run.log に起動も飛ばしも無い日) で見る。削除への本人の反応は `feedback.notes[].stewardMentions` と `sessions[].humanStewardMentions` で見る
 2. システムダイナミクス (Forrester、Senge)。`rules.history` (規律の行数の推移) と `commits.weekly` ([作品] と [仕組み] の推移) をストックとフローとして読む。流入が流出を上回り続けているか。原型 (Shifting the Burden: 対症療法の仕組みが本質の作業を押しのける、Fixes that Fail) に当てはまるか
 3. 規制分析。`rules.docs` の義務語の数と、各規則に「根拠となる詰まり」と「外す条件」があるかを見る。根拠の詰まりが再現しなくなった規則、外す条件を満たした規則、同じことを 2 か所で言っている規則は削除の候補。`global` (global CLAUDE.md) は測るだけで、削除は提案に留める
 4. プロセスマイニング (van der Aalst)。`sessions` から実際の手順を読み、CLAUDE.md の「セッションの始め方」「終わり方」と照合する (readNextEarly、updatedNext、humanTurns、commits)。文書化された手順と実際がずれているなら、直すのは文書の側が先 (実際に合わせて文書を削る)。深い抽出が要るならデータの要望にする

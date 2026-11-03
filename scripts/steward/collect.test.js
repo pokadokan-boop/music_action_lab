@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyCommit,
   countObligations,
+  countStewardMentions,
   firstSeenQuestions,
   parseQuestions,
   parseRunRecordNumbers,
@@ -111,6 +112,23 @@ describe('summarizeSession の updatedNext (Bash)', () => {
     expect(run('cat docs/NEXT.md')).toBe(false);
     expect(run(`cat > "C:/x/msg.txt" <<'EOF'\nNEXT.md を直す\nEOF`)).toBe(false);
     expect(run('git -C C:/x add docs/NEXT.md')).toBe(false);
+  });
+});
+
+describe('判断者への言及', () => {
+  it('判断者と専門家を数える', () => {
+    expect(countStewardMentions('判断者が削った。専門家の構成は? 判断者')).toBe(3);
+    expect(countStewardMentions('攻撃音が浮く')).toBe(0);
+  });
+  it('本人の発言のうち言及したものの時刻を返す (Claude の発言や meta は数えない)', () => {
+    const lines = [
+      { type: 'user', origin: { kind: 'human' }, timestamp: 't1', message: { content: 'この判断者の削除は困る' } },
+      { type: 'user', origin: { kind: 'human' }, timestamp: 't2', message: { content: [{ type: 'text', text: '専門家を増やしたい' }] } },
+      { type: 'user', origin: { kind: 'human' }, timestamp: 't3', message: { content: '音が浮く' } },
+      { type: 'user', isMeta: true, origin: { kind: 'human' }, timestamp: 't4', message: { content: '判断者' } },
+      { type: 'assistant', timestamp: 't5', message: { content: [{ type: 'text', text: '判断者' }] } },
+    ];
+    expect(summarizeSession(lines.map((l) => JSON.stringify(l)).join('\n')).humanStewardMentions).toEqual(['t1', 't2']);
   });
 });
 
