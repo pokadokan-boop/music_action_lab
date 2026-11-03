@@ -1,4 +1,4 @@
-// 判断者が使う専門家の道具にデータを用意する (docs/plan/loop-phase2.md T1)。
+// 判断者が使う専門家の道具にデータを用意する (docs/plan/loop-phase2.md)。
 // 依存なし。出力は JSON を stdout に。判断はしない。
 //
 // 用意するもの:

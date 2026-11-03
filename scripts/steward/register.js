@@ -1,4 +1,4 @@
-// Task Scheduler への登録 (docs/plan/loop-phase2.md T4)。本人の登録作業を残さないために Claude が実行する。
+// Task Scheduler への登録 (docs/plan/loop-phase2.md)。本人の登録作業を残さないために Claude が実行する。
 //   node scripts/steward/register.js create [HH:MM]   毎日 HH:MM に run.js を起動する登録 (PC がその時刻に起きていないと走らない)
 //   node scripts/steward/register.js create idle [分]  PC を [分] (既定 15) 放置したら起動する登録 (既定。1 日 1 回の制限は run.js 側)
 //   node scripts/steward/register.js delete           登録を外す (判断者の停止条件でも使う)

@@ -1,4 +1,4 @@
-// 無人の判断者を起動する (docs/plan/loop-phase2.md T3)。Task Scheduler から毎日呼ばれる。
+// 無人の判断者を起動する (docs/plan/loop-phase2.md)。Task Scheduler から PC の放置で呼ばれる。
 //   1. 直近の活動 (repo のファイル更新、セッションログの更新) があれば飛ばして .steward/skips.log に書く
 //   2. collect.js でデータを JSON にする
 //   3. claude -p に docs/steward/judge.md とデータを渡す。使える道具は ALLOWED_TOOLS に絞る

@@ -68,27 +68,6 @@ graph TD
 - docs/steward/runs/<日付>.md: 数値の表、各専門家の所見 (根拠つき)、取った行動、それまでに飛ばした日 (活動中で飛ばした日は `.steward/skips.log` に溜め、次の記録に載せる。作業中の tree に記録を書き込まないため)。失敗しても必ず書く (判断者が書かなければ run.js が失敗の記録を書いて commit する)
 - NEXT.md「今の状態」に 1 行: 「判断者: 最終実行 <日付>、削除 N、提案 N、質問 N (docs/steward/runs/<日付>.md)」
 
-## タスク
-### T1 (データの用意 collect.js) [仕組み]
-- `scripts/steward/collect.js` (node、依存なし、ESM)。出力は JSON を stdout に。上の表の「用意するデータ」を全部出す
-- commit の分類は docs/decisions/commit-labels.md の定義に従う。2026-10-29 より前は src/ と assets/ への変更を [作品] と読み替える
-- 義務語の一覧は collect.js の先頭に置き、判断者が変えられる
-- テスト: `scripts/steward/collect.test.js` (vitest)。commit の分類、義務語の数、質問の初出日の 3 つ
-
-### T2 (判断者の指示 judge.md と制御構造図) [仕組み]
-- `docs/steward/judge.md`: 判断者が読む指示。専門家 5 つの使い方、権限、出力の形、停止条件 (5 回で削除 0 件なら `schtasks /Delete` で自分を外して記録)
-- `docs/steward/control-structure.md`: STPA の制御構造図の初版 (本人、Claude、規律、hook とテスト、作品と仕組み、NEXT.md、不満ノート)。判断者が毎回更新する
-
-### T3 (無人起動 run.js) [仕組み]
-- `scripts/steward/run.js`: 直近 30 分の活動 (repo のファイル更新、セッションログの更新) があれば飛ばす → collect.js → `claude -p` に judge.md とデータを渡す (`--allowedTools` で Read・Edit・Write・Bash の git/npm/schtasks に絞る) → 判断者が commit と記録を作る → 失敗時は run.js が記録を書く
-- claude と node は `where` で絶対パスを解決する (Scheduler はシェルの PATH を継承しないことがある)
-- ログ: `.steward/` (git 無視) に生の stdout/stderr
-
-### T4 (登録と無人の 1 回) [仕組み]
-- `schtasks /Create /SC DAILY /ST 05:00` で登録。Claude が実行する (本人の登録作業を残さない)
-- `schtasks /Run` で 1 回無人で走らせ、記録と NEXT.md の 1 行が出たことを確認して commit
-- CLAUDE.md「文書」にこの計画と docs/steward/ を足し、README の開発コマンドに手動実行 (`node scripts/steward/run.js`) を足す
-
 ## 決めた既定値 (理由つき)
 - 起動は「PC を 15 分放置したら」(Task Scheduler の idle トリガー)。当初は毎日 05:00 にしたが、10-29・10-30 とも PC がその時刻に起きておらず、起動時に Scheduler が「ログオン前」で拒否して一度も走らなかった (2026-10-30 に切り替え)。1 日 1 回の制限は run.js 側にあるので、放置中のどこかで 1 日 1 回走る。schtasks の idle 登録は「放置が終わったら止める」(StopOnIdleEnd) が既定で true なので、実行中 (2〜3 分) に本人が戻ると途中で止まる。その日の記録が無いままになれば次の放置で再実行される (削除は 1 件 1 commit なので途中で止まっても壊れない)
 - 活動の判定は 30 分: vault の progress-dialog T1 と同じ値。根拠は「本人や Claude が作業中に commit を割り込ませない」だけなので、実際に衝突したら変える
