@@ -11,7 +11,8 @@
 - docs/plan/loop-phase2.md: 回す仕組みの段階 2 (無人の専門家と判断者)。承認済み 2026-10-29。判断者は Task Scheduler から `scripts/steward/run.js` で起動し、docs/steward/judge.md に従って規律と待ちの在庫を減らす。削除は承認なしで commit (接頭辞 `[仕組み] 判断者:`)、記録は docs/steward/runs/、提案は docs/steward/proposals/。削除に不満があれば不満ノートに書く
 - docs/plan/v4-phase1.md: v4 (流れを作るための部品: 結果で分岐する振り付け、姿、音の口) の目的・完了条件・入れないもの。承認済み 2026-10-30、完了記録あり。不満の分解は docs/decisions/v3-feedback.md。エンジン (ブラウザのまま) の判断もここ
 - docs/plan/v5-flow-options.md: 捌いた後の流れの案 A〜D と本人の返事 3 回 (2026-11-02。A〜C は大味、D「プレイヤーの行動に拍の長さを持たせる」を軸に)。不満の分解は docs/decisions/v4-feedback.md
-- docs/plan/v5-phase1.md: v5 (行動に拍の長さを持たせる: ステップ・溜め・放ち・返し・音高 3 案、敵の攻撃を全メロディ音に) の目的・完了条件・入れないもの。承認済み 2026-11-02。詳細は docs/plan/v5-phase2-player.md (セッション A) と v5-phase2-enemy.md (セッション B)
+- docs/plan/v5-phase1.md: v5 (行動に拍の長さを持たせる: ステップ・溜め・放ち・返し・音高 3 案、敵の攻撃を全メロディ音に) の目的・完了条件・入れないもの。承認済み 2026-11-02。詳細は docs/plan/v5-phase2-player.md (セッション A) と v5-phase2-enemy.md (セッション B)。不満の分解は docs/decisions/v5-feedback.md
+- docs/plan/v6-phase1.md: v6 (両手独立 R1 / L1、大技「叩きつけ + 4 本のレーザー」と両手放ち、攻撃の見分け、音の仕様データと音作りのページ) の目的・完了条件・入れないもの。承認待ち (2026-11-05)。3 セッション (両手 / 大技と見分け / 音と公開)、公開は最後に 1 回
 - docs/play-image.md: 理想の 20 秒の動作イメージ (Claude の下書き、本人が直す叩き台)
 - docs/decisions/commit-labels.md: commit とタスクの接頭辞の定義。[作品] = このゲームに属するもの (コードを含む)、[仕組み] = 開発の流れ (2026-10-29 に本人の指摘で直した)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
