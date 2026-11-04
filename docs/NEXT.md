@@ -1,24 +1,23 @@
 # NEXT.md: 次のセッションへの引き継ぎ
-更新 2026-11-02。区切りごとに Claude が書き直す (書き方は CLAUDE.md「区切りの作り方」)。
+更新 2026-11-05。区切りごとに Claude が書き直す (書き方は CLAUDE.md「区切りの作り方」)。
 
 ## 次の 1 手
-- v5 は完了 (docs/plan/v5-phase1.md「完了記録 セッション A」「完了記録 セッション B」)。公開 URL で遊べる。次は本人の不満 (vault:音楽アクション/v5 不満.md) を待つ
-- 不満が来たら: docs/concept.md → v5 不満.md と貼られた要約 → docs/decisions/v4-feedback.md → docs/plan/v5-flow-options.md「記録して後回し」(スタイル、コピー + 乗っ取り、吸収と放出、ゲージ、大技、派生の追加) の順に読み、docs/decisions/v5-feedback.md に分解し、v6 の Phase 1 (目的・完了条件・入れないもの) を書いて承認を求める。案は「敵側の変化」と「プレイヤー側の行動の語彙」の両方の軸で出す (v4-feedback.md「仕組み側の学び」)
-- 不満が無い間にできること: 無し (手触りの判断は本人)。判断者 (docs/steward/) は毎日動く
+- v5 の不満は分解済み (docs/decisions/v5-feedback.md)。v6 の Phase 1 (docs/plan/v6-phase1.md) を本人に出して承認待ち
+- 承認が来たら: docs/plan/v6-phase1.md → docs/decisions/v5-feedback.md → docs/choreo-format.md → src/core/sim.ts (handleAttackButton、playerAttack、tryCancel) の順に読み、セッション A の Phase 2 (docs/plan/v6-phase2-hands.md: L1 と手ごとの溜め、両手放ちの窓、返しの窓の表示、記録と譜 3 行) を書いてそのまま実装に入る。公開は 3 セッション目の最後に 1 回。途中の push は公開 URL を作りかけにするので、NEXT.md に「v6 作りかけ」と書く
+- 承認の返事に修正があれば v6-phase1.md を直してから (v5 のときと同じ。冒頭に日付と直した点)
 - 現状の確認: `npm test` (182 件、17 ファイル)、`npm run build`、`npx tsx scripts/validate-choreo.ts assets/choreo/v5.json`
-- 終了条件: v5 不満.md が書かれている
+- 終了条件: v6-phase1.md が承認され、セッション A の Phase 2 が書けている
 
 ## 今の状態
-- 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v5: R1 攻撃と溜め・放ち、○ ステップ、返し、音高 3 案、譜。敵は 17 攻撃 (全メロディ音、拍 0 以外)、1 フレーズ 2 攻撃)
-- 最新 commit: v5 セッション B (v5.json、連なる攻撃の形式と検査、敵の位置・構えの選び方、phrase 表、文書、不満ノート)。その前は 319a193 (セッション A)
-- テスト: `npm test` 182 件 (17 ファイル) 通過。`npm run build` 通過。`validate-choreo v5.json` 違反なし
+- 公開 URL: https://pokadokan-boop.github.io/music_action_lab/ (v5 のまま)
+- 最新 commit: v5 の不満の分解と v6 Phase 1 (docs/decisions/v5-feedback.md、docs/plan/v6-phase1.md、CLAUDE.md の文書一覧)。コードは v5 セッション B から変えていない
+- テスト: `npm test` 182 件 (17 ファイル)。`npm run build` 通過 (2026-11-02 の確認のまま)
 - 未 push: なし (push は `gh auth switch -u pokadokan-boop` を先に)
-- 確認できていないこと (本人の手で): 自分の音の列が曲に乗るか、2 攻撃のフレーズが読めるか、溜め中の輪の見え方、音高 3 案の聴き比べ、実機の R1 / ○。曲の最初の 2 拍から突進が来る (phrase 0 の dash) が忙しければ phrase 0 だけ外す案
-- 承認事項のうち使わなかったもの: 連なる攻撃の予告先行 1 拍 (全て 2 拍で置けた。acceptance.json は変えていない。docs/plan/v5-phase2-enemy.md)
-- 本人の決め (2026-11-02): 流れの軸は案 D。敵は止めない (乗っ取りはコピーとセットでないと要らない)。溜めは動きながら持てる、被弾で解除、離した瞬間に放つ。ステップは無敵なし。攻撃 R1 / 回避 ○。強い相殺 = 溜めの放ちで相殺、ダメージだけ。派生は返し 1 つ (スティック入力があれば踏み込み)。敵の攻撃を全メロディ音に置く
-- 本人の環境: 音の出力遅延 280 ms (Bluetooth イヤホン)。遅れは感じていない。タイトルで遅延を体感で測る仕組みは次以降の希望 (docs/decisions/v4-feedback.md)
+- 本人の決め (2026-11-05): 両手独立 (R1 / L1) は v6 で実装 (テンポの細かい曲で後で必要になる) / 大技の作り直し (4 本のレーザー、両手放ちで相殺) も v6 に入れる / 音は音作りのページ + Claude の初期値 / 放ちの直当ては要約に行動別の命中を足すだけ、ダメージはそのまま / 曲の最初の 2 拍の突進は残す / 溜め中の輪は見えた / コントローラの振動は入れない (そのうち強度設定つきで)
+- 本人の環境: 音の出力遅延は Bluetooth 280 ms、有線 40 ms で「遅延がほぼなくなった」。イヤホン EarFun Air Pro 4+ はゲームモード (公称 50 ms 未満) があり、本人が帰宅後に確かめる。ゲーム側の対策は無い (自分の音だけが遅れる構造。docs/decisions/v5-feedback.md F1)
 - 判断者: 最終実行 2026-11-03、削除 7、提案 0、質問 0、要望 0 (docs/steward/runs/2026-11-03.md)
 
 ## 本人に聞きたいこと
-1. v5 を遊んで vault:音楽アクション/v5 不満.md に (書いてほしいこと 6 点はノートの冒頭)。答えが無くても進められる範囲: なし (次の版の目的は不満から決める)
-2. 曲の最初の 2 拍から突進が来るのはどうか (phrase 0 の dash)。忙しければ外す。答えが無くても進められる範囲: 全部 (そのまま)
+1. docs/plan/v6-phase1.md の承認 (「承認に含めるもの」5 点: L1 の追加、大技の相殺は両手放ちだけ、ダメージと HP の小数、吹っ飛びとのけぞり、振り付けの検査の読み替え)。答えが無くても進められる範囲: なし (Phase 1 は承認が要る)
+2. 左手のキーボードのキー (既定 F)、大技のレーザーの向き (既定 ×)、返しの窓の表示 (既定 入れる)。答えが無くても進められる範囲: 全部 (既定で)
+3. イヤホンのゲームモードをオンにしたときの「音の出力遅延の補正」の値。答えが無くても進められる範囲: 全部 (ゲーム側の変更は無い)
