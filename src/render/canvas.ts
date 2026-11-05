@@ -18,7 +18,7 @@ import {
 } from '../core/choreo';
 import type { Grid } from '../core/grid';
 import { currentAttack, enemyPose, playerPose } from '../core/pose';
-import { effectiveChoreo, type SimState } from '../core/sim';
+import { HANDS, armedHands, effectiveChoreo, type SimState } from '../core/sim';
 import { easeOut, normalize, type Vec } from '../core/vec';
 import { drawEnemy, drawPlayer } from './figures';
 
@@ -129,7 +129,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   if (flash.attackClass) pc = COLOR[flash.attackClass];
   if (flash.step) pc = COLOR[flash.step.cls];
   if (flash.damaged > 0) pc = COLOR.hpLow;
-  const charging = state.charge?.armed === true;
+  const charging = armedHands(state) > 0;
   const pPose = playerPose(
     {
       attacking: !!flash.attackClass,
@@ -143,14 +143,18 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   );
   const facingX = flash.aim && flash.aim.x !== 0 ? flash.aim.x : state.enemy.x - state.player.x;
   drawPlayer(ctx, p, pr(cfg.playerRadius), pPose, facingX < 0 ? -1 : 1, pulse, pc);
-  if (charging && state.charge) {
-    // 溜めの印 (v5): 自機の周りの細い輪。閾値を超えてから chargeFullBeats で半径 1.2 → 1.8 倍。判定の形ではない (状態の印)
-    const k = Math.min(1, (beat - state.charge.startBeat - cfg.chargeThresholdBeats) / cfg.chargeFullBeats);
+  for (const hand of HANDS) {
+    // 溜めの印 (v5): 自機の周りの細い輪。閾値を超えてから chargeFullBeats で半径 1.2 → 1.8 倍。判定の形ではない (状態の印)。
+    // v6: 手ごとに半分ずつ (右手は右半分、左手は左半分)。両手で 1 周。音は手で区別しないので、両手の状態はこの輪で見せる
+    const ch = state.hands[hand].charge;
+    if (!ch?.armed) continue;
+    const k = Math.min(1, (beat - ch.startBeat - cfg.chargeThresholdBeats) / cfg.chargeFullBeats);
     ctx.strokeStyle = COLOR.player;
     ctx.globalAlpha = 0.35 + 0.35 * k;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, pr(cfg.playerRadius * (1.2 + 0.6 * k)), 0, Math.PI * 2);
+    const from = hand === 'right' ? -Math.PI / 2 : Math.PI / 2;
+    ctx.arc(p.x, p.y, pr(cfg.playerRadius * (1.2 + 0.6 * k)), from, from + Math.PI);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }

@@ -52,7 +52,25 @@ describe('GameLog の v5 の行 (行動・溜め)', () => {
     log.push({ t: 6.5, beat: 13, kind: 'charge-break' });
     const text = log.summary({ choreoId: 'a', song: 'c1', date: '2026-11-02' });
     expect(text).toContain('攻撃 4 回 (表 2, 裏 1, 外 1)');
-    expect(text).toContain('行動: ステップ 2 回 (乗った 1) / 通常 2 (表 1 裏 1 外 0) / 返し 1 (表 0 裏 0 外 1、踏み込み 1) / 放ち 1 (表 1 裏 0 外 0)');
+    expect(text).toContain(
+      '行動: ステップ 2 回 (乗った 1) / 通常 2 (表 1 裏 1 外 0、右 2 左 0) / 返し 1 (表 0 裏 0 外 1、右 1 左 0、踏み込み 1) / 放ち 1 (表 1 裏 0 外 0、右 1 左 0、両手放ち 0)',
+    );
     expect(text).toContain('溜め 2 回 (放ち 1 / 被弾で解除 1) 強い相殺 1 回');
+  });
+});
+
+describe('GameLog の v6 の行 (命中の内訳・手の内訳・両手放ち)', () => {
+  it('命中を通常 / 返し / 放ち / 両手放ちに分け、行動ごとに右 / 左の数、放ちに両手放ちの数が入る', () => {
+    const log = new GameLog();
+    log.push({ t: 1, beat: 2, kind: 'attack', cls: 'on', offsetMs: 0, action: 'normal', hand: 'left' });
+    log.push({ t: 1, beat: 2, kind: 'hit', action: 'normal', damage: 1, hand: 'left' });
+    log.push({ t: 2, beat: 4, kind: 'attack', cls: 'on', offsetMs: 0, action: 'release', hand: 'right' });
+    log.push({ t: 2, beat: 4, kind: 'hit', action: 'release', damage: 3, hand: 'right' });
+    log.push({ t: 2.1, beat: 4.2, kind: 'attack', cls: 'on', offsetMs: 0, action: 'release', hand: 'left', double: true, pairMs: 100 });
+    log.push({ t: 2.1, beat: 4.2, kind: 'hit', action: 'release', damage: 3, hand: 'left', double: true });
+    const text = log.summary({ choreoId: 'a', song: 'c1', date: '2026-11-05' });
+    expect(text).toContain('攻撃 3 回 (表 3, 裏 0, 外 0) 命中 3 (通常 1 / 返し 0 / 放ち 1 / 両手放ち 1)');
+    expect(text).toContain('通常 1 (表 1 裏 0 外 0、右 0 左 1)');
+    expect(text).toContain('放ち 2 (表 2 裏 0 外 0、右 1 左 1、両手放ち 1)');
   });
 });

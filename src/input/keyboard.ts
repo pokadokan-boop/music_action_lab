@@ -1,4 +1,4 @@
-// キーボード入力。WASD と矢印で移動、Space と J で攻撃、K で回避 (v5)、Enter で決定。振り付けが 2 本以上あるときだけ A / D か ←→ で選択 (v2 は 1 本)
+// キーボード入力。WASD と矢印で移動、Space と J で右手の攻撃、F で左手の攻撃 (v6)、K で回避 (v5)、Enter で決定。振り付けが 2 本以上あるときだけ A / D か ←→ で選択 (v2 は 1 本)
 export class KeyboardInput {
   private readonly down = new Set<string>();
   // 1 フレームより短い押下 (keydown と keyup が同じフレームに入る) を取りこぼさないため、
@@ -32,6 +32,10 @@ export class KeyboardInput {
 
   attack(): boolean {
     return this.isDown('Space') || this.isDown('KeyJ');
+  }
+
+  attackLeft(): boolean {
+    return this.isDown('KeyF');
   }
 
   dodge(): boolean {

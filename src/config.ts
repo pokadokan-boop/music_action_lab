@@ -63,6 +63,8 @@ export interface Config {
   lungeDistance: number;
   // ダメージ (敵 HP 12)。release は溜めの放ちで、強い相殺 (放ちで相殺が成立) も同じ値
   damage: { normal: number; riposte: number; release: number };
+  // 両手放ち (v6 T2): 片方の手の放ちから doubleWindowBeats 以内にもう片方の手が放てば「両手放ち」(記録に double)
+  doubleWindowBeats: number;
 }
 
 export function makeConfig(tuning: Tuning = defaultTuning): Config {
@@ -94,6 +96,7 @@ export function makeConfig(tuning: Tuning = defaultTuning): Config {
     riposteWindowBeats: 1,
     lungeDistance: 0.1,
     damage: { normal: 1, riposte: 1, release: 3 },
+    doubleWindowBeats: 0.25, // 両手の同時押しの散らばり (数十 ms) を許し、16 分より広げない (docs/plan/v6-phase1.md「既定値」)
   };
 }
 

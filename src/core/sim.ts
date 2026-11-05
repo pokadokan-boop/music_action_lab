@@ -18,7 +18,7 @@ import {
   type Outcome,
 } from './choreo';
 import { phraseAt, type Grid } from './grid';
-import { GameLog, type AttackAction, type BeatClass, type CancelMissReason } from './log';
+import { GameLog, type AttackAction, type BeatClass, type CancelMissReason, type Hand } from './log';
 import {
   angleBetweenDeg,
   angleDeg,
@@ -40,11 +40,21 @@ const BEAT_EPS = 1e-9;
 
 export interface InputState {
   move: Vec;
-  // 攻撃ボタンを押している間 true。sim が立ち上がり (押下 = 通常攻撃か返し + 溜めの開始) と立ち下がり (離す = 溜めていれば放ち) を取る
+  // 右手の攻撃ボタン (R1 / J / Space) を押している間 true。sim が立ち上がり (押下 = 通常攻撃か返し + 溜めの開始) と立ち下がり (離す = 溜めていれば放ち) を取る
   attackPressed: boolean;
+  // 左手の攻撃ボタン (L1 / F。v6 T1) を押している間 true。省略は false。規則は右手と同じで、手ごとに独立に溜められる
+  attackLeftPressed?: boolean;
   // 回避ボタンを押している間 true (v5 T1)。省略は false
   dodgePressed?: boolean;
 }
+
+// 手ごとの攻撃ボタンの状態 (v6 T1)。latch は前の step で押されていたか、charge は溜め
+export interface HandState {
+  latch: boolean;
+  charge: Charge | null;
+}
+
+export const HANDS: readonly Hand[] = ['right', 'left'];
 
 // ステップ中 (v5 T1)。startBeat から cfg.stepBeats の間、dir へ等速に動く
 export interface Stepping {
@@ -63,12 +73,14 @@ export interface SimState {
   beat: number;
   player: { x: number; y: number; hp: number };
   enemy: { x: number; y: number; hp: number };
-  attackLatch: boolean;
+  // 手ごとの攻撃ボタンの状態 (v6 T1)。v5 までの attackLatch / charge は hands.right に相当
+  hands: Record<Hand, HandState>;
   dodgeLatch: boolean;
   stepping: Stepping | null;
-  charge: Charge | null;
   // 直近の相殺の拍。返しの窓 (cfg.riposteWindowBeats) の基準 (v5 T3)
   lastCancelBeat: number | null;
+  // 直近の放ち (両手放ちの窓の基準。v6 T2)。もう片方の手が cfg.doubleWindowBeats 以内に放てば両手放ちになり、消費される
+  lastRelease: { hand: Hand; beat: number } | null;
   damagedBy: Set<number>;
   // 被弾した拍 (attackIndex → beat)。遅い側の相殺で被弾を取り消すときに、直前の被弾だけを対象にするため (v3 T3)
   damageBeat: Map<number, number>;
@@ -89,8 +101,9 @@ export interface SimState {
   finished: boolean;
   // 直前の step で起きたこと (描画・効果音用。記録は log が持つ)
   lastAttackClass: BeatClass | null;
-  // 直前の step の攻撃の種類 (lastAttackClass と一緒に立つ)
+  // 直前の step の攻撃の種類と手 (lastAttackClass と一緒に立つ)。同じ step で両手が押されたら後の手 (左) のものが残る
   lastAction: AttackAction | null;
+  lastAttackHand: Hand | null;
   // 直前の step でステップが始まった (拍の判定と向き)
   lastStep: { cls: BeatClass; dir: Vec } | null;
   // 直前の step で溜めが閾値を超えた / 溜めが終わった (放ちか解除。持続音を止める)
@@ -119,11 +132,11 @@ export function createSim(deps: SimDeps): SimState {
     beat: 0,
     player: { x: cfg.playerStartPos.x, y: cfg.playerStartPos.y, hp: cfg.playerHp },
     enemy: { x: enemy.x, y: enemy.y, hp: cfg.enemyHp },
-    attackLatch: false,
+    hands: { right: { latch: false, charge: null }, left: { latch: false, charge: null } },
     dodgeLatch: false,
     stepping: null,
-    charge: null,
     lastCancelBeat: null,
+    lastRelease: null,
     damagedBy: new Set(),
     damageBeat: new Map(),
     impactAt: new Map(),
@@ -136,6 +149,7 @@ export function createSim(deps: SimDeps): SimState {
     finished: false,
     lastAttackClass: null,
     lastAction: null,
+    lastAttackHand: null,
     lastStep: null,
     lastChargeBegin: false,
     lastChargeEnd: false,
@@ -150,6 +164,7 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   const { cfg, grid, choreo, acceptance } = deps;
   state.lastAttackClass = null;
   state.lastAction = null;
+  state.lastAttackHand = null;
   state.lastStep = null;
   state.lastChargeBegin = false;
   state.lastChargeEnd = false;
@@ -175,34 +190,44 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   if (dodge && !state.dodgeLatch) startStep(state, input, deps);
   state.dodgeLatch = dodge;
 
-  handleAttackButton(state, input, deps);
+  // 両手 (v6 T1)。右 → 左の順。同じ step で両方押されたら記録もこの順
+  handleAttackButton(state, 'right', input.attackPressed, input, deps);
+  handleAttackButton(state, 'left', input.attackLeftPressed ?? false, input, deps);
 
   checkDamage(state, deps);
 
   if (state.t >= acceptance.sceneSeconds) state.finished = true;
 }
 
-// 攻撃ボタン (v5 T2): 押した瞬間は通常攻撃 (相殺から 1 拍以内なら返し) と溜めの開始。押したまま閾値を超えると溜め状態。
-// 離した瞬間に溜め状態なら放つ。閾値未満で離せば何も起きない。被弾による解除は checkDamage
-function handleAttackButton(state: SimState, input: InputState, deps: SimDeps): void {
+// 攻撃ボタン (v5 T2、v6 T1 で手ごとに): 押した瞬間は通常攻撃 (相殺から 1 拍以内なら返し) と溜めの開始。押したまま閾値を超えると溜め状態。
+// 離した瞬間に溜め状態なら放つ。閾値未満で離せば何も起きない。被弾による解除は checkDamage。
+// 持続音は手で区別しない (本人): lastChargeBegin は溜め状態の手が 0 → 1 になったとき、lastChargeEnd は 1 → 0 になったときだけ立つ
+function handleAttackButton(state: SimState, hand: Hand, pressed: boolean, input: InputState, deps: SimDeps): void {
   const { cfg } = deps;
-  const pressed = input.attackPressed;
-  if (pressed && !state.attackLatch) {
+  const h = state.hands[hand];
+  if (pressed && !h.latch) {
     const riposte = state.lastCancelBeat !== null && state.beat - state.lastCancelBeat <= cfg.riposteWindowBeats + BEAT_EPS;
-    playerAttack(state, input, deps, riposte ? 'riposte' : 'normal');
-    state.charge = { startBeat: state.beat, armed: false };
-  } else if (pressed && state.charge && !state.charge.armed && state.beat - state.charge.startBeat >= cfg.chargeThresholdBeats - BEAT_EPS) {
-    state.charge.armed = true;
-    state.lastChargeBegin = true;
-    state.log.push({ t: state.t, beat: state.beat, kind: 'charge' });
-  } else if (!pressed && state.attackLatch && state.charge) {
-    if (state.charge.armed) {
-      state.lastChargeEnd = true;
-      playerAttack(state, input, deps, 'release');
+    playerAttack(state, input, deps, riposte ? 'riposte' : 'normal', hand);
+    h.charge = { startBeat: state.beat, armed: false };
+  } else if (pressed && h.charge && !h.charge.armed && state.beat - h.charge.startBeat >= cfg.chargeThresholdBeats - BEAT_EPS) {
+    const wasCharging = armedHands(state) > 0;
+    h.charge.armed = true;
+    if (!wasCharging) state.lastChargeBegin = true;
+    state.log.push({ t: state.t, beat: state.beat, kind: 'charge', hand });
+  } else if (!pressed && h.latch && h.charge) {
+    if (h.charge.armed) {
+      h.charge = null;
+      if (armedHands(state) === 0) state.lastChargeEnd = true;
+      playerAttack(state, input, deps, 'release', hand);
     }
-    state.charge = null;
+    h.charge = null;
   }
-  state.attackLatch = pressed;
+  h.latch = pressed;
+}
+
+// 溜め状態 (armed) の手の数
+export function armedHands(state: SimState): number {
+  return HANDS.filter((hand) => state.hands[hand].charge?.armed).length;
 }
 
 // ステップ (v5 T1): スティックの向き (無入力なら敵と逆) へ cfg.stepDistance を cfg.stepBeats で動く。無敵は無い。
@@ -303,12 +328,26 @@ export function classifyGrid(beat: number, gridBeats: number, windowBeats: numbe
 }
 
 // 攻撃の押下 (v5 で 3 種に): normal = 通常、riposte = 相殺から 1 拍以内の押下 (スティック入力があれば踏み込む)、release = 溜めの放ち。
-// どれも 拍の分類 → 記録 → 相殺の判定 (押した瞬間の位置) → (返しなら踏み込み) → 扇の命中、の順
-function playerAttack(state: SimState, input: InputState, deps: SimDeps, action: AttackAction): void {
+// どれも 拍の分類 → 記録 → 相殺の判定 (押した瞬間の位置) → (返しなら踏み込み) → 扇の命中、の順。
+// v6: hand は押した手。放ちは、他方の手の放ちが cfg.doubleWindowBeats 以内にあれば両手放ち (double) として記録する (大技の相殺はセッション B)
+function playerAttack(state: SimState, input: InputState, deps: SimDeps, action: AttackAction, hand: Hand): void {
   const { cfg, grid } = deps;
   const { cls, offsetBeats } = classifyBeat(state.beat, cfg.onBeatWindowBeats);
   state.lastAttackClass = cls;
   state.lastAction = action;
+  state.lastAttackHand = hand;
+  let double = false;
+  let pairMs: number | undefined;
+  if (action === 'release') {
+    const prev = state.lastRelease;
+    if (prev && prev.hand !== hand && state.beat - prev.beat <= cfg.doubleWindowBeats + BEAT_EPS) {
+      double = true;
+      pairMs = (state.beat - prev.beat) * grid.beatSec * 1000;
+      state.lastRelease = null;
+    } else {
+      state.lastRelease = { hand, beat: state.beat };
+    }
+  }
 
   // 攻撃の向き: 移動入力があればその向き (丸めない)、無ければ敵の方向 (docs/plan/v2-phase2.md「既定値の決め」)
   const hasMove = Math.hypot(input.move.x, input.move.y) > 0;
@@ -328,13 +367,15 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
     aimDeg: angleDeg(aim),
     enemyInFan,
     action,
+    hand,
     ...(action === 'riposte' ? { lunge } : {}),
+    ...(double ? { double, pairMs } : {}),
   });
 
   // 相殺は命中と独立に判定する (両方起きてよい)。寄せや踏み込みで位置が動く前の、押した瞬間の位置で見る。
   // 放ちで成立すれば強い相殺: 敵にダメージ (扇の命中と二重にはしない)
   const damage = cfg.damage[action];
-  const strong = tryCancel(state, aim, deps, action === 'release') && action === 'release';
+  const strong = tryCancel(state, aim, deps, action === 'release', hand) && action === 'release';
   if (strong) {
     state.enemy.hp = Math.max(0, state.enemy.hp - damage);
     state.lastHit = true;
@@ -359,7 +400,7 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
   if (strong) return; // 放ちのダメージは強い相殺で入れた
   state.enemy.hp = Math.max(0, state.enemy.hp - damage);
   state.lastHit = true;
-  state.log.push({ t: state.t, beat: state.beat, kind: 'hit', phrase: phraseAt(grid, state.beat)?.index, action, damage });
+  state.log.push({ t: state.t, beat: state.beat, kind: 'hit', phrase: phraseAt(grid, state.beat)?.index, action, damage, hand, ...(double ? { double } : {}) });
 }
 
 // 相殺 (v2 T5、v3 T3 で窓を接触基準にした)。uncancelable でなく、まだ相殺されていない敵の攻撃について:
@@ -369,8 +410,8 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
 // 両方が成り立てば cancelled に入れる。遅い側で成立し、その攻撃で既に被弾していれば HP を戻す (damage-undone)。
 // 成立しなかった押下は、近い攻撃 (予告開始 〜 窓の終わり + 0.25 拍) があれば cancel-miss を 1 件だけ記録する。
 // 理由: 時刻が外れ → c があれば timing、無ければ reach / 時刻は合うが向きが外れ → angle
-// 戻り値は何かを相殺できたか。strong は放ちによる押下 (cancel の記録に残す。ダメージは呼ぶ側)
-function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean): boolean {
+// 戻り値は何かを相殺できたか。strong は放ちによる押下 (cancel の記録に残す。ダメージは呼ぶ側)。hand は押した手 (記録用)
+function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, hand: Hand): boolean {
   const { cfg, grid } = deps;
   const choreo = effectiveChoreo(state, deps.choreo);
   const range = cfg.attackRadius;
@@ -411,7 +452,7 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean): b
     state.lastCancelBeat = b;
     const pos = shape.kind === 'circle' ? { x: shape.x, y: shape.y } : closestPointOnSegment(state.player, shape.a, shape.b);
     state.lastCancel = { attackIndex: idx, pos, hitbox: shape };
-    state.log.push({ t: state.t, beat: b, kind: 'cancel', attackIndex: idx, phrase: atk.phrase, ...(strong ? { strong: true } : {}) });
+    state.log.push({ t: state.t, beat: b, kind: 'cancel', attackIndex: idx, phrase: atk.phrase, hand, ...(strong ? { strong: true } : {}) });
     // 遅い側: この攻撃で既に被弾していて、それが窓の中 (b − 遅い側 以降) なら取り消す。記録の damage は残し、HP だけ戻す
     const dmgBeat = state.damageBeat.get(idx);
     if (dmgBeat !== undefined && dmgBeat >= b - late - 1e-9) {
@@ -453,14 +494,16 @@ function checkDamage(state: SimState, deps: SimDeps): void {
   });
 }
 
-// 被弾で溜めは解除される (v5 T2。本人の指定)。溜め状態なら記録して持続音を止める。離して押し直すまで溜め直せない
+// 被弾で溜めは解除される (v5 T2。本人の指定)。両手とも (v6)。溜め状態の手があれば手ごとに記録し、持続音を止める。離して押し直すまで溜め直せない
 function breakCharge(state: SimState): void {
-  if (!state.charge) return;
-  if (state.charge.armed) {
-    state.lastChargeEnd = true;
-    state.log.push({ t: state.t, beat: state.beat, kind: 'charge-break' });
+  const wasCharging = armedHands(state) > 0;
+  for (const hand of HANDS) {
+    const h = state.hands[hand];
+    if (!h.charge) continue;
+    if (h.charge.armed) state.log.push({ t: state.t, beat: state.beat, kind: 'charge-break', hand });
+    h.charge = null;
   }
-  state.charge = null;
+  if (wasCharging) state.lastChargeEnd = true;
 }
 
 export function renderToText(state: SimState): string {

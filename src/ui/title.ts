@@ -66,9 +66,9 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   const controls = document.createElement('p');
   controls.className = 'muted';
   controls.innerHTML =
-    'DualSense: 左スティックで移動、R1 で攻撃 (押し続けて溜め、離して放つ)、○ でステップ<br>' +
-    'キーボード: WASD / 矢印で移動、Space か J で攻撃、K でステップ、Enter で開始<br>' +
-    '相殺した直後 1 拍の攻撃は「返し」(スティックを倒していればその向きへ踏み込む)';
+    'DualSense: 左スティックで移動、R1 (右手) と L1 (左手) で攻撃 (それぞれ押し続けて溜め、離して放つ)、○ でステップ<br>' +
+    'キーボード: WASD / 矢印で移動、Space か J で右手の攻撃、F で左手の攻撃、K でステップ、Enter で開始<br>' +
+    '相殺した直後 1 拍の攻撃は「返し」(スティックを倒していればその向きへ踏み込む)。両手の放ちを 16 分以内に重ねると「両手放ち」';
 
   const gamepad = document.createElement('p');
   gamepad.className = 'muted';

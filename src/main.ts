@@ -166,7 +166,7 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
     const steps = clock.advanceTime((elapsed - fedSec) * 1000);
     fedSec = elapsed;
     for (const _t of steps) {
-      step(sim, { move: now.move, attackPressed: now.attackPressed, dodgePressed: now.dodgePressed }, deps.cfg.fixedDt, deps);
+      step(sim, { move: now.move, attackPressed: now.attackPressed, attackLeftPressed: now.attackLeftPressed, dodgePressed: now.dodgePressed }, deps.cfg.fixedDt, deps);
       if (sim.lastAttackClass) {
         const action = sim.lastAction ?? 'normal';
         playSfx(action === 'normal' ? 'attack' : action, sim.lastAttackClass);

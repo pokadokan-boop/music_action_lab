@@ -93,10 +93,10 @@ describe('ステップ (T1)', () => {
     run(state, stay, 10);
     const hold: InputState = { move: { x: 0, y: 0 }, attackPressed: true };
     run(state, hold, beatsToSteps(0.6));
-    expect(state.charge?.armed).toBe(true);
+    expect(state.hands.right.charge?.armed).toBe(true);
     step(state, { ...hold, dodgePressed: true }, dt, deps);
     run(state, hold, beatsToSteps(0.5));
-    expect(state.charge?.armed).toBe(true);
+    expect(state.hands.right.charge?.armed).toBe(true);
     expect(events(state, 'step')).toHaveLength(1);
   });
 });
@@ -117,17 +117,17 @@ describe('溜めと放ち (T2)', () => {
     step(state, hold, dt, deps);
     expect(events(state, 'attack')[0]).toMatchObject({ action: 'normal' });
     expect(state.enemy.hp).toBe(config.enemyHp - 1);
-    expect(state.charge).toMatchObject({ armed: false });
+    expect(state.hands.right.charge).toMatchObject({ armed: false });
     run(state, hold, beatsToSteps(0.5) - 1);
-    expect(state.charge?.armed).toBe(false);
+    expect(state.hands.right.charge?.armed).toBe(false);
     step(state, hold, dt, deps);
-    expect(state.charge?.armed).toBe(true);
+    expect(state.hands.right.charge?.armed).toBe(true);
     expect(state.lastChargeBegin).toBe(true);
     expect(events(state, 'charge')).toHaveLength(1);
     run(state, hold, beatsToSteps(0.5));
     step(state, stay, dt, deps);
     expect(state.lastChargeEnd).toBe(true);
-    expect(state.charge).toBeNull();
+    expect(state.hands.right.charge).toBeNull();
     const attacks = events(state, 'attack');
     expect(attacks).toHaveLength(2);
     expect(attacks[1]).toMatchObject({ action: 'release' });
@@ -142,7 +142,7 @@ describe('溜めと放ち (T2)', () => {
     step(state, stay, dt, deps);
     expect(events(state, 'attack')).toHaveLength(1);
     expect(events(state, 'charge')).toHaveLength(0);
-    expect(state.charge).toBeNull();
+    expect(state.hands.right.charge).toBeNull();
   });
 
   it('被弾で溜めは解除され (charge-break)、その後離しても放たない', () => {
@@ -153,20 +153,20 @@ describe('溜めと放ち (T2)', () => {
     state.player.y = 0.5;
     const hold: InputState = { move: { x: 0, y: 0 }, attackPressed: true };
     run(state, hold, beatsToSteps(0.7));
-    expect(state.charge?.armed).toBe(true);
+    expect(state.hands.right.charge?.armed).toBe(true);
     run(state, hold, beatsToSteps(1.2));
     expect(state.damagedBy.has(0)).toBe(true);
     expect(events(state, 'charge-break')).toHaveLength(1);
-    expect(state.charge).toBeNull();
+    expect(state.hands.right.charge).toBeNull();
     // 押したままでは溜め直せない (押し直しが要る)
     run(state, hold, beatsToSteps(1));
-    expect(state.charge).toBeNull();
+    expect(state.hands.right.charge).toBeNull();
     // 離しても放たない
     step(state, stay, dt, deps);
     expect(events(state, 'attack').filter((e) => e.action === 'release')).toHaveLength(0);
     // 押し直せば溜め直せる
     step(state, hold, dt, deps);
-    expect(state.charge).toMatchObject({ armed: false });
+    expect(state.hands.right.charge).toMatchObject({ armed: false });
   });
 });
 
@@ -199,7 +199,7 @@ describe('強い相殺 (T2) と返し (T3)。v5.json の dash (攻撃 6) と las
     runUntil(state, c - 1);
     step(state, { move: { x: 0, y: 0 }, attackPressed: true }, dt, realDeps);
     runUntil(state, c - msBeatReal(60), { move: { x: 0, y: 0 }, attackPressed: true });
-    expect(state.charge?.armed).toBe(true);
+    expect(state.hands.right.charge?.armed).toBe(true);
     step(state, { move: facing, attackPressed: false }, dt, realDeps);
     expect(state.cancelled.has(6)).toBe(true);
     const cancel = state.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 6);

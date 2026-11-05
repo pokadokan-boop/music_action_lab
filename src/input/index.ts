@@ -21,6 +21,7 @@ export class InputManager {
     const snapshot: InputSnapshot = {
       move,
       attackPressed: this.keyboard.attack() || this.gamepad.attack(),
+      attackLeftPressed: this.keyboard.attackLeft() || this.gamepad.attackLeft(),
       dodgePressed: this.keyboard.dodge() || this.gamepad.dodge(),
       confirm: this.keyboard.confirm() || this.gamepad.confirm(),
       selectLeft: this.keyboard.selectLeft() || this.gamepad.selectLeft(),

@@ -1,9 +1,11 @@
 // Gamepad API。DualSense は標準マッピングで読める: axes[0], axes[1] が左スティック、
-// buttons[0] が ×、buttons[1] が ○、buttons[5] が R1、buttons[9] が OPTIONS、buttons[14] / [15] が十字キー左右。
-// v5: 攻撃は R1、回避は ○ (親指で ○ を押しながら人差し指で R1 を押し続けられる。docs/plan/v5-phase1.md「承認に含めるもの」1)。× は決定だけ
+// buttons[0] が ×、buttons[1] が ○、buttons[4] が L1、buttons[5] が R1、buttons[9] が OPTIONS、buttons[14] / [15] が十字キー左右。
+// v5: 攻撃は R1、回避は ○ (親指で ○ を押しながら人差し指で R1 を押し続けられる。docs/plan/v5-phase1.md「承認に含めるもの」1)。× は決定だけ。
+// v6: 左手の攻撃は L1 (両手独立。docs/plan/v6-phase1.md「承認に含めるもの」1)
 const DEADZONE = 0.2;
 const BUTTON_CROSS = 0;
 const BUTTON_CIRCLE = 1;
+const BUTTON_L1 = 4;
 const BUTTON_R1 = 5;
 const BUTTON_OPTIONS = 9;
 
@@ -41,6 +43,10 @@ export class GamepadInput {
 
   attack(): boolean {
     return this.pad()?.buttons[BUTTON_R1]?.pressed ?? false;
+  }
+
+  attackLeft(): boolean {
+    return this.pad()?.buttons[BUTTON_L1]?.pressed ?? false;
   }
 
   dodge(): boolean {

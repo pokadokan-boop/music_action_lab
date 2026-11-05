@@ -33,8 +33,8 @@ describe('buildSummary', () => {
   });
 });
 
-describe('buildScore (v5 のプレイヤーの譜)', () => {
-  it('1 行 1 小節、16 分 1 マス、記号の優先順 (強 > 相 > 放 > 返 > 攻 > ス > 溜)、溜め中は charge から放ち/解除まで', () => {
+describe('buildScore (v5 のプレイヤーの譜。v6 で 1 小節 3 行)', () => {
+  it('1 小節 3 行 (右 / 左 / 足)、16 分 1 マス、記号の優先順 (強 > 相 > 放 > 返 > 攻 > 溜)、溜め中は charge から放ち/解除まで。hand の無い記録は右手', () => {
     const log = new GameLog();
     const grid = makeGrid(120, 2); // 2 小節 = 8 拍
     log.push({ t: 0, beat: 0, kind: 'attack', cls: 'on', offsetMs: 0, action: 'normal' });
@@ -52,10 +52,27 @@ describe('buildScore (v5 のプレイヤーの譜)', () => {
     log.push({ t: 0, beat: 7.1, kind: 'step', cls: 'miss', offsetMs: 0 });
     const lines = buildScore(log, grid);
     expect(lines[0]).toBe(SCORE_LEGEND);
-    // 拍 0 攻 / 0.5 と 0.75 ス / 1.5〜3 溜 (マス 6〜11) / 3 放ちと強い相殺 → 強
-    expect(lines[1]).toBe('小節  1 | 攻・スス ・・溜溜 溜溜溜溜 強・・・ |');
-    expect(lines[2]).toBe('小節  2 | 相・返・ ・・・・ 溜溜・・ ス・・・ |');
-    expect(lines).toHaveLength(3);
+    // 右手: 拍 0 攻 / 1.5〜3 溜 (マス 6〜11) / 3 放ちと強い相殺 → 強。足: 0.5 と 0.75 ス
+    expect(lines[1]).toBe('小節  1 右 | 攻・・・ ・・溜溜 溜溜溜溜 強・・・ |');
+    expect(lines[2]).toBe('       左 | ・・・・ ・・・・ ・・・・ ・・・・ |');
+    expect(lines[3]).toBe('       足 | ・・スス ・・・・ ・・・・ ・・・・ |');
+    expect(lines[4]).toBe('小節  2 右 | 相・返・ ・・・・ 溜溜・・ ・・・・ |');
+    expect(lines[6]).toBe('       足 | ・・・・ ・・・・ ・・・・ ス・・・ |');
+    expect(lines).toHaveLength(7);
+  });
+
+  it('左手の記録は左の行に出て、溜め中の区間も手ごとに追う (右手の放ちで左手の溜めは切れない)', () => {
+    const log = new GameLog();
+    const grid = makeGrid(120, 1);
+    log.push({ t: 0, beat: 0, kind: 'charge', hand: 'left' });
+    log.push({ t: 0, beat: 0.5, kind: 'charge', hand: 'right' });
+    log.push({ t: 0, beat: 1, kind: 'attack', cls: 'on', offsetMs: 0, action: 'release', hand: 'right' });
+    log.push({ t: 0, beat: 2, kind: 'attack', cls: 'on', offsetMs: 0, action: 'normal', hand: 'left' });
+    log.push({ t: 0, beat: 2, kind: 'cancel', attackIndex: 0, phrase: 0, hand: 'left' });
+    log.push({ t: 0, beat: 3, kind: 'attack', cls: 'on', offsetMs: 0, action: 'release', hand: 'left', double: true, pairMs: 0 });
+    const lines = buildScore(log, grid);
+    expect(lines[1]).toBe('小節  1 右 | ・・溜溜 放・・・ ・・・・ ・・・・ |');
+    expect(lines[2]).toBe('       左 | 溜溜溜溜 溜溜溜溜 相溜溜溜 放・・・ |');
   });
 
   it('buildSummary は要約の後に譜、その後に phrase 表を出す', () => {
@@ -66,5 +83,6 @@ describe('buildScore (v5 のプレイヤーの譜)', () => {
     expect(legend).toBeGreaterThan(0);
     expect(table).toBeGreaterThan(legend);
     expect(lines.filter((l) => l.startsWith('小節'))).toHaveLength(8);
+    expect(lines.filter((l) => l.includes(' 足 | '))).toHaveLength(8);
   });
 });
