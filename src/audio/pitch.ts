@@ -11,8 +11,9 @@ export const PITCH_RULES: PitchRule[] = ['chord', 'motif', 'fixed'];
 export const PITCH_RULE_LABEL: Record<PitchRule, string> = { chord: '案 1 コードの音', motif: '案 2 メロディをなぞる', fixed: '案 3 固定 (v3)' };
 export const DEFAULT_PITCH_RULE: PitchRule = 'chord';
 
-// 音を鳴らす行動。attack = 通常攻撃 (cls で表 / 裏 / 外)、step = ステップ (cls on / miss)、riposte = 返し、release = 放ち
-export type SoundAction = 'attack' | 'step' | 'riposte' | 'release';
+// 音を鳴らす行動。attack = 通常攻撃 (cls で表 / 裏 / 外)、step = ステップ (cls on / miss)、riposte = 返し、release = 放ち、
+// double = 両手放ち (v6。音高は放ちと同じ。音色は assets/sound/v6.json の double)
+export type SoundAction = 'attack' | 'step' | 'riposte' | 'release' | 'double';
 
 // MIDI 番号。F2 = 41、F3 = 53、F4 = 65、A♭4 = 68、C5 = 72、F5 = 77、A♭5 = 80、A2 = 45、A3 = 57、A4 = 69、A5 = 81、C6 = 84
 const FALLBACK_MELODY_MIDI = 68;
@@ -70,6 +71,7 @@ function fixedPitch(action: SoundAction, cls: BeatClass): number {
     case 'riposte':
       return 84;
     case 'release':
+    case 'double':
       return 57;
   }
 }
@@ -83,6 +85,7 @@ function chordPitch(action: SoundAction, cls: BeatClass): number {
     case 'riposte':
       return 80;
     case 'release':
+    case 'double':
       return 53;
   }
 }
@@ -96,6 +99,7 @@ function motifPitch(action: SoundAction, cls: BeatClass, m: number): number {
     case 'riposte':
       return m + 15;
     case 'release':
+    case 'double':
       return m - 12;
   }
 }

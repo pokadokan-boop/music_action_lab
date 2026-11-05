@@ -1,7 +1,8 @@
 // タイトル → ゲーム → 結果の遷移。音の時計 (AudioContext.currentTime) を正にして固定ステップで sim を進める
 import acceptance from '../acceptance.json';
-import { AudioEngine, midiToHz } from './audio/engine';
+import { AudioEngine, DEFAULT_SOUND_BANK, midiToHz } from './audio/engine';
 import { PITCH_RULE_LABEL, cancelMidi, chargeRange, pitchFor, type PitchRule, type SoundAction } from './audio/pitch';
+import { sameBank, type SoundBank } from './audio/soundspec';
 import { makeConfig } from './config';
 import type { Choreo } from './core/choreo';
 import { GameClock } from './core/clock';
@@ -13,7 +14,7 @@ import { CANCEL_FLASH_SEC, fitViewport, render, type FlashState } from './render
 import { loadSong, type LoadedSong } from './song';
 import { showResult, type ResultView } from './ui/result';
 import { showTitle, type TitleView } from './ui/title';
-import { describeTuning, loadPitchRule, loadTuning, savePitchRule, saveTuning } from './ui/tuning';
+import { describeTuning, loadPitchRule, loadSoundBank, loadTuning, savePitchRule, saveTuning } from './ui/tuning';
 
 const choreos = Object.values(import.meta.glob<Choreo>('../assets/choreo/*.json', { eager: true, import: 'default' })).sort((a, b) =>
   a.id.localeCompare(b.id),
@@ -37,6 +38,8 @@ let prev: InputSnapshot = input.poll();
 let tuning = loadTuning();
 // 音高の案 (v5 T4)。タイトルで選び、保存する
 let pitchRule: PitchRule = loadPitchRule();
+// 音の仕様 (v6 T7)。音作りのページ (sound.html) で保存した自作があればそれ、無ければ既定。開始のたびに読み直す
+let soundBank: SoundBank = DEFAULT_SOUND_BANK;
 let sim: SimState | null = null;
 let deps: SimDeps | null = null;
 let loaded: LoadedSong | null = null;
@@ -60,6 +63,11 @@ function playSfx(action: SoundAction, cls: BeatClass): void {
   const kind = action === 'attack' ? cls : action;
   const midi = pitchFor(action, cls, sim.beat, deps.grid, pitchRule);
   engine.scheduleSfx(kind, engine.now(), midi, { hz: midiToHz(midi) });
+}
+
+// 要約の先頭行に出す音の出どころ (v6): 既定か、音作りのページで保存した自作か
+function describeSound(): string {
+  return sameBank(soundBank, DEFAULT_SOUND_BANK) ? '音色 既定 (v6)' : '音色 自作 (sound.html)';
 }
 
 function songName(): string {
@@ -92,6 +100,8 @@ async function startGame(index: number): Promise<void> {
   if (phase !== 'title' || choreos.length === 0) return;
   const choreo = choreos[index];
   engine ??= new AudioEngine();
+  soundBank = loadSoundBank(DEFAULT_SOUND_BANK) ?? DEFAULT_SOUND_BANK;
+  engine.setBank(soundBank);
   await engine.resume();
   if (engine.ctx.state !== 'running') {
     title?.setHint('音を有効にするため、クリックかキーボードで開始してください');
@@ -137,7 +147,7 @@ function enterResult(): void {
     choreoId: deps.choreo.id,
     song: deps.choreo.song,
     date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-    extra: `${describeTuning(deps.cfg.tuning)} / 音の${PITCH_RULE_LABEL[pitchRule]} / 音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms / 当たりの処理遅れ ${lagSummary()}`,
+    extra: `${describeTuning(deps.cfg.tuning)} / 音の${PITCH_RULE_LABEL[pitchRule]} / ${describeSound()} / 音の出力遅延の補正 ${(latencySec * 1000).toFixed(0)} ms / 当たりの処理遅れ ${lagSummary()}`,
   });
   result = showResult(overlay, { text, onRetry: () => enterTitle() });
 }
@@ -169,7 +179,8 @@ function updateGame(now: InputSnapshot, frameDt: number): void {
       step(sim, { move: now.move, attackPressed: now.attackPressed, attackLeftPressed: now.attackLeftPressed, dodgePressed: now.dodgePressed }, deps.cfg.fixedDt, deps);
       if (sim.lastAttackClass) {
         const action = sim.lastAction ?? 'normal';
-        playSfx(action === 'normal' ? 'attack' : action, sim.lastAttackClass);
+        // 両手放ちの 2 つ目の放ちは double の音 (v6)。音高は放ちと同じ
+        playSfx(action === 'normal' ? 'attack' : action === 'release' && sim.lastAttackDouble ? 'double' : action, sim.lastAttackClass);
         flash.attackClass = sim.lastAttackClass;
         flash.action = action;
         flash.aim = sim.lastAim;

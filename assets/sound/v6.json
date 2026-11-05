@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "sounds": {
+    "step": {
+      "layers": [
+        { "type": "pluck", "gain": 0.25, "semitones": 0, "attack": 0, "hold": 0, "decay": 0.08, "pluckDecay": 0.9, "pluckBrightness": 0.25 }
+      ]
+    },
+    "normalOn": {
+      "layers": [
+        { "type": "pluck", "gain": 0.3, "semitones": 0, "attack": 0, "hold": 0, "decay": 0.25, "pluckDecay": 0.99, "pluckBrightness": 0.5 }
+      ]
+    },
+    "normalOff": {
+      "layers": [
+        { "type": "pluck", "gain": 0.3, "semitones": 0, "attack": 0, "hold": 0, "decay": 0.3, "pluckDecay": 0.985, "pluckBrightness": 0.5 }
+      ]
+    },
+    "normalMiss": {
+      "layers": [
+        { "type": "pluck", "gain": 0.3, "semitones": 0, "attack": 0, "hold": 0, "decay": 0.35, "pluckDecay": 0.94, "pluckBrightness": 0.3 }
+      ]
+    },
+    "riposte": {
+      "layers": [
+        { "type": "pluck", "gain": 0.3, "semitones": 0, "attack": 0, "hold": 0, "decay": 0.15, "pluckDecay": 0.985, "pluckBrightness": 0.8 }
+      ]
+    },
+    "release": {
+      "layers": [
+        { "type": "osc", "wave": "sawtooth", "gain": 0.35, "semitones": 0, "attack": 0.004, "hold": 0.08, "decay": 0.25, "lowpass": 2500, "drive": 0.6 },
+        { "type": "osc", "wave": "sine", "gain": 0.3, "semitones": 27, "attack": 0.002, "hold": 0.05, "decay": 0.2, "sweepFrom": 2.5, "sweepSec": 0.12 },
+        { "type": "osc", "wave": "sine", "gain": 0.5, "semitones": -12, "attack": 0.002, "hold": 0.03, "decay": 0.18, "sweepFrom": 2, "sweepSec": 0.08 },
+        { "type": "noise", "gain": 0.3, "attack": 0.001, "hold": 0.02, "decay": 0.08, "noiseFilter": "highpass", "noiseHz": 3000 }
+      ]
+    },
+    "double": {
+      "layers": [
+        { "type": "osc", "wave": "sawtooth", "gain": 0.4, "semitones": 0, "attack": 0.004, "hold": 0.1, "decay": 0.35, "lowpass": 3000, "drive": 0.8 },
+        { "type": "osc", "wave": "sine", "gain": 0.35, "semitones": 27, "attack": 0.002, "hold": 0.06, "decay": 0.25, "sweepFrom": 3, "sweepSec": 0.15 },
+        { "type": "osc", "wave": "sine", "gain": 0.6, "semitones": -12, "attack": 0.002, "hold": 0.04, "decay": 0.25, "sweepFrom": 2, "sweepSec": 0.1 },
+        { "type": "noise", "gain": 0.35, "attack": 0.001, "hold": 0.03, "decay": 0.12, "noiseFilter": "bandpass", "noiseHz": 1500, "drive": 0.3 }
+      ]
+    },
+    "cancel": {
+      "layers": [
+        { "type": "pluck", "gain": 0.35, "semitones": 0, "attack": 0, "hold": 0, "decay": 0.5, "pluckDecay": 0.993, "pluckBrightness": 0.7 }
+      ]
+    },
+    "charge": {
+      "layers": [
+        { "type": "osc", "wave": "sawtooth", "gain": 0.08, "gainAtStart": 0.08, "semitones": 0, "attack": 0.04, "lowpass": 1200 },
+        { "type": "fm", "wave": "sine", "gain": 0.06, "gainAtStart": 0, "semitones": -12, "attack": 0.04, "fmRatio": 1.41, "fmIndex": 2.5, "lowpass": 900 }
+      ]
+    }
+  }
+}

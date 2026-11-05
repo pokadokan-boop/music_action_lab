@@ -112,9 +112,11 @@ export interface SimState {
   finished: boolean;
   // 直前の step で起きたこと (描画・効果音用。記録は log が持つ)
   lastAttackClass: BeatClass | null;
-  // 直前の step の攻撃の種類と手 (lastAttackClass と一緒に立つ)。同じ step で両手が押されたら後の手 (左) のものが残る
+  // 直前の step の攻撃の種類と手 (lastAttackClass と一緒に立つ)。同じ step で両手が押されたら後の手 (左) のものが残る。
+  // lastAttackDouble は両手放ちの 2 つ目の放ち (音を double にする)
   lastAction: AttackAction | null;
   lastAttackHand: Hand | null;
+  lastAttackDouble: boolean;
   // 直前の step でステップが始まった (拍の判定と向き)
   lastStep: { cls: BeatClass; dir: Vec } | null;
   // 直前の step で溜めが閾値を超えた / 溜めが終わった (放ちか解除。持続音を止める)
@@ -165,6 +167,7 @@ export function createSim(deps: SimDeps): SimState {
     lastAttackClass: null,
     lastAction: null,
     lastAttackHand: null,
+    lastAttackDouble: false,
     lastStep: null,
     lastChargeBegin: false,
     lastChargeEnd: false,
@@ -180,6 +183,7 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   state.lastAttackClass = null;
   state.lastAction = null;
   state.lastAttackHand = null;
+  state.lastAttackDouble = false;
   state.lastStep = null;
   state.lastChargeBegin = false;
   state.lastChargeEnd = false;
@@ -370,6 +374,7 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
       state.lastRelease = { hand, beat: state.beat };
     }
   }
+  state.lastAttackDouble = double;
 
   // 攻撃の向き: 移動入力があればその向き (丸めない)、無ければ敵の方向 (docs/plan/v2-phase2.md「既定値の決め」)
   const hasMove = Math.hypot(input.move.x, input.move.y) > 0;

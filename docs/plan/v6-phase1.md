@@ -118,6 +118,9 @@ graph TD
 ## 完了記録 セッション B (大技と見分け。2026-11-05)
 詳細は docs/plan/v6-phase2-enemy.md の完了記録。slam (円 + 4 辺の group の当たり、紫の予告、発射装置と枠と帯)、片手軽減 (×0.8)、両手相殺 (6 × j、反動の配分 R と j)、吹っ飛びと敵の反動、HP の小数、予告 4 型の描き分け、v6.json (14 攻撃、v5.json は外した)、要約の大技の行。`npm test` 200 件 (19 ファイル)、`npm run build`、`validate-choreo v6.json` 通過。音と公開はセッション C。
 
+## 完了記録 セッション C (音と公開。2026-11-05)
+詳細は docs/plan/v6-phase2-sound.md の完了記録。音の仕様 (soundspec.ts、assets/sound/v6.json)、合成器 (synth.ts)、engine の差し替え、音作りのページ sound.html (localStorage でゲームに反映)、Claude の初期値、文書、不満ノート v6。`npm test` 207 件 (20 ファイル)、`npm run build` 通過。push して公開 (v6 完了)。
+
 ## 人間の作業
 1. この Phase 1 の承認 (「承認に含めるもの」5 点の可否を添えて) → 済 (2026-11-05)
 2. 帰宅後にイヤホンのゲームモードを確かめ、要約の「音の出力遅延の補正」の値を見る (ゲーム側の変更は無い)

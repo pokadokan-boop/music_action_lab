@@ -12,14 +12,15 @@
 - docs/plan/v4-phase1.md: v4 (流れを作るための部品: 結果で分岐する振り付け、姿、音の口) の目的・完了条件・入れないもの。承認済み 2026-10-30、完了記録あり。不満の分解は docs/decisions/v3-feedback.md。エンジン (ブラウザのまま) の判断もここ
 - docs/plan/v5-flow-options.md: 捌いた後の流れの案 A〜D と本人の返事 3 回 (2026-11-02。A〜C は大味、D「プレイヤーの行動に拍の長さを持たせる」を軸に)。不満の分解は docs/decisions/v4-feedback.md
 - docs/plan/v5-phase1.md: v5 (行動に拍の長さを持たせる: ステップ・溜め・放ち・返し・音高 3 案、敵の攻撃を全メロディ音に) の目的・完了条件・入れないもの。承認済み 2026-11-02。詳細は docs/plan/v5-phase2-player.md (セッション A) と v5-phase2-enemy.md (セッション B)。不満の分解は docs/decisions/v5-feedback.md
-- docs/plan/v6-phase1.md: v6 (両手独立 R1 / L1、大技「叩きつけ + 4 本のレーザー」と両手放ち、攻撃の見分け、音の仕様データと音作りのページ) の目的・完了条件・入れないもの。承認待ち (2026-11-05)。3 セッション (両手 / 大技と見分け / 音と公開)、公開は最後に 1 回
+- docs/plan/v6-phase1.md: v6 (両手独立 R1 / L1、大技「叩きつけ + 4 辺のレーザー」と両手放ち、攻撃の見分け、音の仕様データと音作りのページ) の目的・完了条件・入れないもの。承認済み 2026-11-05、完了記録あり。詳細は v6-phase2-hands.md (A 両手) / v6-phase2-enemy.md (B 大技と見分け) / v6-phase2-sound.md (C 音と公開)
+- docs/sound-format.md: プレイヤーの音の仕様 (assets/sound/v6.json、層の項目と範囲) と音作りのページ sound.html の使い方。本人が音を作り、Claude が既定に入れる
 - docs/play-image.md: 理想の 20 秒の動作イメージ (Claude の下書き、本人が直す叩き台)
 - docs/decisions/commit-labels.md: commit とタスクの接頭辞の定義。[作品] = このゲームに属するもの (コードを含む)、[仕組み] = 開発の流れ (2026-10-29 に本人の指摘で直した)
 - docs/research/av-sync-verification.md: 音と絵の同期を耳で聴かずに確かめる方法の調査
 - docs/choreo-format.md: 振り付けデータの形式と機械検査
 - docs/decisions/: 曲の選択、合否条件ガードの確認、v2 の当たりの時刻の基準の検証 (仮説は外れた) など、実験中の決定の記録
 - README.md: 遊び方、不満の書き方、開発コマンド
-- 不満の受け口: vault:音楽アクション/<版> 不満.md (v0 不満.md に v0〜v2 の節、v2 不満.md 以降は版ごとのファイル)。次の版を作るセッションは docs/concept.md → そのノート → 貼られた結果の要約 → 前の版の docs/decisions/v*-feedback.md の順に読む
+- 不満の受け口: vault:音楽アクション/<版> 不満.md (v0 不満.md に v0〜v2 の節、v2 不満.md 以降は版ごとのファイル。v6 不満.md が最新)。次の版を作るセッションは docs/concept.md → そのノート → 貼られた結果の要約 → 前の版の docs/decisions/v*-feedback.md の順に読む
 
 ## vault の参照
 - vault ルートの絶対パスは `CLAUDE.local.md` (git 未追跡) に書く。公開リポジトリにローカルのパスを置かないため

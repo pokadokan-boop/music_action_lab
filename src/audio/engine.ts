@@ -1,20 +1,35 @@
 // Web Audio を直接使う再生エンジン。AudioContext.currentTime をゲーム全体の時計の正にする。
 // 曲は start() で全ノートを絶対時刻に予約する (20 秒・数百音なので lookahead 分割は要らない)。
 // 音色は拍とタイミングが分かる最低限。melody = 矩形波、bass = 三角波、drums = ノイズと短いサイン。
-// プレイヤーの 4 音は撥弦 (src/audio/pluck.ts)。曲の 3 声と別の系統 (docs/concept.md「曲と音の役割」)。
+// プレイヤーの音は音の仕様 (assets/sound/v6.json、src/audio/soundspec.ts) を synth.ts で鳴らす (v6 T7)。
+// v5 までの撥弦 (pluck.ts) は仕様の 1 層 (type pluck) として残る。曲の 3 声と別の系統 (docs/concept.md「曲と音の役割」)
 
-import { midiToHz, renderPluck, resolvePluckSpec, type PluckKind, type PluckSpec } from './pluck';
+import defaultBankJson from '../../assets/sound/v6.json';
+import { midiToHz, type PluckKind, type PluckSpec } from './pluck';
+import { normalizeBank, type SoundBank, type SoundName } from './soundspec';
+import { playSound, startSustained, type Sustained } from './synth';
 
 export { midiToHz };
 
+// 既定の音 (Claude の初期値。本人の言葉から。docs/plan/v6-phase2-sound.md)
+export const DEFAULT_SOUND_BANK: SoundBank = normalizeBank(defaultBankJson);
+
 export type VoiceName = 'melody' | 'bass' | 'drums';
-// cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す。step / riposte / release は v5
-export type SfxKind = PluckKind;
+// cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す。step / riposte / release は v5、double (両手放ち) は v6
+export type SfxKind = PluckKind | 'double';
 const CANCEL_DEFAULT_MIDI = 72;
-// 溜めの持続音 (v5 T2): 鋸歯状波 + ローパス。曲の矩形・三角と区別できる。小さく鳴らす
-const CHARGE_GAIN = 0.08;
-const CHARGE_LOWPASS_HZ = 1200;
-const CHARGE_FADE_SEC = 0.04;
+
+// 効果音の種類 → 音の名前 (v6)。表 / 裏 / 外は通常攻撃の 3 つ
+const SFX_SOUND: Record<SfxKind, SoundName> = {
+  on: 'normalOn',
+  off: 'normalOff',
+  miss: 'normalMiss',
+  cancel: 'cancel',
+  step: 'step',
+  riposte: 'riposte',
+  release: 'release',
+  double: 'double',
+};
 
 export interface SongNote {
   time: number;
@@ -42,17 +57,26 @@ export class AudioEngine {
   readonly ctx: BaseAudioContext;
   private readonly master: GainNode;
   private noiseBuffer: AudioBuffer | null = null;
-  // 撥弦の前計算をキャッシュする。キーは kind + hz + sampleRate (相殺は音高が変わるので hz を含める)
-  private readonly pluckBuffers = new Map<string, AudioBuffer>();
   private active: AudioScheduledSourceNode[] = [];
-  // 鳴っている溜めの持続音 (1 つだけ)
-  private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
+  // 鳴っている溜めの持続音 (1 つだけ。手で区別しない)
+  private charge: Sustained | null = null;
+  // プレイヤーの音の仕様。既定は assets/sound/v6.json、本人が音作りのページで作ったものに差し替えられる (setBank)
+  private bank: SoundBank;
 
-  constructor(ctx?: BaseAudioContext) {
+  constructor(ctx?: BaseAudioContext, bank: SoundBank = DEFAULT_SOUND_BANK) {
     this.ctx = ctx ?? new AudioContext();
+    this.bank = bank;
     this.master = this.ctx.createGain();
     this.master.gain.value = MASTER_GAIN;
     this.master.connect(this.ctx.destination);
+  }
+
+  setBank(bank: SoundBank): void {
+    this.bank = bank;
+  }
+
+  getBank(): SoundBank {
+    return this.bank;
   }
 
   now(): number {
@@ -100,72 +124,33 @@ export class AudioEngine {
     this.stopCharge(this.ctx.currentTime);
   }
 
-  // 溜めの持続音を atSec から鳴らす。音高は fromMidi から toMidi へ riseSec かけて上がり、以後保つ。鳴っていれば置き換える
-  startCharge(atSec: number, fromMidi: number, toMidi: number, riseSec: number): void {
+  // 溜めの持続音を atSec から鳴らす。音高は fromMidi から toMidi へ riseSec かけて上がり、以後保つ。鳴っていれば置き換える。
+  // 音色は bank.charge (層の音量は gainAtStart → gain へ同じ時間で。v6 T7)
+  // progress (0〜1) はその分だけ進んだ状態から始める (音作りのページで途中の音を聴くため。ゲームでは 0)
+  startCharge(atSec: number, fromMidi: number, toMidi: number, riseSec: number, progress = 0): void {
     this.stopCharge(atSec);
-    const osc = this.ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(midiToHz(fromMidi), atSec);
-    osc.frequency.exponentialRampToValueAtTime(midiToHz(toMidi), atSec + Math.max(0.05, riseSec));
-    const f = this.ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = CHARGE_LOWPASS_HZ;
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0, atSec);
-    gain.gain.linearRampToValueAtTime(CHARGE_GAIN, atSec + CHARGE_FADE_SEC);
-    osc.connect(f).connect(gain).connect(this.master);
-    osc.start(atSec);
-    this.track(osc);
-    this.charge = { osc, gain };
+    this.charge = startSustained(this.ctx, this.master, this.bank.sounds.charge, midiToHz(fromMidi), midiToHz(toMidi), riseSec, atSec, progress);
+    for (const s of this.charge.sources) this.track(s);
   }
 
   // 溜めの持続音を atSec で止める (放ちか解除)。鳴っていなければ何もしない
   stopCharge(atSec: number): void {
     if (!this.charge) return;
-    const { osc, gain } = this.charge;
+    const c = this.charge;
     this.charge = null;
-    gain.gain.cancelScheduledValues(atSec);
-    gain.gain.setValueAtTime(gain.gain.value, atSec);
-    gain.gain.linearRampToValueAtTime(0, atSec + CHARGE_FADE_SEC);
-    try {
-      osc.stop(atSec + CHARGE_FADE_SEC + 0.01);
-    } catch {
-      // 既に止まっている
-    }
+    c.stop(atSec);
   }
 
   charging(): boolean {
     return this.charge !== null;
   }
 
-  // midi は cancel のときだけ使う (相殺した拍に最も近いメロディ音の 1 オクターブ上。docs/plan/v2-phase2.md「既定値の決め」)
-  // 4 音とも撥弦 (pluck.ts の pluckSpec の値)。曲の 3 声の合成器 (tone / drum / noise) は使わない。
-  // override は音の口 (v4 T6): 音高・長さ・明るさ・音量を呼ぶ側が上書きできる。v4 では使わない (規則は v3 のまま)
+  // midi は cancel のときだけ使う (相殺した拍に最も近いメロディ音の 1 オクターブ上。docs/plan/v2-phase2.md「既定値の決め」)。
+  // 他は呼ぶ側が音の口 (override.hz) で基音を渡す (v4 T6、v5 T4)。音色は bank の仕様 (v6 T7)。曲の 3 声の合成器 (tone / drum / noise) は使わない
   scheduleSfx(kind: SfxKind, atSec: number, midi: number = CANCEL_DEFAULT_MIDI, override: Partial<PluckSpec> = {}): void {
-    this.pluck(kind, resolvePluckSpec(kind, midi, override), atSec);
-  }
-
-  private pluck(kind: SfxKind, spec: PluckSpec, at: number): void {
-    const src = this.ctx.createBufferSource();
-    src.buffer = this.getPluck(kind, spec);
-    const g = this.ctx.createGain();
-    g.gain.value = spec.gain;
-    src.connect(g).connect(this.master);
-    src.start(at);
-    this.track(src);
-  }
-
-  private getPluck(kind: SfxKind, spec: PluckSpec): AudioBuffer {
-    const sr = this.ctx.sampleRate;
-    // 波形を決める値を全部キーに入れる (上書きで変わりうるため)
-    const key = `${kind}:${spec.hz}:${spec.durSec}:${spec.decay}:${spec.brightness}:${sr}`;
-    const cached = this.pluckBuffers.get(key);
-    if (cached) return cached;
-    const samples = renderPluck(sr, spec.hz, spec.durSec, spec);
-    const buf = this.ctx.createBuffer(1, samples.length, sr);
-    buf.getChannelData(0).set(samples);
-    this.pluckBuffers.set(key, buf);
-    return buf;
+    const hz = override.hz ?? midiToHz(midi);
+    const { sources } = playSound(this.ctx, this.master, this.bank.sounds[SFX_SOUND[kind]], hz, atSec);
+    for (const s of sources) this.track(s);
   }
 
   private scheduleNote(voice: VoiceName, n: SongNote, at: number): void {

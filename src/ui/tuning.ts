@@ -1,11 +1,38 @@
 // 調整パネルの値 (Tuning) の範囲・保存・要約。DOM には触らない (パネルの組み立ては title.ts)。
 // 本人が選んだ値は結果の要約の先頭行に出て、不満ノートに貼ると次の版の既定値に反映される (docs/plan/v3-phase2.md「既定値の決め」)
 import { DEFAULT_PITCH_RULE, PITCH_RULES, type PitchRule } from '../audio/pitch';
+import { normalizeBank, type SoundBank } from '../audio/soundspec';
 import { defaultTuning, type Tuning } from '../config';
 
 export const TUNING_KEY = 'mal.tuning';
 // 音高の案 (v5 T4) の保存先。調整パネルの項目ではなく別の選択
 export const PITCH_RULE_KEY = 'mal.pitchRule';
+// 自作の音 (v6 T8) の保存先。音作りのページ (sound.html) が書き、ゲームが読む。無ければ既定 (assets/sound/v6.json)
+export const SOUND_BANK_KEY = 'mal.soundBank';
+
+// 保存された自作の音。無い・壊れているときは null (既定を使う)。欠けた音は fallback で埋める
+export function loadSoundBank(fallback: SoundBank, storage: Storage | null = defaultStorage()): SoundBank | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(SOUND_BANK_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    return normalizeBank(parsed, fallback);
+  } catch {
+    return null;
+  }
+}
+
+export function saveSoundBank(bank: SoundBank | null, storage: Storage | null = defaultStorage()): void {
+  if (!storage) return;
+  try {
+    if (bank) storage.setItem(SOUND_BANK_KEY, JSON.stringify(bank));
+    else storage.removeItem(SOUND_BANK_KEY);
+  } catch {
+    // 握りつぶす
+  }
+}
 
 export function loadPitchRule(storage: Storage | null = defaultStorage()): PitchRule {
   if (!storage) return DEFAULT_PITCH_RULE;
