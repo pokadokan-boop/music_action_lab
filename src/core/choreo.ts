@@ -5,7 +5,9 @@ import type { Grid } from './grid';
 import { clamp, dist, distToSegment, easeIn, easeOut, lerpVec, normalize, type Vec } from './vec';
 import { WORLD, inWorld } from './world';
 
-export type AttackType = 'dash' | 'burst' | 'shot' | 'laser';
+// slam (v6 T4): 大技。telegraphBeat (1 音目) で飛び上がり発射装置 4 つが円を囲む正方形の 4 隅へ飛び、impactBeat (2 音目) で叩きつけの円と 4 辺のレーザーが同時に出る。
+// 相殺は両手放ちだけ、片手の放ちは軽減 (sim.tryCancel)。逃げ場は円の外かつ枠の内側の帯か、撃たれる前に枠の外 (docs/plan/v6-phase1.md)
+export type AttackType = 'dash' | 'burst' | 'shot' | 'laser' | 'slam';
 
 // 狙い。fixed = データに書いた位置そのまま。player = 予告開始 (telegraphBeat) の瞬間のプレイヤー位置を狙う (v2 T4。追尾はしない)
 export type Aim = 'fixed' | 'player';
@@ -57,6 +59,9 @@ export interface Attack {
   branchMove?: BranchMove;
   // 連なる攻撃 (v5 T6): 同じフレーズの 2 つ目の攻撃に付ける印。検査 chain-order と、1 つ目の予告の二重の輪に使う。予告の先行は 2 拍のまま
   chained?: boolean;
+  // slam のみ (v6 T4): 円を囲む正方形の半幅と、4 辺のレーザーの太さ (半径)。frameHalf > hitbox.r + laserR (検査 slam-shape)
+  frameHalf?: number;
+  laserR?: number;
 }
 
 export interface Choreo {
@@ -66,8 +71,12 @@ export interface Choreo {
   idle?: { amplitude: number };
   // 振り付け全体の補間の既定。省略時は easeOut
   motion?: Motion;
+  // 敵の反動耐性 R (0〜1。v6 T5)。両手相殺の反動の総量を敵 j / (R + j)、自機 R / (R + j) で分ける。省略時 0.5
+  knockbackResist?: number;
   attacks: Attack[];
 }
+
+export const KNOCKBACK_RESIST_DEFAULT = 0.5;
 
 export interface Acceptance {
   sceneSeconds: number;
@@ -89,7 +98,8 @@ export type ViolationRule =
   | 'in-world'
   | 'after-order'
   | 'after-overlap'
-  | 'chain-order';
+  | 'chain-order'
+  | 'slam-shape';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -112,7 +122,13 @@ export interface SegmentHit {
   r: number;
 }
 
-export type Hitbox = CircleHit | SegmentHit;
+// 複数の形の集まり (v6 T4。slam の円 + 4 辺)。距離は部品の最小、扇との重なりは部品のどれか。parts[0] が主 (閃光の位置に使う円)
+export interface GroupHit {
+  kind: 'group';
+  parts: (CircleHit | SegmentHit)[];
+}
+
+export type Hitbox = CircleHit | SegmentHit | GroupHit;
 
 const LASER_DEFAULT_ACTIVE_BEATS = 0.25;
 // dash の進行方向を取るときに見る時間差 (sim の固定ステップと同じ 1/120 秒)
@@ -137,9 +153,41 @@ export function impactBeat(attack: Attack): number {
   return attack.hitBeat + (attack.impactDelayBeats ?? 0);
 }
 
-// 点から当たり判定の芯 (円の中心、線分) までの距離。当たりは hitDistance <= r + プレイヤー半径
+// 点が当たりに触れているか (芯までの距離 ≤ r + margin)。group は部品のどれかに触れていれば触れている。
+// 部品ごとに r が違うので、距離と r を別々に比べる
+export function touches(p: Vec, h: Hitbox, margin: number): boolean {
+  if (h.kind === 'group') return h.parts.some((part) => touches(p, part, margin));
+  return hitDistance(p, h) <= h.r + margin;
+}
+
+// 点から当たり判定の芯 (円の中心、線分) までの距離。group は部品の最小 (r の違いは見ないので、当たりの判定は touches を使う)
 export function hitDistance(p: Vec, h: Hitbox): number {
+  if (h.kind === 'group') return Math.min(...h.parts.map((part) => hitDistance(p, part)));
   return h.kind === 'circle' ? dist(p, h) : distToSegment(p, h.a, h.b);
+}
+
+// 当たりの主の部品 (閃光の位置・来る方向の基準)。group は parts[0]
+export function primaryHit(h: Hitbox): CircleHit | SegmentHit {
+  return h.kind === 'group' ? h.parts[0] : h;
+}
+
+// slam の形 (v6 T4): 中心 c の円 (hitbox.r) と、c を囲む半幅 frameHalf の正方形の 4 辺 (太さ laserR)。corners は左上から時計回り
+export function slamShape(attack: Attack, c: Vec): { circle: CircleHit; corners: Vec[]; edges: SegmentHit[] } {
+  const half = attack.frameHalf ?? 0;
+  const r = attack.laserR ?? 0;
+  const corners: Vec[] = [
+    { x: c.x - half, y: c.y - half },
+    { x: c.x + half, y: c.y - half },
+    { x: c.x + half, y: c.y + half },
+    { x: c.x - half, y: c.y + half },
+  ];
+  const edges: SegmentHit[] = corners.map((a, i) => ({ kind: 'segment', a, b: corners[(i + 1) % 4], r }));
+  return { circle: { kind: 'circle', x: c.x, y: c.y, r: attack.hitbox.r }, corners, edges };
+}
+
+// slam の叩きつけの中心 (当たりが発生する時点の敵の位置。burst と同じ)
+export function slamCenter(attack: Attack, beatSec: number, cfg: Config, motion: Motion = 'easeOut'): Vec {
+  return pathPosAt(attack.path, activeWindow(attack, beatSec, cfg, motion).startBeat, motion);
 }
 
 export function pathPosAt(path: PathPoint[], beat: number, motion: Motion = 'easeOut'): Vec {
@@ -266,6 +314,11 @@ export function hitboxAt(attack: Attack, beat: number, beatSec: number, cfg: Con
       const s = exitDistance(origin, dir, attack.hitbox.r);
       return { kind: 'segment', a: origin, b: { x: origin.x + dir.x * s, y: origin.y + dir.y * s }, r: attack.hitbox.r };
     }
+    case 'slam': {
+      // 円と 4 辺が同時に出て、同時に消える (v6 T4)
+      const shape = slamShape(attack, pathPosAt(attack.path, w.startBeat, motion));
+      return { kind: 'group', parts: [shape.circle, ...shape.edges] };
+    }
   }
 }
 
@@ -286,9 +339,12 @@ export function incomingDir(attack: Attack, beat: number, playerPos: Vec, beatSe
     case 'laser':
       return shotDir(attack, origin);
     case 'burst':
-    case 'shot': {
+    case 'shot':
+    case 'slam': {
+      // slam は円の中心から自機へ (burst と同じ。4 辺は中心を囲むので、来る方向は中心から)
       const h = hitboxAt(attack, beat, beatSec, cfg, motion);
-      const c = h && h.kind === 'circle' ? h : origin;
+      const main = h ? primaryHit(h) : null;
+      const c = main && main.kind === 'circle' ? main : origin;
       return normalize({ x: playerPos.x - c.x, y: playerPos.y - c.y });
     }
   }
@@ -301,7 +357,7 @@ export function contactBeat(attack: Attack, playerPos: Vec, beatSec: number, cfg
   const dtBeat = CONTACT_SAMPLE_DT_SEC / beatSec;
   for (let b = w.startBeat; b <= w.endBeat + 1e-9; b += dtBeat) {
     const h = hitboxAt(attack, b, beatSec, cfg, motion);
-    if (h && hitDistance(playerPos, h) <= h.r + cfg.playerRadius) return b;
+    if (h && touches(playerPos, h, cfg.playerRadius)) return b;
   }
   return null;
 }
@@ -432,6 +488,14 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
     // 連なる攻撃 (v5 T6): chained は同じフレーズに自分より先に当たる chained でない攻撃を持つこと
     if (atk.chained && !choreo.attacks.some((a) => !a.chained && a.phrase === atk.phrase && a.hitBeat < atk.hitBeat)) {
       out.push({ attackIndex: i, rule: 'chain-order', message: `chained だが phrase ${atk.phrase} に先に当たる 1 つ目の攻撃が無い` });
+    }
+    // slam (v6 T4): 枠と辺の太さがあり、円の外に帯が残ること
+    if (atk.type === 'slam') {
+      const half = atk.frameHalf ?? 0;
+      const lr = atk.laserR ?? 0;
+      if (!(half > 0) || !(lr > 0) || half <= atk.hitbox.r + lr) {
+        out.push({ attackIndex: i, rule: 'slam-shape', message: `slam には frameHalf (${half}) > hitbox.r (${atk.hitbox.r}) + laserR (${lr}) が要る` });
+      }
     }
     // 位置が世界座標の中にあること。v2 までの正規化座標 (y が 0.5625 を超える) をそのまま使うとここで弾かれる
     const outside = [...atk.path, ...(atk.target ? [atk.target] : [])].filter((p) => !inWorld(p));
@@ -569,5 +633,5 @@ function hitboxSamples(atk: Attack, beatSec: number, cfg: Config, motion: Motion
 }
 
 function everHit(p: Vec, samples: Hitbox[], cfg: Config): boolean {
-  return samples.some((h) => hitDistance(p, h) <= h.r + cfg.playerRadius);
+  return samples.some((h) => touches(p, h, cfg.playerRadius));
 }

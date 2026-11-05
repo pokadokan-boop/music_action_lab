@@ -172,7 +172,7 @@ describe('溜めと放ち (T2)', () => {
 
 // 実物の振り付けで強い相殺と返しを見る
 const root = resolve(__dirname, '..', '..');
-const realChoreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v5.json'), 'utf8')) as Choreo;
+const realChoreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v6.json'), 'utf8')) as Choreo;
 const realGrid = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${realChoreo.song}.mid`))));
 const realDeps: SimDeps = { choreo: realChoreo, grid: realGrid, cfg: config, acceptance };
 const msBeatReal = (ms: number) => ms / 1000 / realGrid.beatSec;
@@ -190,31 +190,31 @@ function resolvedContact(state: SimState, idx: number) {
   return { c: c!, facing: { x: -inc.x, y: -inc.y } };
 }
 
-describe('強い相殺 (T2) と返し (T3)。v5.json の dash (攻撃 6) と laser (攻撃 2)', () => {
+describe('強い相殺 (T2) と返し (T3)。v6.json の dash (攻撃 5。v5.json では 6) と laser (攻撃 2)', () => {
   it('溜めの放ちで dash を相殺すると cancel に strong が付き、敵 HP が 3 減る。通常の相殺では減らない', () => {
     const state = createSim(realDeps);
-    runUntil(state, realChoreo.attacks[6].telegraphBeat + 0.05);
-    const { c, facing } = resolvedContact(state, 6);
+    runUntil(state, realChoreo.attacks[5].telegraphBeat + 0.05);
+    const { c, facing } = resolvedContact(state, 5);
     // 接触の 1 拍前に押して (通常攻撃 1 回。空振り)、押したまま待ち、接触の 60 ms 前に来る方向の逆を向いて離す
     runUntil(state, c - 1);
     step(state, { move: { x: 0, y: 0 }, attackPressed: true }, dt, realDeps);
     runUntil(state, c - msBeatReal(60), { move: { x: 0, y: 0 }, attackPressed: true });
     expect(state.hands.right.charge?.armed).toBe(true);
     step(state, { move: facing, attackPressed: false }, dt, realDeps);
-    expect(state.cancelled.has(6)).toBe(true);
-    const cancel = state.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 6);
+    expect(state.cancelled.has(5)).toBe(true);
+    const cancel = state.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 5);
     expect(cancel).toMatchObject({ strong: true });
     expect(state.enemy.hp).toBe(config.enemyHp - config.damage.release);
     expect(state.log.events.filter((e) => e.kind === 'attack').at(-1)).toMatchObject({ action: 'release' });
 
     // 通常の相殺 (別の走り)
     const plain = createSim(realDeps);
-    runUntil(plain, realChoreo.attacks[6].telegraphBeat + 0.05);
-    const p = resolvedContact(plain, 6);
+    runUntil(plain, realChoreo.attacks[5].telegraphBeat + 0.05);
+    const p = resolvedContact(plain, 5);
     runUntil(plain, p.c - msBeatReal(60));
     step(plain, { move: p.facing, attackPressed: true }, dt, realDeps);
-    expect(plain.cancelled.has(6)).toBe(true);
-    expect(plain.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 6)).not.toHaveProperty('strong');
+    expect(plain.cancelled.has(5)).toBe(true);
+    expect(plain.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === 5)).not.toHaveProperty('strong');
     expect(plain.enemy.hp).toBe(config.enemyHp);
   });
 

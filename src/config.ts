@@ -65,6 +65,9 @@ export interface Config {
   damage: { normal: number; riposte: number; release: number };
   // 両手放ち (v6 T2): 片方の手の放ちから doubleWindowBeats 以内にもう片方の手が放てば「両手放ち」(記録に double)
   doubleWindowBeats: number;
+  // 大技 slam (v6 T5。docs/plan/v6-phase1.md「承認に含めるもの」3〜4): 被ダメ、片手の放ちで軽減する倍率、被弾の吹っ飛び (距離と拍数)、
+  // 両手相殺の反動の総量と敵の反動が消える拍数
+  slam: { damage: number; mitigateRatio: number; knockback: number; knockbackBeats: number; recoil: number; recoilDecayBeats: number };
 }
 
 export function makeConfig(tuning: Tuning = defaultTuning): Config {
@@ -97,6 +100,7 @@ export function makeConfig(tuning: Tuning = defaultTuning): Config {
     lungeDistance: 0.1,
     damage: { normal: 1, riposte: 1, release: 3 },
     doubleWindowBeats: 0.25, // 両手の同時押しの散らばり (数十 ms) を許し、16 分より広げない (docs/plan/v6-phase1.md「既定値」)
+    slam: { damage: 2, mitigateRatio: 0.8, knockback: 0.2, knockbackBeats: 0.5, recoil: 0.2, recoilDecayBeats: 1 },
   };
 }
 

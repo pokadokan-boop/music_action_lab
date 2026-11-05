@@ -1,5 +1,5 @@
 // v6 セッション A (docs/plan/v6-phase2-hands.md): 両手独立 (右 R1 / 左 L1) と両手放ちの窓を sim を直接回して確かめる。
-// 位置と拍はテスト用の Grid (120 BPM、1 拍 0.5 秒)。相殺は実物の v5.json の laser (攻撃 2) で見る
+// 位置と拍はテスト用の Grid (120 BPM、1 拍 0.5 秒)。相殺は実物の v6.json の laser (攻撃 2) で見る
 import { Midi } from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -145,7 +145,7 @@ describe('両手放ちの窓 (T2)', () => {
 
 // 実物の振り付けで「片手が溜め中でも他方で相殺できる」を見る
 const root = resolve(__dirname, '..', '..');
-const realChoreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v5.json'), 'utf8')) as Choreo;
+const realChoreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v6.json'), 'utf8')) as Choreo;
 const realGrid = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${realChoreo.song}.mid`))));
 const realDeps: SimDeps = { choreo: realChoreo, grid: realGrid, cfg: config, acceptance };
 const msBeatReal = (ms: number) => ms / 1000 / realGrid.beatSec;
@@ -154,7 +154,7 @@ function runUntil(state: SimState, target: number, input: InputState = stay): vo
   while ((state.t + dt) / realGrid.beatSec < target) step(state, input, dt, realDeps);
 }
 
-describe('片手で溜めながら他方で捌く (T1)。v5.json の laser (攻撃 2)', () => {
+describe('片手で溜めながら他方で捌く (T1)。v6.json の laser (攻撃 2)', () => {
   it('左手が溜め中でも右手の押下で相殺でき、左手の溜めは切れない。相殺の記録は右手', () => {
     const state = createSim(realDeps);
     runUntil(state, realChoreo.attacks[2].telegraphBeat + 0.05);

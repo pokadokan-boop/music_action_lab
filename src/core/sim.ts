@@ -1,16 +1,19 @@
 // ゲームの状態遷移。純粋に state と入力と dt だけで進み、同じ入力列なら同じ記録になる。
 import type { Config } from '../config';
 import {
+  KNOCKBACK_RESIST_DEFAULT,
   activeWindow,
   applyBranch,
   attackMotion,
   branchStartBeat,
   contactBeat,
   enemyPosAt,
-  hitDistance,
   hitboxAt,
+  impactBeat,
   incomingDir,
+  primaryHit,
   resolveAttack,
+  touches,
   type Acceptance,
   type Attack,
   type Choreo,
@@ -84,6 +87,14 @@ export interface SimState {
   damagedBy: Set<number>;
   // 被弾した拍 (attackIndex → beat)。遅い側の相殺で被弾を取り消すときに、直前の被弾だけを対象にするため (v3 T3)
   damageBeat: Map<number, number>;
+  // 被弾のダメージ量 (attackIndex → 量)。取り消すときに同じ量を戻す (v6。大技は 2 か 1.6)
+  damageAmount: Map<number, number>;
+  // 片手の放ちで軽減した大技 (v6 T5)。以後その攻撃の被ダメと吹っ飛びが cfg.slam.mitigateRatio 倍
+  mitigated: Set<number>;
+  // 自機の吹っ飛び・反動 (v6 T5): startBeat から cfg.slam.knockbackBeats の間、dir へ distance を等速に動き、入力を受けない
+  knockback: { startBeat: number; dir: Vec; distance: number } | null;
+  // 敵の反動 (v6 T5): 振り付けの位置に乗せる差分。dir × distance × (1 − 経過 / cfg.slam.recoilDecayBeats)
+  enemyRecoil: { startBeat: number; dir: Vec; distance: number } | null;
   // 各攻撃の当たりが最初に有効になった sim 時刻 (処理の遅れの計測用)
   impactAt: Map<number, number>;
   // 予告が始まった攻撃を、その瞬間のプレイヤー位置で解決した形 (attackIndex → Attack)。自機狙いはここで狙いが固定され、以後追尾しない。
@@ -139,6 +150,10 @@ export function createSim(deps: SimDeps): SimState {
     lastRelease: null,
     damagedBy: new Set(),
     damageBeat: new Map(),
+    damageAmount: new Map(),
+    mitigated: new Set(),
+    knockback: null,
+    enemyRecoil: null,
     impactAt: new Map(),
     resolved: new Map(),
     cancelled: new Set(),
@@ -183,8 +198,9 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   applyBranches(state, deps);
 
   const enemyPos = enemyPosAt(effectiveChoreo(state, choreo), state.beat, cfg.enemyRestPos);
-  state.enemy.x = enemyPos.x;
-  state.enemy.y = enemyPos.y;
+  const recoil = enemyRecoilOffset(state, cfg);
+  state.enemy.x = enemyPos.x + recoil.x;
+  state.enemy.y = enemyPos.y + recoil.y;
 
   const dodge = input.dodgePressed ?? false;
   if (dodge && !state.dodgeLatch) startStep(state, input, deps);
@@ -291,12 +307,18 @@ export function effectiveChoreo(state: SimState, choreo: Choreo): Choreo {
 }
 
 // 移動。ステップ中はスティックを無視して stepDistance / stepBeats の等速で dir へ。
-// 押した step は動かず (開始は移動の後)、以後 stepBeats ぶんの step で stepDistance をちょうど動き、その次の step から素の移動
+// 押した step は動かず (開始は移動の後)、以後 stepBeats ぶんの step で stepDistance をちょうど動き、その次の step から素の移動。
+// 吹っ飛び・反動 (v6 T5) 中はステップとスティックを無視して knockback の dir へ等速に動く
 function movePlayer(state: SimState, input: InputState, dt: number, cfg: Config, beatSec: number): void {
+  if (state.knockback && state.beat - state.knockback.startBeat > cfg.slam.knockbackBeats + BEAT_EPS) state.knockback = null;
   if (state.stepping && state.beat - state.stepping.startBeat > cfg.stepBeats + BEAT_EPS) state.stepping = null;
   let vx: number;
   let vy: number;
-  if (state.stepping) {
+  if (state.knockback) {
+    const speed = state.knockback.distance / (cfg.slam.knockbackBeats * beatSec);
+    vx = state.knockback.dir.x * speed;
+    vy = state.knockback.dir.y * speed;
+  } else if (state.stepping) {
     const speed = cfg.stepDistance / (cfg.stepBeats * beatSec);
     vx = state.stepping.dir.x * speed;
     vy = state.stepping.dir.y * speed;
@@ -373,10 +395,11 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
   });
 
   // 相殺は命中と独立に判定する (両方起きてよい)。寄せや踏み込みで位置が動く前の、押した瞬間の位置で見る。
-  // 放ちで成立すれば強い相殺: 敵にダメージ (扇の命中と二重にはしない)
+  // 放ちで成立すれば強い相殺: 敵にダメージ (扇の命中と二重にはしない)。大技の両手相殺のダメージは tryCancel の中で入れる (6 × j)
   const damage = cfg.damage[action];
-  const strong = tryCancel(state, aim, deps, action === 'release', hand) && action === 'release';
-  if (strong) {
+  const res = tryCancel(state, aim, deps, action === 'release', hand, double);
+  const strong = res.cancelled && action === 'release';
+  if (strong && !res.damageApplied) {
     state.enemy.hp = Math.max(0, state.enemy.hp - damage);
     state.lastHit = true;
   }
@@ -410,8 +433,11 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
 // 両方が成り立てば cancelled に入れる。遅い側で成立し、その攻撃で既に被弾していれば HP を戻す (damage-undone)。
 // 成立しなかった押下は、近い攻撃 (予告開始 〜 窓の終わり + 0.25 拍) があれば cancel-miss を 1 件だけ記録する。
 // 理由: 時刻が外れ → c があれば timing、無ければ reach / 時刻は合うが向きが外れ → angle
-// 戻り値は何かを相殺できたか。strong は放ちによる押下 (cancel の記録に残す。ダメージは呼ぶ側)。hand は押した手 (記録用)
-function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, hand: Hand): boolean {
+// 戻り値は何かを相殺できたか (cancelled) と、敵へのダメージを中で入れたか (damageApplied。大技の両手相殺だけ)。
+// strong は放ちによる押下 (cancel の記録に残す。通常のダメージは呼ぶ側)。hand は押した手 (記録用)。double は両手放ちの 2 つ目の放ち (v6 T2)。
+// 大技 (slam。v6 T5): 通常攻撃と返しでは対象にならない。片手の放ちが時刻と向きを満たせば mitigate (相殺はしない)、
+// 両手放ちが満たせば相殺 + 敵に damage.release × 2 × j + 反動の配分 (j はジャスト率、R は敵の反動耐性)
+function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, hand: Hand, double = false): { cancelled: boolean; damageApplied: boolean } {
   const { cfg, grid } = deps;
   const choreo = effectiveChoreo(state, deps.choreo);
   const range = cfg.attackRadius;
@@ -423,9 +449,12 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, ha
   // 最初に見つかった不成立 (複数の攻撃が近くても記録は 1 件)
   let miss: { attackIndex: number; phrase: number; reason: CancelMissReason } | null = null;
   let cancelledAny = false;
+  let damageApplied = false;
 
   for (const [idx, atk] of choreo.attacks.entries()) {
     if (atk.uncancelable || state.cancelled.has(idx)) continue;
+    // 大技は放ちだけが対象 (通常攻撃と返しは cancel-miss も記録しない)
+    if (atk.type === 'slam' && !strong) continue;
     const motion = attackMotion(choreo, atk);
     const w = activeWindow(atk, grid.beatSec, cfg, motion);
     // 押下の拍は固定ステップの倍数で、窓の端と一致しうるので浮動小数の誤差ぶんを足す
@@ -445,18 +474,43 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, ha
       miss ??= { attackIndex: idx, phrase: atk.phrase, reason };
       continue;
     }
+    // 大技を片手の放ちで: 軽減だけ (相殺しない)。既に軽減済みなら何もしない
+    if (atk.type === 'slam' && !double) {
+      if (!state.mitigated.has(idx)) {
+        state.mitigated.add(idx);
+        state.log.push({ t: state.t, beat: b, kind: 'mitigate', attackIndex: idx, phrase: atk.phrase, hand });
+      }
+      continue;
+    }
     // 成立。消した当たりの形は、時刻が合った相殺なら接触の瞬間の形、かすめる相殺なら今の形
     const shape = (timingOk ? hitboxAt(atk, c!, grid.beatSec, cfg, motion) : null) ?? now!;
     state.cancelled.add(idx);
     cancelledAny = true;
     state.lastCancelBeat = b;
-    const pos = shape.kind === 'circle' ? { x: shape.x, y: shape.y } : closestPointOnSegment(state.player, shape.a, shape.b);
+    const main = primaryHit(shape);
+    const pos = main.kind === 'circle' ? { x: main.x, y: main.y } : closestPointOnSegment(state.player, main.a, main.b);
     state.lastCancel = { attackIndex: idx, pos, hitbox: shape };
-    state.log.push({ t: state.t, beat: b, kind: 'cancel', attackIndex: idx, phrase: atk.phrase, hand, ...(strong ? { strong: true } : {}) });
-    // 遅い側: この攻撃で既に被弾していて、それが窓の中 (b − 遅い側 以降) なら取り消す。記録の damage は残し、HP だけ戻す
+    if (atk.type === 'slam') {
+      // 両手相殺 (v6 T5): ジャスト率 j は当たりの発生拍を基準に。敵に damage.release × 2 × j、反動の総量を R と j で配分
+      const j = justRate(b, impactBeat(atk), early, late);
+      const split = splitRecoil(cfg.slam.recoil, j, deps.choreo.knockbackResist ?? KNOCKBACK_RESIST_DEFAULT);
+      state.enemy.hp = Math.max(0, state.enemy.hp - cfg.damage.release * 2 * j);
+      state.lastHit = true;
+      damageApplied = true;
+      const away = awayFrom(state.player, pos);
+      if (split.player > 0) {
+        state.knockback = { startBeat: b, dir: away, distance: split.player };
+        state.stepping = null;
+      }
+      if (split.enemy > 0) state.enemyRecoil = { startBeat: b, dir: awayFrom(state.enemy, state.player), distance: split.enemy };
+      state.log.push({ t: state.t, beat: b, kind: 'cancel', attackIndex: idx, phrase: atk.phrase, hand, strong: true, double: true, just: j, recoil: split });
+    } else {
+      state.log.push({ t: state.t, beat: b, kind: 'cancel', attackIndex: idx, phrase: atk.phrase, hand, ...(strong ? { strong: true } : {}) });
+    }
+    // 遅い側: この攻撃で既に被弾していて、それが窓の中 (b − 遅い側 以降) なら取り消す。記録の damage は残し、HP だけ戻す (受けた量ぶん)
     const dmgBeat = state.damageBeat.get(idx);
     if (dmgBeat !== undefined && dmgBeat >= b - late - 1e-9) {
-      state.player.hp = Math.min(cfg.playerHp, state.player.hp + 1);
+      state.player.hp = Math.min(cfg.playerHp, state.player.hp + (state.damageAmount.get(idx) ?? 1));
       state.log.push({ t: state.t, beat: b, kind: 'damage-undone', attackIndex: idx, phrase: atk.phrase });
     }
   }
@@ -465,10 +519,45 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, ha
   if (!cancelledAny && miss) {
     state.log.push({ t: state.t, beat: state.beat, kind: 'cancel-miss', attackIndex: miss.attackIndex, phrase: miss.phrase, reason: miss.reason });
   }
-  return cancelledAny;
+  return { cancelled: cancelledAny, damageApplied };
+}
+
+// ジャスト率 (v6 T5): 押下 b が基準の拍 anchor にどれだけ近いか。窓の中心で 1、端 (早い側 early、遅い側 late。拍) で 0。範囲外は 0。
+// 窓の幅が 0 の側では、ぴったりなら 1、それ以外 0
+export function justRate(b: number, anchor: number, early: number, late: number): number {
+  const offset = b - anchor;
+  const side = offset < 0 ? early : late;
+  if (side <= 0) return Math.abs(offset) <= BEAT_EPS ? 1 : 0;
+  return clamp(1 - Math.abs(offset) / side, 0, 1);
+}
+
+// 反動の配分 (v6 T5。本人の式): 総量 total を敵 j / (R + j)、自機 R / (R + j) で分ける。R + j = 0 なら敵 0、自機 全部
+export function splitRecoil(total: number, j: number, resist: number): { enemy: number; player: number } {
+  const denom = resist + j;
+  if (denom <= 0) return { enemy: 0, player: total };
+  return { enemy: (total * j) / denom, player: (total * resist) / denom };
+}
+
+// p から見て from の反対へ向く単位ベクトル。同じ点なら左 (敵と逆側の既定)
+function awayFrom(p: Vec, from: Vec): Vec {
+  const d = normalize({ x: p.x - from.x, y: p.y - from.y });
+  return d.x === 0 && d.y === 0 ? { x: -1, y: 0 } : d;
+}
+
+// 敵の反動の差分 (v6 T5)。dir × distance × (1 − 経過 / recoilDecayBeats)。消えたら null にする
+function enemyRecoilOffset(state: SimState, cfg: Config): Vec {
+  const r = state.enemyRecoil;
+  if (!r) return { x: 0, y: 0 };
+  const k = 1 - (state.beat - r.startBeat) / cfg.slam.recoilDecayBeats;
+  if (k <= 0) {
+    state.enemyRecoil = null;
+    return { x: 0, y: 0 };
+  }
+  return { x: r.dir.x * r.distance * k, y: r.dir.y * r.distance * k };
 }
 
 function fanOverlapsHitbox(origin: Vec, aim: Vec, halfDeg: number, range: number, h: Hitbox): boolean {
+  if (h.kind === 'group') return h.parts.some((part) => fanOverlapsHitbox(origin, aim, halfDeg, range, part));
   return h.kind === 'circle'
     ? fanOverlapsCircle(origin, aim, halfDeg, range, h, h.r)
     : fanOverlapsSegment(origin, aim, halfDeg, range, h.a, h.b, h.r);
@@ -483,12 +572,24 @@ function checkDamage(state: SimState, deps: SimDeps): void {
     if (!state.impactAt.has(idx)) state.impactAt.set(idx, state.t);
     // 相殺された当たりは消えている (本体の動きだけ続く)
     if (state.damagedBy.has(idx) || state.cancelled.has(idx)) return;
-    if (hitDistance(state.player, c) <= c.r + cfg.playerRadius) {
+    if (touches(state.player, c, cfg.playerRadius)) {
+      // 大技 (v6 T5): 被ダメ cfg.slam.damage、片手で軽減済みなら ×mitigateRatio。円の中心から外へ吹っ飛ぶ (入力を受けない)
+      const slam = atk.type === 'slam';
+      const mitigated = slam && state.mitigated.has(idx);
+      const ratio = mitigated ? cfg.slam.mitigateRatio : 1;
+      const dmg = slam ? cfg.slam.damage * ratio : 1;
       state.damagedBy.add(idx);
       state.damageBeat.set(idx, state.beat);
-      state.player.hp = Math.max(0, state.player.hp - 1);
+      state.damageAmount.set(idx, dmg);
+      state.player.hp = Math.max(0, state.player.hp - dmg);
       state.lastDamage = true;
-      state.log.push({ t: state.t, beat: state.beat, kind: 'damage', attackIndex: idx, phrase: atk.phrase });
+      state.log.push({ t: state.t, beat: state.beat, kind: 'damage', attackIndex: idx, phrase: atk.phrase, ...(slam ? { damage: dmg, mitigated } : {}) });
+      if (slam) {
+        const main = primaryHit(c);
+        const center = main.kind === 'circle' ? main : state.enemy;
+        state.knockback = { startBeat: state.beat, dir: awayFrom(state.player, center), distance: cfg.slam.knockback * ratio };
+        state.stepping = null;
+      }
       breakCharge(state);
     }
   });
@@ -509,8 +610,8 @@ function breakCharge(state: SimState): void {
 export function renderToText(state: SimState): string {
   return [
     `t=${state.t.toFixed(3)} beat=${state.beat.toFixed(2)} finished=${state.finished}`,
-    `player x=${state.player.x.toFixed(3)} y=${state.player.y.toFixed(3)} hp=${state.player.hp}`,
-    `enemy x=${state.enemy.x.toFixed(3)} y=${state.enemy.y.toFixed(3)} hp=${state.enemy.hp}`,
+    `player x=${state.player.x.toFixed(3)} y=${state.player.y.toFixed(3)} hp=${+state.player.hp.toFixed(2)}`,
+    `enemy x=${state.enemy.x.toFixed(3)} y=${state.enemy.y.toFixed(3)} hp=${+state.enemy.hp.toFixed(2)}`,
     `events=${state.log.events.length} damagedBy=[${[...state.damagedBy].join(',')}] cancelled=[${[...state.cancelled].join(',')}]`,
   ].join('\n');
 }

@@ -3,14 +3,17 @@
 // 自機と敵の姿 (v4 T3) は src/render/figures.ts。構えの名前は src/core/pose.ts で決まる
 import type { Config } from '../config';
 import {
+  activeWindow,
   aimLine,
   attackMotion,
   cancelAnchorBeat,
   easeFor,
   hitboxAt,
+  impactBeat,
   incomingDir,
   leadsChain,
   pathPosAt,
+  slamShape,
   type Attack,
   type Choreo,
   type Hitbox,
@@ -45,6 +48,9 @@ const COLOR = {
   // 相殺できない攻撃 (uncancelable) の予告は赤 (「赤 = 避けるしかない」の慣用。v3 T4)
   telegraphDanger: 'rgba(255, 90, 70, 0.6)',
   telegraphDangerStrong: 'rgba(255, 120, 100, 0.95)',
+  // 大技 (slam。両手放ちだけで相殺できる) の予告は紫 (v6 T4。黄 = 相殺できる、赤 = 避けるしかない、と区別)
+  telegraphDouble: 'rgba(190, 140, 255, 0.6)',
+  telegraphDoubleStrong: 'rgba(215, 180, 255, 0.95)',
   hitbox: 'rgba(255, 70, 70, 0.45)',
   hitboxStrong: 'rgba(255, 120, 120, 0.9)',
   hpOk: '#6aa0ff',
@@ -95,25 +101,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
     // 相殺された当たりは消えている (sim.checkDamage と同じ)。本体は path どおり動き続ける
     if (state.cancelled.has(idx)) continue;
     const h = hitboxAt(atk, beat, grid.beatSec, cfg, attackMotion(choreo, atk));
-    if (!h) continue;
-    if (h.kind === 'circle') {
-      const p = px(h);
-      ctx.fillStyle = COLOR.hitbox;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, pr(h.r), 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      const a = px(h.a);
-      const b = px(h.b);
-      ctx.strokeStyle = COLOR.hitboxStrong;
-      ctx.lineWidth = Math.max(2, pr(h.r * 2));
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-    }
+    if (h) drawHitbox(ctx, px, pr, h);
   }
 
   // 敵: 構えは core が決める。拍の頭で明るく、イージングアウトで戻る。命中の瞬間は白
@@ -223,8 +211,38 @@ function enemyDir(choreo: Choreo, state: SimState, beatSec: number, cfg: Config)
   return fallback;
 }
 
-// 消した当たりの形を白の破線で描く (円は破線の輪、線分は破線)
+// 当たりの形を描く。円は塗り、線分は太さ r × 2 の線。group (slam) は部品を順に
+function drawHitbox(ctx: CanvasRenderingContext2D, px: (v: Vec) => Vec, pr: (r: number) => number, h: Hitbox): void {
+  if (h.kind === 'group') {
+    for (const part of h.parts) drawHitbox(ctx, px, pr, part);
+    return;
+  }
+  if (h.kind === 'circle') {
+    const p = px(h);
+    ctx.fillStyle = COLOR.hitbox;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, pr(h.r), 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  const a = px(h.a);
+  const b = px(h.b);
+  ctx.strokeStyle = COLOR.hitboxStrong;
+  ctx.lineWidth = Math.max(2, pr(h.r * 2));
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+// 消した当たりの形を白の破線で描く (円は破線の輪、線分は破線。group は部品を順に)
 function drawShards(ctx: CanvasRenderingContext2D, px: (v: Vec) => Vec, pr: (r: number) => number, h: Hitbox): void {
+  if (h.kind === 'group') {
+    for (const part of h.parts) drawShards(ctx, px, pr, part);
+    return;
+  }
   ctx.strokeStyle = COLOR.cancel;
   ctx.setLineDash([5, 7]);
   ctx.beginPath();
@@ -274,8 +292,10 @@ function drawBeatTicks(ctx: CanvasRenderingContext2D, vp: Viewport, grid: Grid, 
 }
 
 // 予告: 拍の数に合わせた補助線。当たり点に同心円を予告拍数ぶん置き、中心 → 外側へ 1 拍ごとに動く輪を描く。
-// dash は進路の線、shot は射線を添える。輪が外側に届く瞬間 = 相殺の基準 (cancelAnchorBeat。dash は自機に届く瞬間)。
-// 色は相殺できる攻撃が黄、uncancelable が赤 (v3 T4)。chainLead (同じフレーズに続く攻撃がある。v5 T6) なら動く輪を二重にする
+// 輪が外側に届く瞬間 = 相殺の基準 (cancelAnchorBeat。dash は自機に届く瞬間)。
+// 色は相殺できる攻撃が黄、uncancelable が赤 (v3 T4)、大技 (slam) が紫 (v6 T4)。chainLead (同じフレーズに続く攻撃がある。v5 T6) なら動く輪を二重にする。
+// 型ごとの印 (v6 T6。本人: 攻撃の判別がつきづらい): dash は当たりのある区間だけの道と、構えへ動く間の残像。shot は細かい点線と発射点の小さな輪。
+// laser は当たりの太さの帯。slam は 4 隅へ飛ぶ発射装置と 4 辺の枠と、逃げ場の帯 (円の外・枠の内側) の薄い塗り
 function drawTelegraph(
   ctx: CanvasRenderingContext2D,
   px: (v: Vec) => Vec,
@@ -290,13 +310,14 @@ function drawTelegraph(
   if (beat < atk.telegraphBeat || beat >= anchor) return;
   const lead = anchor - atk.telegraphBeat;
   const elapsed = beat - atk.telegraphBeat;
+  const progress = Math.max(0, Math.min(1, elapsed / lead));
   const rings = Math.max(1, Math.round(lead));
   const impact = pathPosAt(atk.path, anchor, motion);
   const ip = px(impact);
-  const maxR = atk.type === 'burst' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
+  const maxR = atk.type === 'burst' || atk.type === 'slam' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
   const ease = easeFor(motion);
-  const weak = atk.uncancelable ? COLOR.telegraphDanger : COLOR.telegraph;
-  const strong = atk.uncancelable ? COLOR.telegraphDangerStrong : COLOR.telegraphStrong;
+  const weak = atk.type === 'slam' ? COLOR.telegraphDouble : atk.uncancelable ? COLOR.telegraphDanger : COLOR.telegraph;
+  const strong = atk.type === 'slam' ? COLOR.telegraphDoubleStrong : atk.uncancelable ? COLOR.telegraphDangerStrong : COLOR.telegraphStrong;
 
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = weak;
@@ -321,29 +342,142 @@ function drawTelegraph(
     ctx.stroke();
   }
 
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 6]);
   ctx.strokeStyle = weak;
-  if (atk.type === 'dash') {
-    ctx.beginPath();
-    atk.path.forEach((pt, i) => {
-      const q = px(pt);
-      if (i === 0) ctx.moveTo(q.x, q.y);
-      else ctx.lineTo(q.x, q.y);
-    });
-    ctx.stroke();
-  } else {
-    const line = aimLine(atk, motion);
-    if (line) {
+  switch (atk.type) {
+    case 'dash':
+      drawDashCue(ctx, px, pr, atk, beat, cfg, motion);
+      break;
+    case 'shot': {
+      // 細かい点線の射線と、発射点の小さな輪
+      const line = aimLine(atk, motion);
+      if (!line) break;
       const origin = px(line.origin);
       const end = px(line.end);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([2, 7]);
       ctx.beginPath();
       ctx.moveTo(origin.x, origin.y);
       ctx.lineTo(end.x, end.y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(origin.x, origin.y, pr(cfg.shotRadius * 2), 0, Math.PI * 2);
+      ctx.stroke();
+      break;
     }
+    case 'laser': {
+      // 当たりの太さの帯 (半透明。進むほど濃く)
+      const line = aimLine(atk, motion);
+      if (!line) break;
+      const origin = px(line.origin);
+      const end = px(line.end);
+      ctx.lineWidth = Math.max(2, pr(atk.hitbox.r * 2));
+      ctx.globalAlpha = 0.15 + 0.35 * progress;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'slam':
+      drawSlamCue(ctx, px, pr, atk, impact, progress, ease, motion, weak, strong);
+      break;
+    case 'burst':
+      break;
   }
+}
+
+// dash の印 (v6 T6): 道の破線は当たりのある区間 (impactBeat 〜 窓の終わり) だけ。構えへ動く間 (予告開始 〜 impactBeat) は
+// 少し前の位置に薄い円 (残像) を 2 つ置いて、動いていることを見せる。進路の全体は描かない (狭い方向へ動いてから来る、と読めてしまうため)
+function drawDashCue(
+  ctx: CanvasRenderingContext2D,
+  px: (v: Vec) => Vec,
+  pr: (r: number) => number,
+  atk: Attack,
+  beat: number,
+  cfg: Config,
+  motion: Motion,
+): void {
+  const start = impactBeat(atk);
+  const w = activeWindow(atk, 1, cfg, motion); // dash の窓は拍だけで決まる (beatSec は shot 以外で使わない)
+  const pts: Vec[] = [pathPosAt(atk.path, start, motion), ...atk.path.filter((p) => p.beat > start && p.beat < w.endBeat), pathPosAt(atk.path, w.endBeat, motion)];
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  pts.forEach((pt, i) => {
+    const q = px(pt);
+    if (i === 0) ctx.moveTo(q.x, q.y);
+    else ctx.lineTo(q.x, q.y);
+  });
+  ctx.stroke();
   ctx.setLineDash([]);
+  if (beat >= start) return;
+  const now = pathPosAt(atk.path, beat, motion);
+  for (let g = 1; g <= 2; g++) {
+    const ghost = pathPosAt(atk.path, Math.max(atk.telegraphBeat, beat - 0.08 * g), motion);
+    if (Math.hypot(ghost.x - now.x, ghost.y - now.y) < 0.002) continue;
+    const q = px(ghost);
+    ctx.globalAlpha = 0.3 / g;
+    ctx.fillStyle = COLOR.enemy;
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, pr(cfg.enemyRadius * (1 - 0.15 * g)), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// slam の印 (v6 T4): 発射装置 4 つが予告開始時の敵の位置から 4 隅へ飛び、4 辺の枠が進むほど濃くなる。
+// 逃げ場の帯 (円の外・枠の内側) を薄く塗り、円の縁と枠の内縁を見分けられるようにする (帯は 0.1 と狭い)
+function drawSlamCue(
+  ctx: CanvasRenderingContext2D,
+  px: (v: Vec) => Vec,
+  pr: (r: number) => number,
+  atk: Attack,
+  center: Vec,
+  progress: number,
+  ease: (t: number) => number,
+  motion: Motion,
+  weak: string,
+  strong: string,
+): void {
+  const shape = slamShape(atk, center);
+  const inner = atk.frameHalf! - atk.laserR!;
+  const c = px(center);
+  // 帯: 枠の内縁の正方形から円を抜いた形 (evenodd)
+  ctx.fillStyle = weak;
+  ctx.globalAlpha = 0.06 + 0.1 * progress;
+  ctx.beginPath();
+  ctx.rect(c.x - pr(inner), c.y - pr(inner), pr(inner * 2), pr(inner * 2));
+  ctx.arc(c.x, c.y, pr(atk.hitbox.r), 0, Math.PI * 2, true);
+  ctx.fill('evenodd');
+  ctx.globalAlpha = 1;
+  // 枠の 4 辺: 進むほど濃く、太さは辺の太さに近づく
+  ctx.strokeStyle = weak;
+  ctx.globalAlpha = 0.25 + 0.6 * progress;
+  ctx.lineWidth = Math.max(1.5, pr(atk.laserR! * 2) * progress);
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  shape.corners.forEach((pt, i) => {
+    const q = px(pt);
+    if (i === 0) ctx.moveTo(q.x, q.y);
+    else ctx.lineTo(q.x, q.y);
+  });
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  // 発射装置: 予告開始時の敵の位置から 4 隅へ
+  const from = pathPosAt(atk.path, atk.telegraphBeat, motion);
+  const t = ease(progress);
+  ctx.fillStyle = strong;
+  for (const corner of shape.corners) {
+    const q = px({ x: from.x + (corner.x - from.x) * t, y: from.y + (corner.y - from.y) * t });
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, Math.max(2, pr(0.012)), 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawHp(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimState, cfg: Config): void {

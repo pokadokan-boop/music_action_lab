@@ -49,7 +49,7 @@ describe('hitboxAt', () => {
     expect(hitboxAt(atk, 9.9, grid.beatSec, config)).toBeNull();
     const c = hitboxAt(atk, 10.1, grid.beatSec, config);
     expect(c).not.toBeNull();
-    expect(c!.r).toBe(0.06);
+    expect(c).toMatchObject({ kind: 'circle', r: 0.06 });
     expect(hitboxAt(atk, 10.3, grid.beatSec, config)).toBeNull();
   });
 

@@ -1,7 +1,8 @@
 // v3 の完了条件 (docs/plan/v3-phase1.md) を実物の振り付けで保つ: 曲の拍グリッドで、初期位置に立ったまま接触の前後に向きを合わせた
 // 押下を置けば、相殺できる攻撃 (dash / laser / shot) が相殺され、HP が減らないこと。Chrome の自動操作タブは描画が間引かれて
 // 時刻の検証に使えない (docs/plan/v2-phase1.md 完了記録の注意) ので、ここで sim を直接回して確かめる。
-// v5 (docs/plan/v5-phase2-enemy.md) で振り付けは v5.json (17 攻撃、burst 3 つだけ相殺不可) になった。v4 の分岐の試し (dash の後に止まる) は外した
+// v5 (docs/plan/v5-phase2-enemy.md) で振り付けは v5.json (17 攻撃、burst 3 つだけ相殺不可) になった。v4 の分岐の試し (dash の後に止まる) は外した。
+// v6 (docs/plan/v6-phase2-enemy.md) で v6.json (14 攻撃。Z は大技 slam。通常攻撃では相殺できない) になった
 import { Midi } from '@tonejs/midi';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,14 +14,14 @@ import { buildGrid } from './grid';
 import { createSim, effectiveChoreo, step, type InputState, type SimDeps, type SimState } from './sim';
 
 const root = resolve(__dirname, '..', '..');
-const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v5.json'), 'utf8')) as Choreo;
+const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v6.json'), 'utf8')) as Choreo;
 const grid = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${choreo.song}.mid`))));
 const deps: SimDeps = { choreo, grid, cfg: config, acceptance };
 const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
 const dt = config.fixedDt;
 const msBeat = (ms: number) => ms / 1000 / grid.beatSec;
-// v5.json の番号: 0 dash (phrase 0) / 1 shot, 2 laser (phrase 1) / 3 laser, 4 burst (phrase 2) / 5 shot, 6 dash (phrase 3) / ...
-const DASH_P3 = 6;
+// v6.json の番号: 0 dash (phrase 0) / 1 shot, 2 laser (phrase 1) / 3 slam (phrase 2) / 4 shot, 5 dash (phrase 3) / ...
+const DASH_P3 = 5;
 const LASER_P1 = 2;
 
 // 「次の step で beat が target に達する」直前まで進める
@@ -48,14 +49,14 @@ function pressFacingIncoming(state: SimState, idx: number, offsetMs: number, fli
   return { c };
 }
 
-describe('v5.json で立ったまま相殺できる (v3 の完了条件を v5 で保つ)', () => {
-  const cancelable = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => !a.uncancelable);
+describe('v6.json で立ったまま相殺できる (v3 の完了条件を v6 で保つ)', () => {
+  const cancelable = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => !a.uncancelable && a.type !== 'slam');
 
-  it('相殺できる攻撃は 14 (dash 3, shot 5, laser 6)、burst は 3 つとも uncancelable', () => {
+  it('通常攻撃で相殺できる攻撃は 11 (dash 3, shot 5, laser 3)、slam は 3 つ (両手放ちだけ。sim-slam.test.ts)', () => {
     const count = (t: string) => cancelable.filter(({ a }) => a.type === t).length;
-    expect(cancelable).toHaveLength(14);
-    expect([count('dash'), count('shot'), count('laser')]).toEqual([3, 5, 6]);
-    expect(choreo.attacks.filter((a) => a.uncancelable).map((a) => a.type)).toEqual(['burst', 'burst', 'burst']);
+    expect(cancelable).toHaveLength(11);
+    expect([count('dash'), count('shot'), count('laser')]).toEqual([3, 5, 3]);
+    expect(choreo.attacks.filter((a) => a.type === 'slam')).toHaveLength(3);
   });
 
   it.each(cancelable.map(({ i }) => i))('攻撃 %i: 接触の 60 ms 前に来る方向の逆を向いて押すと相殺され、その攻撃では被弾しない', (idx) => {
@@ -108,12 +109,14 @@ describe('v5.json で立ったまま相殺できる (v3 の完了条件を v5 �
   });
 });
 
-describe('v5.json の連なる攻撃 (docs/plan/v5-phase2-enemy.md T6)', () => {
-  it('立ったままだと 17 攻撃の全てに被弾する (全てが自機を狙い、予告の重なりで当たりが消えない)', () => {
+describe('v6.json の連なる攻撃 (docs/plan/v5-phase2-enemy.md T6)', () => {
+  it('立ったままだと 14 攻撃の全てに被弾する (全てが自機を狙い、予告の重なりで当たりが消えない)。大技の被ダメは 2 で HP は 0 まで', () => {
     const state = createSim(deps);
     // シーンは 20 秒 (46.7 拍) で終わり、以後 step は進まない (runUntil が止まらなくなる) ので、最後の当たり (42.7 拍) の後の 45 拍まで
     runUntil(state, 45);
-    expect(state.damagedBy.size).toBe(17);
+    expect(state.damagedBy.size).toBe(14);
+    expect(state.log.events.filter((e) => e.kind === 'damage' && e.damage === 2)).toHaveLength(3);
+    expect(state.player.hp).toBe(0);
   });
 
   it('敵の位置は入れ子の単一キーフレーム (shot / laser) で飛ばない: 6.5 → 8 は同じ点にとどまり、3 → 4 は着地点から laser の始点へ', () => {

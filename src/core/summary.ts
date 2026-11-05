@@ -4,7 +4,7 @@ import type { Grid } from './grid';
 import { CANCEL_MISS_LABEL, HAND_LABEL, OUTCOME_LABEL, type GameLog, type Hand, type LogEvent, type SummaryMeta } from './log';
 
 export function buildSummary(log: GameLog, choreo: Choreo, grid: Grid, meta: SummaryMeta): string {
-  const head = log.summary(meta);
+  const head = [log.summary(meta), ...slamLine(log, choreo)].join('\n');
   const rows: string[] = ['', ...buildScore(log, grid), '', 'phrase | 攻撃 | 被弾 | 結果 | 相殺 | 自分の攻撃回数'];
   for (const p of grid.phrases) {
     const atks = choreo.attacks
@@ -23,13 +23,36 @@ export function buildSummary(log: GameLog, choreo: Choreo, grid: Grid, meta: Sum
       const oc = ofAttack('outcome', i)[0];
       return !oc || !oc.outcome ? '-' : `${OUTCOME_LABEL[oc.outcome]}${oc.branch && oc.branch !== 'normal' ? ` (${BRANCH_LABEL[oc.branch]})` : ''}`;
     });
-    const cancels = perAttack((i) => cancelColumn(ofAttack('cancel', i).length, ofAttack('cancel-miss', i)));
+    const cancels = perAttack((i) =>
+      choreo.attacks[i].type === 'slam'
+        ? slamColumn(ofAttack('cancel', i).length, ofAttack('mitigate', i).length, ofAttack('cancel-miss', i))
+        : cancelColumn(ofAttack('cancel', i).length, ofAttack('cancel-miss', i)),
+    );
     rows.push(`${String(p.index).padStart(2)} | ${types} | ${damaged} | ${result} | ${cancels} | ${myAttacks}`);
   }
   return `${head}\n${rows.join('\n')}`;
 }
 
 const BRANCH_LABEL = { normal: '通常', stop: '止まる', approach: '寄る', retreat: '離れる' } as const;
+
+// 大技の行 (v6 T5): 振り付けに slam があるときだけ。片手軽減は相殺されなかったものだけ数える。ジャスト率は両手相殺の平均
+function slamLine(log: GameLog, choreo: Choreo): string[] {
+  const slams = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => a.type === 'slam');
+  if (slams.length === 0) return [];
+  const cancels = log.events.filter((e) => e.kind === 'cancel' && slams.some(({ i }) => i === e.attackIndex));
+  const cancelledIdx = new Set(cancels.map((e) => e.attackIndex));
+  const mitigated = slams.filter(({ i }) => !cancelledIdx.has(i) && log.events.some((e) => e.kind === 'mitigate' && e.attackIndex === i)).length;
+  const justs = cancels.map((e) => e.just ?? 0);
+  const justText = justs.length === 0 ? '-' : `${((justs.reduce((a, b) => a + b, 0) / justs.length) * 100).toFixed(0)}%`;
+  return [`大技 ${slams.length} 回 (片手軽減 ${mitigated} / 両手相殺 ${cancels.length}、ジャスト率 平均 ${justText})`];
+}
+
+// 大技の相殺列: 両手で相殺したら「両手相殺」、片手で軽減しただけなら「片手軽減」、放ちが失敗しただけなら理由、どれも無ければ -
+function slamColumn(cancels: number, mitigates: number, misses: { reason?: keyof typeof CANCEL_MISS_LABEL }[]): string {
+  if (cancels > 0) return '両手相殺';
+  if (mitigates > 0) return '片手軽減';
+  return cancelColumn(0, misses);
+}
 
 // プレイヤーの譜 (v5 T5、v6 T3 で 3 行に): 1 小節 3 行 (右 = 右手、左 = 左手、足 = ステップ)、16 分の格子 (0.25 拍) 16 マス、1 拍ごとに空白で区切る。
 // 記号: ・ 無し / ス ステップ / 攻 通常 / 返 返し / 放 放ち / 溜 溜め中 / 相 相殺した押下 / 強 強い相殺。

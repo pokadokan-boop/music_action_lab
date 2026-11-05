@@ -5,7 +5,8 @@ import type { BranchMove, Outcome } from './choreo';
 // damage-undone = 遅い側の相殺で被弾を取り消した (v3 T3)。damage の記録は残り、HP だけ戻る。
 // outcome = 攻撃の結果の確定 (v4 T1。捌けた / 被弾 と、選ばれた分岐)
 // step = ステップ (v5 T1)、charge = 溜めが閾値を超えた、charge-break = 被弾で溜めが解除された (v5 T2)
-export type EventKind = 'attack' | 'hit' | 'damage' | 'cancel' | 'cancel-miss' | 'damage-undone' | 'outcome' | 'step' | 'charge' | 'charge-break';
+// mitigate = 大技 (slam) を片手の放ちで軽減した (v6 T5。相殺ではない。以後その攻撃の被ダメと吹っ飛びが ×0.8)
+export type EventKind = 'attack' | 'hit' | 'damage' | 'cancel' | 'cancel-miss' | 'damage-undone' | 'outcome' | 'step' | 'charge' | 'charge-break' | 'mitigate';
 export type BeatClass = 'on' | 'off' | 'miss';
 // 攻撃の押下の種類 (v5)。normal = 通常、riposte = 相殺後の返し、release = 溜めの放ち
 export type AttackAction = 'normal' | 'riposte' | 'release';
@@ -40,6 +41,10 @@ export interface LogEvent {
   hand?: Hand;
   double?: boolean;
   pairMs?: number;
+  // v6 T5 (大技): cancel (double) のジャスト率 0〜1 と反動の配分 (距離)。damage: 大技の被ダメ (省略は 1) と片手軽減が効いたか
+  just?: number;
+  recoil?: { enemy: number; player: number };
+  mitigated?: boolean;
 }
 
 export const OUTCOME_LABEL: Record<Outcome, string> = { handled: '捌けた', hit: '被弾' };

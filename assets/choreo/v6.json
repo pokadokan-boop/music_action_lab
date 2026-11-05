@@ -1,9 +1,10 @@
 {
-  "id": "v5",
+  "id": "v6",
   "song": "candidate-2",
-  "intent": "曲のメロディの全ての音に攻撃を置いた版 (拍 0 だけ無し、17 攻撃)。X = 弾のあと突進、Y = 裏拍の弾のあとレーザー、Z = レーザーのあと叩きつけ (相殺不可)。同じモチーフには同じ 2 攻撃。プレイヤーは R1 で攻撃と溜め、○ でステップ、相殺の直後は返し",
+  "intent": "v5 (全メロディ音に攻撃) の Z モチーフを大技 slam に替えた版 (14 攻撃)。X = 弾のあと突進、Y = 裏拍の弾のあとレーザー、Z = 1 音目で飛び上がり発射装置 4 つが飛び、2 音目で叩きつけと 4 辺の極太レーザー (両手放ちだけで相殺、片手の放ちは軽減)。プレイヤーは R1 / L1 で独立に攻撃と溜め、○ でステップ",
   "idle": { "amplitude": 0.02 },
   "motion": "snap",
+  "knockbackResist": 0.5,
   "attacks": [
     {
       "phrase": 0, "type": "dash", "aim": "player",
@@ -36,15 +37,9 @@
       "target": { "x": 0.2, "y": 0.24188 }
     },
     {
-      "phrase": 2, "type": "laser", "aim": "player",
-      "telegraphBeat": 6, "hitBeat": 8, "activeBeats": 0.25,
-      "path": [{ "beat": 8, "x": 0.68, "y": 0.2925 }],
-      "hitbox": { "shape": "circle", "r": 0.02 },
-      "target": { "x": 0.2, "y": 0.24188 }
-    },
-    {
-      "phrase": 2, "type": "burst", "aim": "player", "uncancelable": true, "chained": true,
+      "phrase": 2, "type": "slam", "aim": "player",
       "telegraphBeat": 8, "hitBeat": 10.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
+      "frameHalf": 0.3, "laserR": 0.04,
       "path": [
         { "beat": 8, "x": 0.68, "y": 0.2925 },
         { "beat": 8.25, "x": 0.4, "y": 0.25313 },
@@ -93,15 +88,9 @@
       "target": { "x": 0.2, "y": 0.24188 }
     },
     {
-      "phrase": 5, "type": "laser", "aim": "player",
-      "telegraphBeat": 22, "hitBeat": 24, "activeBeats": 0.25,
-      "path": [{ "beat": 24, "x": 0.68, "y": 0.2925 }],
-      "hitbox": { "shape": "circle", "r": 0.02 },
-      "target": { "x": 0.2, "y": 0.24188 }
-    },
-    {
-      "phrase": 5, "type": "burst", "aim": "player", "uncancelable": true, "chained": true,
+      "phrase": 5, "type": "slam", "aim": "player",
       "telegraphBeat": 24, "hitBeat": 26.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
+      "frameHalf": 0.3, "laserR": 0.04,
       "path": [
         { "beat": 24, "x": 0.68, "y": 0.2925 },
         { "beat": 24.25, "x": 0.4, "y": 0.25313 },
@@ -150,15 +139,9 @@
       "target": { "x": 0.2, "y": 0.24188 }
     },
     {
-      "phrase": 8, "type": "laser", "aim": "player",
-      "telegraphBeat": 38, "hitBeat": 40, "activeBeats": 0.25,
-      "path": [{ "beat": 40, "x": 0.68, "y": 0.2925 }],
-      "hitbox": { "shape": "circle", "r": 0.02 },
-      "target": { "x": 0.2, "y": 0.24188 }
-    },
-    {
-      "phrase": 8, "type": "burst", "aim": "player", "uncancelable": true, "chained": true,
+      "phrase": 8, "type": "slam", "aim": "player",
       "telegraphBeat": 40, "hitBeat": 42.5, "impactDelayBeats": 0.1875, "activeBeats": 0.5,
+      "frameHalf": 0.3, "laserR": 0.04,
       "path": [
         { "beat": 40, "x": 0.68, "y": 0.2925 },
         { "beat": 40.25, "x": 0.4, "y": 0.25313 },
