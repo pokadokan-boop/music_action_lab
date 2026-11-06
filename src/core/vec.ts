@@ -78,8 +78,15 @@ export function distToSegment(p: Vec, a: Vec, b: Vec): number {
 // 中心までの距離 ≤ range + r、かつ角度差 ≤ halfDeg + atan(r / 距離)。
 // origin が円の内側 (距離 ≤ r) なら向きに関係なく重なる (背を向けていても扇は円の中にある。reach と誤記録しないため) (T5 の相殺)
 export function fanOverlapsCircle(origin: Vec, aim: Vec, halfDeg: number, range: number, c: Vec, r: number): boolean {
+  if (dist(origin, c) > range + r) return false;
+  return fanAngleCoversCircle(origin, aim, halfDeg, c, r);
+}
+
+// 扇の角度の条件だけ (距離は見ない): 円 (中心 c、半径 r) の一部が、origin から aim 方向に開く扇の角度 ±halfDeg の中にあるか。
+// 角度差 ≤ halfDeg + atan(r / 距離)。origin が円の内側なら向きに関係なく真。
+// 命中の「向きが合っていたか」の記録 (enemyInFan) と返しの踏み込みの向きの判断に使う (v6.1。扇の縁に体がかかる向きは「扇内」)
+export function fanAngleCoversCircle(origin: Vec, aim: Vec, halfDeg: number, c: Vec, r: number): boolean {
   const d = dist(origin, c);
-  if (d > range + r) return false;
   if (d <= r) return true;
   const widen = (Math.atan(r / d) * 180) / Math.PI;
   return angleBetweenDeg(aim, { x: c.x - origin.x, y: c.y - origin.y }) <= halfDeg + widen;

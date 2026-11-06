@@ -15,13 +15,15 @@ export interface Tuning {
   cancelFacingDeg: number;
 }
 
-// 既定値の理由は docs/plan/v3-phase1.md「既定値」(早い側 100 ms は原本「判定緩め +前 6 フレーム」、0.6 倍は本人の値)。
-// fanRatio 1.6 は本人が v3 の調整パネルで選んだ値 (vault:音楽アクション/v3 不満.md の要約、2026-10-30)
+// 既定値の理由は docs/plan/v3-phase1.md「既定値」(0.6 倍は本人の値)。
+// fanRatio 1.6 は本人が v3 の調整パネルで選んだ値 (vault:音楽アクション/v3 不満.md の要約、2026-10-30)。
+// 窓 前 150 / 後 100 ms は v6 の不満 (2026-11-06)「反撃することも頭に入れて相殺をしようとすると、手前の窓は 150、後ろの窓は 100 欲しい」。
+// v3〜v6 は前 100 / 後 50 (原本「判定緩め +前 6 フレーム」)。docs/decisions/v6-feedback.md
 export const defaultTuning: Tuning = {
   sizeScale: 0.6,
   fanRatio: 1.6,
-  cancelEarlyMs: 100,
-  cancelLateMs: 50,
+  cancelEarlyMs: 150,
+  cancelLateMs: 100,
   cancelFacingDeg: 60,
 };
 
@@ -33,7 +35,7 @@ export interface Config {
   playerSpeed: number;
   playerRadius: number;
   enemyRadius: number;
-  // 攻撃の扇の半径。命中 (敵の中心が扇の中) と相殺 (扇と当たりの形が重なる) で共通。描画も同じ半径 (判定に無い大きさを描かない)
+  // 攻撃の扇の半径。命中 (敵の体が扇に重なる。v6.1) と相殺 (扇と当たりの形が重なる) で共通。描画も同じ半径 (判定に無い大きさを描かない)
   attackRadius: number;
   shotSpeed: number;
   shotRadius: number;

@@ -28,9 +28,9 @@ import {
   clamp,
   closestPointOnSegment,
   dist,
+  fanAngleCoversCircle,
   fanOverlapsCircle,
   fanOverlapsSegment,
-  inFan,
   normalize,
   type Vec,
 } from './vec';
@@ -382,9 +382,11 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
   const aim = hasMove ? normalize(input.move) : normalize(toEnemy);
   state.lastAim = aim;
   if (aim.x !== 0 || aim.y !== 0) state.facing = aim;
-  // 扇の角度の条件だけを記録する (距離込みだと命中と同じ値になり、「向きが合っていたか」が読めなくなる)
-  const enemyInFan = angleBetweenDeg(aim, toEnemy) <= cfg.attackFanDeg / 2;
+  // 扇の角度の条件だけを記録する (距離込みだと命中と同じ値になり、「向きが合っていたか」が読めなくなる)。
+  // v6.1: 命中と同じく敵の体 (半径 enemyRadius) で見る。中心が扇の角度の外でも体が縁にかかる向きなら扇内
+  const enemyInFan = fanAngleCoversCircle(state.player, aim, cfg.attackFanDeg / 2, state.enemy, cfg.enemyRadius);
   const lunge = action === 'riposte' && hasMove;
+  const contact = cfg.playerRadius + cfg.enemyRadius;
   state.log.push({
     t: state.t,
     beat: state.beat,
@@ -409,16 +411,26 @@ function playerAttack(state: SimState, input: InputState, deps: SimDeps, action:
     state.lastHit = true;
   }
 
-  // 返しの踏み込み (v5 T3): スティックの向きへ lungeDistance を一歩で。無入力なら踏み込まない
+  // 返しの踏み込み (v5 T3。v6.1 で補正): 敵が扇の向きに入っていれば、敵へ向かって接触距離まで踏み込む (最大 lungeDistance。通り過ぎない)。
+  // 入っていなければスティックの向きへ lungeDistance。無入力なら踏み込まない。
+  // 理由: v6 不満「大体の角度 (扇の角度) が合っていれば当たる位置に補正してほしい」。v5〜v6 はスティックの向きへ常に 0.1 で、
+  // 扇の半径 (0.077) より長いので近い敵を通り過ぎて外れることがあった
   if (lunge) {
-    state.player.x = clamp(state.player.x + aim.x * cfg.lungeDistance, cfg.playerRadius, WORLD.w - cfg.playerRadius);
-    state.player.y = clamp(state.player.y + aim.y * cfg.lungeDistance, cfg.playerRadius, WORLD.h - cfg.playerRadius);
+    let dir = aim;
+    let amount = cfg.lungeDistance;
+    if (enemyInFan) {
+      dir = normalize(toEnemy);
+      amount = Math.min(cfg.lungeDistance, Math.max(0, dist(state.player, state.enemy) - contact));
+    }
+    state.player.x = clamp(state.player.x + dir.x * amount, cfg.playerRadius, WORLD.w - cfg.playerRadius);
+    state.player.y = clamp(state.player.y + dir.y * amount, cfg.playerRadius, WORLD.h - cfg.playerRadius);
   }
 
-  // 命中: 敵の中心が扇 (半径 attackRadius、角度 attackFanDeg) の中。描画も同じ扇 (見えない射程は無い。v3 T2)。扇の外なら寄せもしない
-  if (!inFan(state.player, aim, cfg.attackFanDeg / 2, cfg.attackRadius, state.enemy)) return;
+  // 命中 (v6.1): 敵の体 (半径 enemyRadius) が扇 (半径 attackRadius、角度 attackFanDeg) に重なる。描画の扇が敵に触れて見えれば当たる。
+  // v3 T2〜v6 は「敵の中心が扇の中」で、扇の縁から敵の半径ぶん (0.03) 内側まで入らないと当たらなかった (v6 不満「扇が敵に被っているのに当たらない」)。
+  // 相殺の重なり (fanOverlapsCircle) と同じ条件にした。描画は同じ扇 (見えない射程は無い)。扇の外なら寄せもしない
+  if (!fanOverlapsCircle(state.player, aim, cfg.attackFanDeg / 2, cfg.attackRadius, state.enemy, cfg.enemyRadius)) return;
   const d = dist(state.player, state.enemy);
-  const contact = cfg.playerRadius + cfg.enemyRadius;
   if (d > contact && d > 0) {
     // 扇の中なら接触する距離まで寄せる (concept.md「初期案」の「射程内なら当たるように少し補正する」)
     const pull = (d - contact) / d;

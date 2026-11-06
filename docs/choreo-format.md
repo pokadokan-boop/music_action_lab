@@ -44,7 +44,7 @@
 
 ### 相殺 (v2 T5、v3 T3 で窓を接触基準にした。判定は `src/core/sim.ts` の `tryCancel`、幾何は `src/core/vec.ts` と `choreo.ts` の `contactBeat` / `incomingDir`)
 プレイヤーの攻撃 (ボタン) は敵への命中と独立に、敵の攻撃の当たりを消す「相殺」の判定も行う (両方起きてよい)。対象は `uncancelable` でなく、まだ相殺されていない攻撃。「時刻」と「向き」がそろえば成立し、以後その攻撃の当たりは被弾判定と描画から消える。本体の動きは path どおり続く (弾かれる動きは入れない。docs/plan/v2-phase2.md「既定値の決め」)
-- 時刻 (接触基準): 押した瞬間の自機の位置に、その攻撃の当たりが最初に触れる拍を接触拍 c とする (`contactBeat`。active 区間を 1/120 秒刻みで走査)。押下が [c − `cancelEarlyMs`, c + `cancelLateMs`] (src/config.ts。既定 前 100 ms・後 50 ms) にあれば時刻は合っている。dash は本体が自機に届く瞬間、laser と burst は窓の始まりが c になる。v2 の「当たりの有効窓そのもの」は、立ったままだと被弾より先に相殺できる幅が dash 27 ms・laser 8 ms しか無かった (docs/decisions/v2-feedback.md F5)
+- 時刻 (接触基準): 押した瞬間の自機の位置に、その攻撃の当たりが最初に触れる拍を接触拍 c とする (`contactBeat`。active 区間を 1/120 秒刻みで走査)。押下が [c − `cancelEarlyMs`, c + `cancelLateMs`] (src/config.ts。既定 前 150 ms・後 100 ms。v6.1 で本人の値に。v3〜v6 は前 100・後 50) にあれば時刻は合っている。dash は本体が自機に届く瞬間、laser と burst は窓の始まりが c になる。v2 の「当たりの有効窓そのもの」は、立ったままだと被弾より先に相殺できる幅が dash 27 ms・laser 8 ms しか無かった (docs/decisions/v2-feedback.md F5)
 - 時刻 (かすめる相殺): 接触しない位置でも、押した瞬間に当たりの形が扇 (半径 `attackRadius`、角度 `attackFanDeg`) と重なれば時刻は合っている。円 (dash の本体、burst、shot) は中心までの距離 ≤ 半径 + r、かつ角度差 ≤ 扇の半角 + atan(r / 距離) (距離 0 なら重なる)。線分 (laser) は線分上を r / 2 刻みで取った点を半径 r の円に見立て、1 つでも扇と重なれば重なる
 - 向き: 攻撃の向き `aim` が「来る方向の逆」から ± `cancelFacingDeg / 2` (既定 ±30 度) 以内。来る方向は、接触基準なら c の時点、かすめる相殺なら押した時点で、型ごとに dash = その拍の敵の進行方向 (1/120 秒前との差。止まっていればプレイヤーから当たりの中心への向き)、laser = 射線の向き、burst / shot = 当たりの中心からプレイヤーへの向き
 - 被弾の取り消し: 遅い側 (c の後) で成立し、その攻撃で既に被弾していて、その被弾が押下の `cancelLateMs` 以内なら HP を 1 戻す。記録には `damage` を残したまま `damage-undone` を足す (「インチキかもしれないけど遅い側も緩めてほしい」v2 不満)

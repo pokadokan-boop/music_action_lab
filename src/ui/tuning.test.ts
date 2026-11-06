@@ -60,7 +60,7 @@ describe('tuning', () => {
   });
 
   it('describeTuning は既定値で計画どおりの 1 行になる', () => {
-    expect(describeTuning(defaultTuning)).toBe('調整 窓 前100/後50 ms 大きさ 0.6 扇 1.6 許容 60°');
+    expect(describeTuning(defaultTuning)).toBe('調整 窓 前150/後100 ms 大きさ 0.6 扇 1.6 許容 60°');
     expect(describeTuning({ ...defaultTuning, sizeScale: 0.1 + 0.2 + 0.3 })).toContain('大きさ 0.6 ');
   });
 

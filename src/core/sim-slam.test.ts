@@ -185,10 +185,10 @@ describe('大技 slam (T5)。v6.json の phrase 2 (攻撃 3)', () => {
     expect(state.cancelled.has(SLAM_P2)).toBe(true);
     const cancel = state.log.events.find((e) => e.kind === 'cancel' && e.attackIndex === SLAM_P2)!;
     expect(cancel).toMatchObject({ double: true, strong: true, hand: 'left' });
-    // 押下は当たりの発生拍の約 60 ms 前 → j ≈ 1 − 60 / 100 = 0.4 (step の刻みぶんの誤差を許す)
+    // 押下は当たりの発生拍の約 60 ms 前 → j ≈ 1 − 60 / 150 = 0.6 (早い側の窓は v6.1 で 150 ms。step の刻みぶんの誤差を許す)
     const j = cancel.just!;
-    expect(j).toBeGreaterThan(0.3);
-    expect(j).toBeLessThan(0.5);
+    expect(j).toBeGreaterThan(0.5);
+    expect(j).toBeLessThan(0.7);
     expect(hpBefore - state.enemy.hp).toBeCloseTo(config.damage.release * 2 * j, 9);
     const split = splitRecoil(config.slam.recoil, j, 0.5);
     expect(cancel.recoil!.enemy).toBeCloseTo(split.enemy, 9);
@@ -201,13 +201,14 @@ describe('大技 slam (T5)。v6.json の phrase 2 (攻撃 3)', () => {
     expect(state.enemyRecoil).toBeNull();
   });
 
-  it('両手放ちでも窓の外 (150 ms 前) なら相殺されず timing の失敗として記録される', () => {
+  it('両手放ちでも窓の外 (200 ms 前。既定の早い側は 150 ms) なら相殺されず timing の失敗として記録される', () => {
     const state = createSim(deps);
     const c = slamContact(state);
-    runUntil(state, c - 1);
-    runUntil(state, c - msBeat(160), both);
+    // 溜めの閾値 (0.5 拍) を余裕を持って超えるため 1.5 拍前から押す
+    runUntil(state, c - 1.5);
+    runUntil(state, c - msBeat(210), both);
     step(state, left, dt, deps);
-    runUntil(state, c - msBeat(150), left);
+    runUntil(state, c - msBeat(200), left);
     step(state, stay, dt, deps);
     expect(state.cancelled.has(SLAM_P2)).toBe(false);
     expect(state.log.events.filter((e) => e.kind === 'cancel-miss' && e.attackIndex === SLAM_P2).map((e) => e.reason)).toEqual(['timing', 'timing']);

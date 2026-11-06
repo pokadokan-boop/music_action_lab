@@ -95,7 +95,7 @@ describe('sim', () => {
 
   it('扇の半径の内なら接触する距離まで寄せて命中、外なら外れ', () => {
     const near = createSim(deps);
-    // 接触距離 (0.054) と扇の半径 (0.0576) の間に立つ
+    // 接触距離 (0.054) と扇の半径 (0.0768) の間に立つ
     near.player.x = near.enemy.x - (config.playerRadius + config.enemyRadius + config.attackRadius) / 2;
     near.player.y = near.enemy.y;
     step(near, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
@@ -109,6 +109,27 @@ describe('sim', () => {
     step(far, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
     expect(far.lastHit).toBe(false);
     expect(far.enemy.hp).toBe(config.enemyHp);
+  });
+
+  it('v6.1: 敵の中心が扇の半径の外でも、体 (半径 0.03) が扇に重なれば命中して寄せる。体も届かなければ外れ', () => {
+    // 敵の中心を扇の縁から 0.015 外 (体の半分が扇にかかる) に置く。v6 までは「中心が扇の中」で外れていた (v6 不満: 扇が被っているのに当たらない)
+    const grazing = createSim(deps);
+    grazing.player.x = grazing.enemy.x - (config.attackRadius + config.enemyRadius * 0.5);
+    grazing.player.y = grazing.enemy.y;
+    expect(dist(grazing.player, grazing.enemy)).toBeGreaterThan(config.attackRadius);
+    // 無入力 (敵の方向を向く。スティックで動かない)
+    step(grazing, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
+    expect(grazing.lastHit).toBe(true);
+    expect(grazing.enemy.hp).toBe(config.enemyHp - 1);
+    expect(dist(grazing.player, grazing.enemy)).toBeCloseTo(config.playerRadius + config.enemyRadius, 9);
+
+    // 体の縁が扇の縁のすぐ外 (中心が 半径 + 0.03 + 0.002) なら外れ。描画の扇も敵に触れていない
+    const apart = createSim(deps);
+    apart.player.x = apart.enemy.x - (config.attackRadius + config.enemyRadius + 0.002);
+    apart.player.y = apart.enemy.y;
+    step(apart, { move: { x: 0, y: 0 }, attackPressed: true }, config.fixedDt, deps);
+    expect(apart.lastHit).toBe(false);
+    expect(apart.enemy.hp).toBe(config.enemyHp);
   });
 
   // 敵の左 (同じ高さ) に距離 d で立った状態を作る。敵は右 (角度 0 度) にいる
@@ -128,12 +149,66 @@ describe('sim', () => {
     expect(attackEvents(state)[0].enemyInFan).toBe(true);
   });
 
-  it('同じ距離でも角度差が 45 度を超えると外れる', () => {
+  it('同じ距離でも角度差が 45 度 + 体のかかる角度を超えると外れる', () => {
+    // 距離 0.0538 で体 (0.03) がかかる角度は atan(0.03 / 0.0538) ≈ 29 度。角度差 80 度は 45 + 29 = 74 度の外
     const state = leftOfEnemy(config.attackRadius * 0.7);
-    step(state, { move: { x: Math.cos(Math.PI / 3), y: -Math.sin(Math.PI / 3) }, attackPressed: true }, config.fixedDt, deps);
+    const a = (80 * Math.PI) / 180;
+    step(state, { move: { x: Math.cos(a), y: -Math.sin(a) }, attackPressed: true }, config.fixedDt, deps);
     expect(state.lastHit).toBe(false);
     expect(state.enemy.hp).toBe(config.enemyHp);
     expect(attackEvents(state)[0].enemyInFan).toBe(false);
+  });
+
+  it('v6.1: 角度差 60 度でも、体の縁が扇の角度にかかれば命中する (扇内と記録)', () => {
+    const state = leftOfEnemy(config.attackRadius * 0.7);
+    step(state, { move: { x: Math.cos(Math.PI / 3), y: -Math.sin(Math.PI / 3) }, attackPressed: true }, config.fixedDt, deps);
+    expect(state.lastHit).toBe(true);
+    expect(state.enemy.hp).toBe(config.enemyHp - 1);
+    expect(attackEvents(state)[0].enemyInFan).toBe(true);
+  });
+
+  describe('返しの踏み込み (v6.1: 敵が扇の向きに入っていれば敵へ接触距離まで。通り過ぎない)', () => {
+    // 相殺の直後の状態を作る (lastCancelBeat を今にする)。敵は右 (角度 0 度)
+    function justCancelled(d: number) {
+      const state = leftOfEnemy(d);
+      state.lastCancelBeat = state.beat;
+      return state;
+    }
+    const pressRightStick: InputState = { move: { x: 1, y: 0 }, attackPressed: true };
+
+    it('敵が踏み込みの距離より近ければ接触距離で止まり、命中する (v6 までは 0.1 進んで通り過ぎた)', () => {
+      const contact = config.playerRadius + config.enemyRadius;
+      const state = justCancelled(contact + 0.05);
+      step(state, pressRightStick, config.fixedDt, deps);
+      expect(attackEvents(state).at(-1)).toMatchObject({ action: 'riposte', lunge: true });
+      expect(state.lastHit).toBe(true);
+      expect(dist(state.player, state.enemy)).toBeCloseTo(contact, 9);
+      expect(state.player.x).toBeLessThan(state.enemy.x);
+    });
+
+    it('敵が遠ければ敵の方向へ 0.1 だけ踏み込む (スティックの向きが少しずれていても敵へ)', () => {
+      const state = justCancelled(0.4);
+      const x0 = state.player.x;
+      // 敵は右。スティックは右上 30 度 (扇の中)
+      step(state, { move: { x: Math.cos(Math.PI / 6), y: -Math.sin(Math.PI / 6) }, attackPressed: true }, config.fixedDt, deps);
+      expect(attackEvents(state).at(-1)).toMatchObject({ action: 'riposte', lunge: true });
+      expect(state.lastHit).toBe(false);
+      // 素の移動 1 step ぶん + 踏み込み 0.1 を、敵へ向かって (x 方向にほぼ全部)
+      const moved = { x: state.player.x - x0, y: state.player.y - state.enemy.y };
+      expect(moved.x).toBeGreaterThan(config.lungeDistance);
+      expect(moved.x).toBeLessThan(config.lungeDistance + config.playerSpeed * config.fixedDt + 1e-6);
+      expect(Math.abs(moved.y)).toBeLessThan(config.playerSpeed * config.fixedDt + 1e-6);
+    });
+
+    it('敵が扇の向きに入っていなければ、スティックの向きへ 0.1 踏み込む (v5 のまま)', () => {
+      const state = justCancelled(0.4);
+      const y0 = state.player.y;
+      const x0 = state.player.x;
+      step(state, { move: { x: 0, y: -1 }, attackPressed: true }, config.fixedDt, deps);
+      expect(attackEvents(state).at(-1)).toMatchObject({ action: 'riposte', lunge: true });
+      expect(y0 - state.player.y).toBeCloseTo(config.lungeDistance + config.playerSpeed * config.fixedDt, 6);
+      expect(state.player.x).toBeCloseTo(x0, 9);
+    });
   });
 
   it('移動入力が無ければ敵の方向を向いて当たる', () => {
@@ -370,7 +445,7 @@ describe('相殺 (cancel)', () => {
     });
   });
 
-  describe('接触基準の窓 (v3 T3: 接触の前 100 ms 〜 後 50 ms)', () => {
+  describe('接触基準の窓 (v3 T3。既定は v6.1 で 接触の前 150 ms 〜 後 100 ms)', () => {
     const msBeat = (ms: number, d: SimDeps) => ms / 1000 / d.grid.beatSec;
     const contactOf = (d: SimDeps, x: number, y = 0.5) => contactBeat(d.choreo.attacks[0], { x, y }, d.grid.beatSec, config);
 
@@ -389,17 +464,17 @@ describe('相殺 (cancel)', () => {
       }
     });
 
-    it('dash: 窓の外 (−150 ms) は timing で被弾、+100 ms も被弾のまま', () => {
+    it('dash: 窓の外 (−200 ms) は timing で被弾、+150 ms も被弾のまま', () => {
       const d = dashDeps();
       const c = contactOf(d, 0.15)!;
-      const early = runTo(d, 0.15, c + msBeat(-150, d));
+      const early = runTo(d, 0.15, c + msBeat(-200, d));
       step(early, pressRight, config.fixedDt, d);
       expect(early.cancelled.size).toBe(0);
       expect(events(early, 'cancel-miss')[0]).toMatchObject({ reason: 'timing' });
       while (early.beat < 10.6) step(early, stay, config.fixedDt, d);
       expect(early.player.hp).toBe(config.playerHp - 1);
 
-      const late = runTo(d, 0.15, c + msBeat(100, d));
+      const late = runTo(d, 0.15, c + msBeat(150, d));
       expect(late.player.hp).toBe(config.playerHp - 1);
       step(late, pressRight, config.fixedDt, d);
       expect(late.cancelled.size).toBe(0);
@@ -484,7 +559,8 @@ describe('結果の確定と分岐 (v4 T1)', () => {
     const state = runTo(d, 0.15, 10.1);
     step(state, pressRight, config.fixedDt, d);
     expect(state.cancelled.has(0)).toBe(true);
-    while (state.beat < 10.4) step(state, stay, config.fixedDt, d);
+    // 確定は窓の終わり (10.25) + 遅い側の窓 (100 ms = 0.2 拍) = 10.45
+    while (state.beat < 10.5) step(state, stay, config.fixedDt, d);
     expect(state.outcome.get(0)).toBe('handled');
     expect(events(state, 'outcome')[0]).toMatchObject({ attackIndex: 0, phrase: 1, outcome: 'handled', branch: 'stop' });
     while (state.beat < 11.4) step(state, stay, config.fixedDt, d);

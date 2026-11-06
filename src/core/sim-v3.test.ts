@@ -91,9 +91,9 @@ describe('v6.json で立ったまま相殺できる (v3 の完了条件を v6 �
     expect(state.damagedBy.has(DASH_P3)).toBe(true);
   });
 
-  it('laser (phrase 1): 接触の 150 ms 前は窓の外 (timing) で被弾する', () => {
+  it('laser (phrase 1): 接触の 200 ms 前は窓の外 (timing) で被弾する (既定の早い側は v6.1 で 150 ms)', () => {
     const state = createSim(deps);
-    const { c } = pressFacingIncoming(state, LASER_P1, -150);
+    const { c } = pressFacingIncoming(state, LASER_P1, -200);
     expect(state.cancelled.has(LASER_P1)).toBe(false);
     expect(state.log.events.filter((e) => e.kind === 'cancel-miss' && e.attackIndex === LASER_P1)[0]).toMatchObject({ reason: 'timing' });
     runUntil(state, c + 0.6);
