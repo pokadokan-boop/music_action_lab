@@ -9,9 +9,6 @@
 - docs/NEXT.md: 次のセッションへの引き継ぎ (次の 1 手、今の状態、本人に聞きたいこと)。セッションはここから始める
 - docs/plan/loop-phase1.md: 回す仕組みの段階 1 (NEXT.md とセッション規律)。承認済み、実装済み
 - docs/plan/loop-phase2.md: 回す仕組みの段階 2 (無人の専門家と判断者)。承認済み 2026-10-29。判断者は Task Scheduler から `scripts/steward/run.js` で起動し、docs/steward/judge.md に従って規律と待ちの在庫を減らす。削除は承認なしで commit (接頭辞 `[仕組み] 判断者:`)、記録は docs/steward/runs/、提案は docs/steward/proposals/。削除に不満があれば不満ノートに書く
-- docs/plan/v4-phase1.md: v4 (流れを作るための部品: 結果で分岐する振り付け、姿、音の口) の目的・完了条件・入れないもの。承認済み 2026-10-30、完了記録あり。不満の分解は docs/decisions/v3-feedback.md。エンジン (ブラウザのまま) の判断もここ
-- docs/plan/v5-flow-options.md: 捌いた後の流れの案 A〜D と本人の返事 3 回 (2026-11-02。A〜C は大味、D「プレイヤーの行動に拍の長さを持たせる」を軸に)。不満の分解は docs/decisions/v4-feedback.md
-- docs/plan/v5-phase1.md: v5 (行動に拍の長さを持たせる: ステップ・溜め・放ち・返し・音高 3 案、敵の攻撃を全メロディ音に) の目的・完了条件・入れないもの。承認済み 2026-11-02。詳細は docs/plan/v5-phase2-player.md (セッション A) と v5-phase2-enemy.md (セッション B)。不満の分解は docs/decisions/v5-feedback.md
 - docs/plan/v6-phase1.md: v6 (両手独立 R1 / L1、大技「叩きつけ + 4 辺のレーザー」と両手放ち、攻撃の見分け、音の仕様データと音作りのページ) の目的・完了条件・入れないもの。承認済み 2026-11-05、完了記録あり。詳細は v6-phase2-hands.md (A 両手) / v6-phase2-enemy.md (B 大技と見分け) / v6-phase2-sound.md (C 音と公開)。不満の分解と v6.1 (2026-11-06。命中を敵の体の重なりに、返しの踏み込みを敵へ補正、窓の既定 前 150 / 後 100) と次の方向の読みは docs/decisions/v6-feedback.md
 - docs/plan/v7-phase1.md: v7 (2 曲目 = 2 体目の敵。進むにつれ激しくなる曲の候補 3 つから本人が選び、敵の姿を曲の 3 段で変える。絵の資産の作り方は調査のみ) の目的・完了条件・入れないもの。2026-11-06 作成、承認待ち。前提は docs/concept.md「曲と絵の役割」(2026-11-06 に本人が決めた) と docs/decisions/v6-feedback.md
 - docs/sound-format.md: プレイヤーの音の仕様 (assets/sound/v6.json、層の項目と範囲) と音作りのページ sound.html の使い方。本人が音を作り、Claude が既定に入れる
