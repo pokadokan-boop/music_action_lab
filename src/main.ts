@@ -7,6 +7,7 @@ import { makeConfig } from './config';
 import type { Choreo } from './core/choreo';
 import { GameClock } from './core/clock';
 import type { BeatClass } from './core/log';
+import { describeScene, loadSceneId, saveSceneId, sceneDeps } from './core/scene';
 import { createSim, renderToText, step, type SimDeps, type SimState } from './core/sim';
 import { buildSummary } from './core/summary';
 import { InputManager, type InputSnapshot } from './input';
@@ -31,7 +32,17 @@ type Phase = 'title' | 'loading' | 'playing' | 'result';
 let phase: Phase = 'title';
 let title: TitleView | null = null;
 let result: ResultView | null = null;
-let selected = 0;
+// シーンの選択 (v7 T2): 前回選んだ振り付けの id。無ければ id 順で最後 (= 最新の版)
+const storage = (() => {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+})();
+const savedScene = loadSceneId(storage);
+let selected = Math.max(0, savedScene ? choreos.findIndex((c) => c.id === savedScene) : choreos.length - 1);
+if (selected >= choreos.length) selected = Math.max(0, choreos.length - 1);
 let prev: InputSnapshot = input.poll();
 
 // 調整パネルの値。タイトルで変えるたびに保存し、開始時に Config に焼く (ゲーム中は変わらない)
@@ -70,17 +81,18 @@ function describeSound(): string {
   return sameBank(soundBank, DEFAULT_SOUND_BANK) ? '音色 既定 (v6)' : '音色 自作 (sound.html)';
 }
 
-function songName(): string {
-  return choreos[0]?.song ?? 'candidate-2';
-}
-
 function enterTitle(): void {
   phase = 'title';
   result?.destroy();
   result = null;
+  const cfg = makeConfig(tuning);
   title = showTitle(overlay, {
-    songName: songName(),
-    choices: choreos.map((c) => ({ id: c.id, intent: c.intent })),
+    sceneLine: choreos[selected] ? describeScene(choreos[selected], acceptance, cfg) : '振り付けがありません',
+    choices: choreos.map((c) => ({ id: c.id, intent: c.intent, scene: describeScene(c, acceptance, cfg) })),
+    onSelect: (i) => {
+      selected = i;
+      saveSceneId(choreos[i].id, storage);
+    },
     onStart: (i) => void startGame(i),
     tuning,
     onTuningChange: (t) => {
@@ -118,10 +130,10 @@ async function startGame(index: number): Promise<void> {
   loaded = songCache.get(choreo.song) ?? (await loadSong(url));
   songCache.set(choreo.song, loaded);
 
-  const cfg = makeConfig(tuning);
-  deps = { choreo, grid: loaded.grid, cfg, acceptance };
+  // シーンごとの長さと敵 HP で上書き (v7 T2。書いていない v6.json は既定のまま)
+  deps = sceneDeps(choreo, loaded.grid, makeConfig(tuning), acceptance);
   sim = createSim(deps);
-  clock = new GameClock(cfg.fixedDt);
+  clock = new GameClock(deps.cfg.fixedDt);
   fedSec = 0;
   impactLagsMs.length = 0;
   impactLagSeen.clear();
@@ -161,8 +173,10 @@ function lagSummary(): string {
 
 function handleTitleInput(now: InputSnapshot): void {
   if (choreos.length > 1) {
+    const before = selected;
     if (now.selectRight && !prev.selectRight) selected = (selected + 1) % choreos.length;
     if (now.selectLeft && !prev.selectLeft) selected = (selected - 1 + choreos.length) % choreos.length;
+    if (selected !== before) saveSceneId(choreos[selected].id, storage);
     title?.setSelection(selected);
   }
   title?.setGamepad(now.gamepadName);

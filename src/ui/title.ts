@@ -7,11 +7,16 @@ import { TUNING_KEYS, TUNING_RANGES, clampTuning, formatTuningValue } from './tu
 export interface TitleChoice {
   id: string;
   intent: string;
+  // シーンの説明 (v7 T2): 曲 / 長さ / 敵 HP
+  scene: string;
 }
 
 export interface TitleOptions {
-  songName: string;
+  // 選択中のシーンの 1 行 (曲 / 長さ / 敵 HP)。カードを選ぶと書き換わる
+  sceneLine: string;
   choices: TitleChoice[];
+  // カードを選んだとき (保存のため)。開始とは別
+  onSelect?: (index: number) => void;
   onStart: (index: number) => void;
   // 調整パネルの初期値と、変更のたびに呼ぶ通知 (呼び出し側が保存する)
   tuning: Tuning;
@@ -34,11 +39,11 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
   panel.className = 'panel';
 
   const h1 = document.createElement('h1');
-  h1.textContent = 'music_action_lab v6';
+  h1.textContent = 'music_action_lab v7';
   const song = document.createElement('p');
-  song.textContent = `曲: ${opts.songName}。20 秒、敵 1 体。`;
+  song.textContent = `${opts.sceneLine}。敵 1 体。`;
 
-  // 1 本だけなら選択カードは出さず、狙い (intent) を文として出す。2 本以上のときだけ比較用の選択カード
+  // 1 本だけなら選択カードは出さず、狙い (intent) を文として出す。2 本以上のときはシーン (曲 + 敵) の選択カード (v7 T2)
   const choice = document.createElement('div');
   choice.className = 'choice';
   const single = opts.choices.length === 1;
@@ -46,10 +51,11 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
     ? []
     : opts.choices.map((c, i) => {
         const d = document.createElement('div');
-        d.innerHTML = `<strong>振り付け ${c.id.toUpperCase()}</strong><br>${escapeHtml(c.intent)}`;
+        d.innerHTML = `<strong>シーン ${c.id.toUpperCase()}</strong> <span class="muted">${escapeHtml(c.scene)}</span><br>${escapeHtml(c.intent)}`;
         d.addEventListener('click', () => {
           selected = i;
           view.setSelection(i);
+          opts.onSelect?.(i);
         });
         choice.appendChild(d);
         return d;
@@ -92,6 +98,8 @@ export function showTitle(overlay: HTMLElement, opts: TitleOptions): TitleView {
     setSelection(index) {
       selected = index;
       cards.forEach((c, i) => c.classList.toggle('selected', i === index));
+      const c = opts.choices[index];
+      if (c) song.textContent = `${c.scene}。敵 1 体。`;
     },
     setGamepad(name) {
       gamepad.textContent = name ? `コントローラー: ${name}` : 'コントローラー: 未接続 (ボタンを押すと認識されます)';

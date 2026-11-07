@@ -73,6 +73,10 @@ export interface Choreo {
   motion?: Motion;
   // 敵の反動耐性 R (0〜1。v6 T5)。両手相殺の反動の総量を敵 j / (R + j)、自機 R / (R + j) で分ける。省略時 0.5
   knockbackResist?: number;
+  // シーンごとの値 (v7 T2。docs/plan/v7-phase2-song.md)。省略時は acceptance.sceneSeconds (20) と config.enemyHp (12)。
+  // 1 曲目 (v6.json) は書かないので v6.1 と同じ記録になる
+  sceneSeconds?: number;
+  enemyHp?: number;
   attacks: Attack[];
 }
 

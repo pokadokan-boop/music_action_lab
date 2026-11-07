@@ -14,7 +14,8 @@ export { midiToHz };
 // 既定の音 (Claude の初期値。本人の言葉から。docs/plan/v6-phase2-sound.md)
 export const DEFAULT_SOUND_BANK: SoundBank = normalizeBank(defaultBankJson);
 
-export type VoiceName = 'melody' | 'bass' | 'drums';
+// lead (v7): 背景の高音の線 (トラック名 lead-high)。正弦波に軽いビブラート、小さめの音量。主旋律より上で薄く鳴る
+export type VoiceName = 'melody' | 'bass' | 'drums' | 'lead';
 // cancel は相殺 (v2 T5)。音高は呼ぶ側がフレーズの音から決めて midi で渡す。step / riposte / release は v5、double (両手放ち) は v6
 export type SfxKind = PluckKind | 'double';
 const CANCEL_DEFAULT_MIDI = 72;
@@ -164,7 +165,35 @@ export class AudioEngine {
       case 'drums':
         this.drum(n.midi, at);
         break;
+      case 'lead':
+        this.lead(midiToHz(n.midi), at, Math.max(0.1, n.duration));
+        break;
     }
+  }
+
+  // 背景の高音の線 (v7): 正弦波、立ち上がり 30 ms、5.5 Hz のビブラート (±6 セント)、余韻 80 ms
+  private lead(hz: number, at: number, dur: number): void {
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    const lfo = this.ctx.createOscillator();
+    const depth = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = hz;
+    lfo.type = 'sine';
+    lfo.frequency.value = 5.5;
+    depth.gain.value = hz * 0.0035;
+    lfo.connect(depth).connect(osc.frequency);
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(0.09, at + 0.03);
+    g.gain.setValueAtTime(0.09, at + Math.max(0.03, dur - 0.08));
+    g.gain.linearRampToValueAtTime(0, at + dur);
+    osc.connect(g).connect(this.master);
+    osc.start(at);
+    lfo.start(at);
+    osc.stop(at + dur + 0.01);
+    lfo.stop(at + dur + 0.01);
+    this.track(osc);
+    this.track(lfo);
   }
 
   private tone(type: OscillatorType, hz: number, at: number, dur: number, gain: number): void {
@@ -248,5 +277,6 @@ export class AudioEngine {
 function voiceOf(trackName: string): VoiceName {
   if (trackName === 'bass') return 'bass';
   if (trackName === 'drums') return 'drums';
+  if (trackName.startsWith('lead')) return 'lead';
   return 'melody';
 }
