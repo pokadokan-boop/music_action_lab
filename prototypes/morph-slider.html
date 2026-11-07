@@ -1,0 +1,624 @@
+<!doctype html>
+<!-- 形態変化スライダー: v7 の 2 体目の姿と動きの作り方を本人と確かめた試作 (2026-11-06〜07)。
+     公開版は https://claude.ai/artifact/KRZ6BDxTAKZG2gN3Wsxwye。ここにはその最終版を、ブラウザで直接開ける形で残す。
+     ゲームには組み込まない (vite のビルド対象外)。本人の指摘と直した経緯は docs/decisions/v6-feedback.md 2026-11-07。
+     中身: 人型用と最終形態用の鍵フレーム 2 組 (HUMAN / BEAST)、動き (MOTIONS: 構え → 予備 → 打点 → 余韻)、攻撃の向きの補正 (applyAim)、
+     曲の進み 1 本から姿の値を出す derive、太さを持つ手足 (limb)、頭の部品の配置。 -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>形態変化スライダー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* レイアウト: 1 列。上に操作、真ん中に大きな 1 体、下に 5 コマと値の表 */
+  :root {
+    --bg: #f3f2ee;
+    --panel: #ffffff;
+    --fg: #22231f;
+    --muted: #6b6d63;
+    --line: #d9d8d0;
+    --accent: #b8471f;
+    --ground: #cfd0c6;
+    --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181a; --panel: #1f2124; --fg: #e8e6df; --muted: #9a9b92; --line: #34363a; --accent: #e07a4a; --ground: #3a3c40; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181a; --panel: #1f2124; --fg: #e8e6df; --muted: #9a9b92; --line: #34363a; --accent: #e07a4a; --ground: #3a3c40; color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.7; margin: 0; }
+  .wrap { max-width: 760px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+  h1 { font-size: 1.5rem; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1.05rem; margin: 0 0 6px; }
+  p { margin: 0; max-width: 40em; }
+  .lead { color: var(--muted); }
+  .controls { display: grid; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .label { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.04em; min-width: 4.5em; }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { background: transparent; color: var(--fg); border: 0; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .slider { display: grid; gap: 4px; }
+  .slider input { width: 100%; accent-color: var(--accent); }
+  .ticks { display: grid; grid-template-columns: repeat(3, 1fr); font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono); }
+  .ticks span { border-left: 1px solid var(--line); padding-left: 6px; }
+  .ticks.two { grid-template-columns: 1fr 1fr; }
+  .ticks.two span:last-child { text-align: right; border-left: 0; border-right: 1px solid var(--line); padding-right: 6px; }
+  .state { font-family: var(--font-mono); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  label.check { display: inline-flex; gap: 8px; align-items: center; font-size: 0.9rem; }
+  .stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  canvas { display: block; width: 100%; max-width: 100%; }
+  #main { aspect-ratio: 16 / 9; }
+  .strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .strip figure { margin: 0; display: grid; gap: 2px; }
+  .strip canvas { aspect-ratio: 3 / 4; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  .strip figcaption { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); text-align: center; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 700; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; width: 6em; }
+  td.gate { color: var(--accent); }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .two > div { min-width: 0; }
+  ul { margin: 0; padding-left: 1.2em; }
+  li { margin: 4px 0; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+<div class="wrap">
+  <header>
+    <h1>形態変化スライダー</h1>
+    <p class="lead">4 回目。跳びつきは両の後ろ脚で地面を蹴り、前足は両方とも前へ。薙ぎ払いは引きから振り抜きまで一息の 1 段階にし、前腕は上腕より先へ行く (振り上げたとき手首が肘より上)。腕は顔に被らない角度 (120°) で止め、顔は背中側へ引いて上向きにする。叩きつけは下 40° 固定で視線は追わない。被弾は小技 (縮こまる) と大技 (のけぞる) の 2 つ。</p>
+  </header>
+
+  <section class="controls" aria-label="操作">
+    <div class="row">
+      <span class="label">像</span>
+      <div class="seg" role="group" aria-label="像">
+        <button id="kind-beast" type="button" aria-pressed="true">少しずつ獣になる者</button>
+        <button id="kind-machine" type="button" aria-pressed="false">出力を上げる機械</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="label">動き</span>
+      <div class="seg" role="group" aria-label="動き">
+        <button id="pose-idle" type="button" aria-pressed="true">構える</button>
+        <button id="pose-lunge" type="button" aria-pressed="false">突進</button>
+        <button id="pose-swipe" type="button" aria-pressed="false">薙ぎ払い</button>
+        <button id="pose-slam" type="button" aria-pressed="false">叩きつけ</button>
+        <button id="pose-hit" type="button" aria-pressed="false">被弾 (小技)</button>
+        <button id="pose-hitBig" type="button" aria-pressed="false">被弾 (大技)</button>
+      </div>
+      <div class="seg" role="group" aria-label="見せ方">
+        <button id="mode-motion" type="button" aria-pressed="true">動かす (2 拍で 1 周)</button>
+        <button id="mode-still" type="button" aria-pressed="false">打点で止める</button>
+      </div>
+    </div>
+    <div class="slider">
+      <div class="row" style="justify-content: space-between">
+        <label for="progress" class="label">曲の進み</label>
+        <span class="state" id="state">段 3 / 進み 100%</span>
+      </div>
+      <input id="progress" type="range" min="0" max="100" value="100" step="1" aria-label="曲の進み">
+      <div class="ticks"><span>段 1 (1〜8 小節)</span><span>段 2 (9〜16)</span><span>段 3 (17〜24)</span></div>
+    </div>
+    <div class="slider">
+      <div class="row" style="justify-content: space-between">
+        <label for="aim" class="label">攻撃の向き</label>
+        <span class="state" id="aimState">水平</span>
+      </div>
+      <input id="aim" type="range" min="-40" max="40" value="0" step="1" aria-label="攻撃の向き (上下)">
+      <div class="ticks two"><span>上 40°</span><span>下 40°</span></div>
+    </div>
+    <label class="check"><input id="stepped" type="checkbox" checked> 段の切り替わりで一気に出す部品 (尾 / たてがみの逆立ちと目の光、排気口 / 噴射口) を入れる。外すと同じ部品が連続で伸びてくる</label>
+  </section>
+
+  <section class="stage" aria-label="大きな 1 体">
+    <canvas id="main" width="800" height="450"></canvas>
+  </section>
+
+  <section>
+    <h2 id="stripTitle">同じ動きを時間で並べる (0 / 25 / 50 / 75 / 100%)</h2>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>今スライダーが動かしている値</h2>
+      <table aria-label="値の表">
+        <thead><tr><th>値</th><th class="num">今</th></tr></thead>
+        <tbody id="params"></tbody>
+      </table>
+    </div>
+    <div>
+      <h2>動きの作り方</h2>
+      <ul>
+        <li>1 つの動きは 4〜5 個の鍵フレーム (構え → 予備動作 → 打点 → 余韻 → 構え) で、時刻は拍の位置で持つ。間はイージングで補間する。ゲームでは予告の拍と当たりの拍がそのまま鍵フレームの時刻になる。</li>
+        <li>鍵フレームは人型用と最終形態用の 2 組あり、曲の進みで混ぜる。だから動きの数は「型の数 × 2 組」で済み、途中の形態ぶんは増えない。</li>
+        <li>攻撃の向きは打点の鍵フレームにだけ効く重みを持ち、腕は向きのぶん回り、顔と上体はその半分ほど追う。構えに戻るときは重みが 0 に戻る。</li>
+        <li>足は接地だけ合わせている (全身を上下に寄せる)。両足を別々に地面へ合わせるには 2 関節の IK が要り、それは 15 行ほどで足せる。</li>
+        <li>残る限界は絵柄そのもの (毛並み・陰影の質感) と、動きの「気持ちよさ」の調整に目が要ること。後者はスクリーンショットでなく GIF で見る。</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  'use strict';
+  var lerp = function (a, b, t) { return a + (b - a) * t; };
+  var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+  var rad = function (d) { return d * Math.PI / 180; };
+  var ease = function (u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; };
+  // 角度の向き: 「下から前へ」(手足) と「上から前へ」(胴・首)。前 = +x、下 = +y
+  var vd = function (deg) { return { x: Math.sin(rad(deg)), y: Math.cos(rad(deg)) }; };
+  var vu = function (deg) { return { x: Math.sin(rad(deg)), y: -Math.cos(rad(deg)) }; };
+  var add = function (a, b, k) { return { x: a.x + b.x * k, y: a.y + b.y * k }; };
+  var reduced = false;
+  try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  var ui = { kind: 'beast', motion: 'idle', mode: 'motion', p: 1, aim: 0, stepped: true };
+  var LOOP_SEC = 2.0;
+
+  // 鍵フレームの構え。hipH = 腰の高さ、lean = 上体の前傾 (上から前へ)、neck = 首の角度 (上から前へ)、tilt = 顔の傾き (正で鼻先が下)
+  // aF / aB = 手前 / 奥の腕 [上腕の角度 (下から前へ), 前腕の相対角]。lF / lB = 脚 [太ももの角度, すねの相対角]。
+  // 膝は両脚とも前 (右) を向かせる: すねの相対角は常に 0 以下
+  // 肘は振りの途中で逆に曲がらないよう、1 つの動きの中では前腕の相対角の符号を揃える (薙ぎ払いは正のまま = 前腕が上腕より先へ行き、振り上げで手首が肘の上に来る)
+  var HUMAN = {
+    idle:   { hipH: 38, lean: 0,   neck: 0,   tilt: 0,   aF: [15, 20],    aB: [-10, 15],   lF: [8, -8],    lB: [-8, -8] },
+    crouch: { hipH: 33, lean: 15,  neck: 5,   tilt: 5,   aF: [-20, 30],   aB: [-30, 30],   lF: [30, -35],  lB: [-15, -25] },
+    lunge:  { hipH: 34, lean: 25,  neck: 10,  tilt: 5,   aF: [95, 0],     aB: [-45, 40],   lF: [45, -25],  lB: [-40, 0] },
+    windup: { hipH: 37, lean: -5,  neck: -5,  tilt: 0,   aF: [-55, 25],   aB: [-20, 20],   lF: [10, -10],  lB: [-20, -5] },
+    swipe:  { hipH: 36, lean: 10,  neck: 5,   tilt: 0,   aF: [95, 22],    aB: [-30, 30],   lF: [25, -10],  lB: [-25, -5] },
+    follow: { hipH: 36, lean: 8,   neck: -22, tilt: -16, aF: [120, 25],   aB: [-35, 30],   lF: [30, -15],  lB: [-25, -5] },
+    slam:   { hipH: 38, lean: -5,  neck: -5,  tilt: -10, aF: [160, -15],  aB: [165, -10],  lF: [15, -10],  lB: [-15, -5] },
+    down:   { hipH: 32, lean: 35,  neck: 15,  tilt: 15,  aF: [75, -10],   aB: [70, -5],    lF: [40, -40],  lB: [-10, -30] },
+    hit:    { hipH: 35, lean: 14,  neck: 12,  tilt: 18,  aF: [25, 70],    aB: [10, 70],    lF: [18, -22],  lB: [-10, -15] },
+    hitBig: { hipH: 36, lean: -25, neck: -15, tilt: -20, aF: [140, -30],  aB: [160, -30],  lF: [25, -30],  lB: [-5, 0] }
+  };
+  var BEAST = {
+    idle:   { hipH: 26, lean: 50,  neck: 70,  tilt: 8,   aF: [40, 35],    aB: [25, 45],    lF: [55, -70],  lB: [8, -66] },
+    // 跳びつく前: 両の後ろ脚を体の下にたたむ
+    crouch: { hipH: 20, lean: 45,  neck: 68,  tilt: 5,   aF: [20, 45],    aB: [10, 50],    lF: [65, -105], lB: [55, -100] },
+    // 跳びつき: 両の後ろ脚で地面を蹴って伸び、前足は両方とも前へ
+    lunge:  { hipH: 30, lean: 62,  neck: 82,  tilt: 10,  aF: [100, 0],    aB: [92, 5],     lF: [-45, -12], lB: [-62, -8] },
+    // 薙ぎ払い: 前腕は上腕より先へ (相対角は正)。振り上げたとき手首が肘より上に来る
+    windup: { hipH: 27, lean: 35,  neck: 55,  tilt: 2,   aF: [-65, 25],   aB: [20, 45],    lF: [50, -65],  lB: [5, -60] },
+    swipe:  { hipH: 28, lean: 40,  neck: 60,  tilt: 4,   aF: [95, 25],    aB: [-20, 40],   lF: [50, -55],  lB: [-5, -50] },
+    // 振り抜き: 腕は顔に被らない角度 (120) で止め、顔は背中側へ引いて上を向く
+    follow: { hipH: 27, lean: 38,  neck: 20,  tilt: -16, aF: [120, 25],   aB: [-10, 40],   lF: [55, -60],  lB: [0, -55] },
+    slam:   { hipH: 30, lean: 20,  neck: 35,  tilt: -15, aF: [165, -20],  aB: [170, -15],  lF: [40, -50],  lB: [-5, -40] },
+    down:   { hipH: 22, lean: 65,  neck: 80,  tilt: 20,  aF: [85, -15],   aB: [80, -10],   lF: [60, -90],  lB: [10, -80] },
+    // 小技の被弾: 体を縮こまらせる (腰を落とし、腕を胸に引き、頭を下げる)
+    hit:    { hipH: 23, lean: 48,  neck: 58,  tilt: 22,  aF: [35, 75],    aB: [25, 75],    lF: [58, -85],  lB: [12, -78] },
+    hitBig: { hipH: 30, lean: 15,  neck: 25,  tilt: -20, aF: [130, -40],  aB: [140, -30],  lF: [35, -20],  lB: [-15, -10] }
+  };
+  // 動き = 鍵フレームの列 [時刻 (0〜1。2 拍で 1 周), 構えの名前, 攻撃の向きの重み] と、向きの扱い
+  // fixedAim: 向きを固定する (叩きつけは下 40°)。headFollow: 顔と上体が向きを追う割合 (叩きつけは追わない)
+  var MOTIONS = {
+    idle:   { keys: [[0, 'idle', 0], [1, 'idle', 0]], strike: 0, headFollow: 1 },
+    lunge:  { keys: [[0, 'idle', 0], [0.3, 'crouch', 0.3], [0.45, 'lunge', 1], [0.7, 'lunge', 1], [1, 'idle', 0]], strike: 0.5, headFollow: 1 },
+    // 薙ぎ払いは 1 段階: 引き (windup) から振り抜き (follow) まで一息。打点はその途中
+    swipe:  { keys: [[0, 'idle', 0], [0.3, 'windup', 0.5], [0.52, 'follow', 1], [0.7, 'follow', 0.6], [1, 'idle', 0]], strike: 0.42, headFollow: 1 },
+    slam:   { keys: [[0, 'idle', 0], [0.35, 'slam', 0.4], [0.5, 'down', 1], [0.75, 'down', 1], [1, 'idle', 0]], strike: 0.55, headFollow: 0, fixedAim: 40 },
+    hit:    { keys: [[0, 'idle', 0], [0.08, 'hit', 0], [0.4, 'hit', 0], [0.75, 'idle', 0], [1, 'idle', 0]], strike: 0.2, headFollow: 0 },
+    hitBig: { keys: [[0, 'idle', 0], [0.12, 'hitBig', 0], [0.6, 'hitBig', 0], [1, 'idle', 0]], strike: 0.3, headFollow: 0 }
+  };
+
+  function mixPose(a, b, k) {
+    var out = {};
+    Object.keys(a).forEach(function (key) {
+      out[key] = Array.isArray(a[key]) ? [lerp(a[key][0], b[key][0], k), lerp(a[key][1], b[key][1], k)] : lerp(a[key], b[key], k);
+    });
+    return out;
+  }
+  function formPose(kind, name, p) {
+    return kind === 'beast' ? mixPose(HUMAN[name], BEAST[name], p) : mixPose(HUMAN[name], HUMAN[name], 0);
+  }
+  // 動きの時刻 phase (0〜1) の構えと、攻撃の向きの重み
+  function poseAt(kind, motion, phase, p) {
+    var keys = MOTIONS[motion].keys;
+    var i = 0;
+    while (i < keys.length - 2 && phase > keys[i + 1][0]) i++;
+    var a = keys[i], b = keys[i + 1];
+    var u = ease(clamp((phase - a[0]) / (b[0] - a[0]), 0, 1));
+    var pose = mixPose(formPose(kind, a[1], p), formPose(kind, b[1], p), u);
+    pose.aimW = lerp(a[2], b[2], u);
+    pose.headW = MOTIONS[motion].headFollow;
+    pose.breath = motion === 'idle' ? 1 : 0;
+    return pose;
+  }
+  // 攻撃の向き (aimUp: 正で上) の補正。腕は向きのぶん回る。顔と上体は headW の割合で追い、上を向くときは顔を少し背中側へ引く
+  function applyAim(pose, aimUp) {
+    var w = pose.aimW || 0, hw = (pose.headW === undefined ? 1 : pose.headW) * w;
+    pose.aF = [pose.aF[0] + aimUp * w, pose.aF[1]];
+    pose.aB = [pose.aB[0] + aimUp * w * 0.6, pose.aB[1]];
+    pose.tilt -= aimUp * 0.5 * hw;
+    pose.lean -= aimUp * 0.25 * hw;
+    pose.neck -= aimUp * 0.45 * hw;
+    return pose;
+  }
+  function aimFor(motion) { var fixed = MOTIONS[motion].fixedAim; return fixed === undefined ? -ui.aim : -fixed; }
+
+  // 1 本の値 p (曲の進み 0〜1) から、姿を決める値をまとめて出す。gate は段で一気に出す部品
+  function derive(kind, p, stepped) {
+    var stage = Math.min(3, Math.floor(p * 3) + 1);
+    var pin = clamp(p * 3 - (stage - 1), 0, 1);
+    var gate = function (s) { return stepped ? (stage >= s ? 1 : 0) : clamp(p * 3 - (s - 1), 0, 1); };
+    if (kind === 'beast') {
+      return {
+        stage: stage, pin: pin, k: p,
+        hipH: lerp(38, 26, p), lean: lerp(0, 50, p), armW: lerp(3.5, 8, p), legW: lerp(4, 8, p),
+        muzzle: p, ear: p, eyeSlant: p, claw: p, mane: Math.round(p * 6), hue: lerp(210, 15, p),
+        tail: gate(2), rage: gate(3)
+      };
+    }
+    return {
+      stage: stage, pin: pin, k: p,
+      hipH: lerp(38, 36, p), lean: lerp(0, 8, p), armW: lerp(3.5, 5.5, p), legW: lerp(4, 6, p),
+      shoulder: lerp(5, 14, p), coreR: lerp(3, 7.5, p), glow: p, lines: Math.round(p * 6), hue: lerp(200, 35, p),
+      jitter: p * 1.2, vent: gate(2), thruster: gate(3)
+    };
+  }
+
+  var LABELS = {
+    beast: [['hipH', '腰の高さ (低いほど構えが深い)', 0], ['lean', '上体の前傾 (度)', 0], ['armW', '腕の太さ', 1], ['legW', '脚の太さ', 1], ['muzzle', '鼻先の長さ (0〜1)', 2], ['ear', '耳の高さ (0〜1)', 2], ['eyeSlant', '目の細さ (0〜1)', 2], ['claw', '爪の長さ (0〜1)', 2], ['mane', 'たてがみ (本)', 0], ['hue', '色相 (青 210 → 赤 15)', 0], ['tail', '尾 (段 2 で出る)', 2], ['rage', 'たてがみの逆立ちと目の光 (段 3 で出る)', 2]],
+    machine: [['lean', '前傾 (度)', 0], ['armW', '腕の太さ', 1], ['legW', '脚の太さ', 1], ['shoulder', '肩の装甲の幅', 1], ['coreR', '炉心の大きさ', 1], ['glow', '発光 (0〜1)', 2], ['lines', '光の線 (本)', 0], ['hue', '色相 (青 200 → 橙 35)', 0], ['jitter', '震え (px)', 2], ['vent', '排気口 (段 2 で開く)', 2], ['thruster', '噴射口 (段 3 で出る)', 2]]
+  };
+
+  function cssVar(name) {
+    try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#333'; } catch (e) { return '#333'; }
+  }
+  function hsl(h, s, l, a) { return 'hsl(' + h.toFixed(0) + ' ' + s.toFixed(0) + '% ' + l.toFixed(0) + '%' + (a === undefined ? '' : ' / ' + a) + ')'; }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  }
+  // 太さを持つ手足: 外側の線 (fg) を先に太く、内側を体の色で塗る。関節は丸い端で自然につながる
+  function limb(ctx, pts, widths, fill, outline) {
+    for (var pass = 0; pass < 2; pass++) {
+      for (var i = 0; i < pts.length - 1; i++) {
+        ctx.strokeStyle = pass === 0 ? outline : fill;
+        ctx.lineWidth = pass === 0 ? widths[i] + 2.6 : widths[i];
+        ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[i + 1].x, pts[i + 1].y); ctx.stroke();
+      }
+    }
+  }
+
+  // 地面の点 (gx, gy) に立つ 1 体を描く。単位は論理座標 (人型の身長 約 95)、scale で拡大
+  function drawFigure(ctx, gx, gy, scale, kind, p, pose, t, stepped, allowMotion, aimUp) {
+    var d = derive(kind, p, stepped);
+    pose = applyAim(mixPose(pose, pose, 0), aimUp || 0);
+    pose.aimW = pose.aimW || 0;
+    if (kind === 'machine') { pose.lean += d.lean; pose.hipH = pose.hipH - (38 - d.hipH); }
+    var fg = cssVar('--fg');
+    var sat = kind === 'beast' ? lerp(40, 50, p) : 30;
+    var lit = kind === 'beast' ? lerp(56, 42, p) : lerp(58, 48, p);
+    var body = hsl(d.hue, sat, lit);
+    var dark = hsl(d.hue, sat, lit * 0.72);
+    var pale = hsl(d.hue, sat * 0.6, Math.min(85, lit + 22));
+    var bright = hsl(d.hue, 95, 62);
+    var motion = allowMotion && !reduced;
+    var breath = motion ? Math.sin(t * 2.2) * (pose.breath || 0) : 0;
+    var jit = motion && kind === 'machine' ? d.jitter : 0;
+
+    // 骨組み
+    var hipH = pose.hipH + breath * 0.8;
+    var H = { x: 0, y: -hipH };
+    var torsoLen = kind === 'beast' ? lerp(34, 30, p) : 34;
+    var dir = vu(pose.lean);
+    var perp = { x: Math.cos(rad(pose.lean)), y: Math.sin(rad(pose.lean)) };
+    var S = add(H, dir, torsoLen);
+    var neckLen = kind === 'beast' ? lerp(9, 11, p) : 9;
+    var HC = add(add(S, dir, 2), vu(pose.neck), neckLen);
+    var upperLen = kind === 'beast' ? lerp(13, 16, p) : 13, foreLen = kind === 'beast' ? lerp(12, 16, p) : 12;
+    var thigh = kind === 'beast' ? lerp(20, 18, p) : 20, shin = kind === 'beast' ? lerp(19, 20, p) : 19;
+    function armPts(a, root) { var U = add(root, vd(a[0]), upperLen); return [root, U, add(U, vd(a[0] + a[1]), foreLen)]; }
+    function legPts(l) { var K = add(H, vd(l[0]), thigh); var F = add(K, vd(l[0] + l[1]), shin); return [H, K, F]; }
+    var SB = add(S, perp, -2), SF = add(S, perp, 1.5);
+    var armF = armPts(pose.aF, SF), armB = armPts(pose.aB, SB);
+    var legF = legPts(pose.lF), legB = legPts(pose.lB);
+    var footLen = kind === 'beast' ? lerp(7, 9, p) : 7;
+    // 足が地面に着くように全体を上下に寄せる
+    var dy = Math.max(legF[2].y, legB[2].y);
+
+    ctx.save();
+    ctx.translate(gx + (Math.random() - 0.5) * jit * 2, gy + (Math.random() - 0.5) * jit * 2);
+    ctx.scale(scale, scale);
+    ctx.translate(0, -dy);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    var wUp = d.armW, wFore = d.armW * 0.85, wThigh = d.legW, wShin = d.legW * 0.8;
+
+    function hand(pt, a, front) {
+      var fdir = vd(a[0] + a[1]);
+      var col = front ? body : dark;
+      if (kind === 'beast') {
+        var r = lerp(2.4, 3.8, p);
+        ctx.fillStyle = col; ctx.strokeStyle = fg; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (d.claw > 0.08) {
+          var n = { x: -fdir.y, y: fdir.x };
+          ctx.strokeStyle = d.rage > 0.5 ? pale : fg; ctx.lineWidth = 2.2;
+          for (var i = -1; i <= 1; i++) {
+            var b = add(pt, n, i * 2.6);
+            var e = add(add(b, fdir, 4 + 5 * d.claw), n, i * 1.5);
+            ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+          }
+        }
+      } else {
+        ctx.fillStyle = col; ctx.strokeStyle = fg; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.rect(pt.x - 3, pt.y - 3, 6, 6); ctx.fill(); ctx.stroke();
+      }
+    }
+    function foot(pt, front) {
+      var toe = add(pt, { x: 1, y: 0 }, footLen);
+      limb(ctx, [pt, toe], [wShin * 0.9], front ? body : dark, fg);
+      if (kind === 'beast' && d.claw > 0.08) {
+        ctx.strokeStyle = fg; ctx.lineWidth = 2;
+        for (var i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(toe.x, toe.y + i * 1.5); ctx.lineTo(toe.x + 3 + 2 * d.claw, toe.y + i * 2.2); ctx.stroke(); }
+      }
+    }
+    function lightLines(a, b, n) {
+      if (n <= 0) return;
+      ctx.save(); ctx.strokeStyle = bright; ctx.lineWidth = 1.6; ctx.shadowColor = bright; ctx.shadowBlur = 6 * d.glow;
+      for (var i = 0; i < n; i++) {
+        var t0 = (i + 0.3) / n, t1 = (i + 0.7) / n;
+        ctx.beginPath(); ctx.moveTo(lerp(a.x, b.x, t0), lerp(a.y, b.y, t0)); ctx.lineTo(lerp(a.x, b.x, t1), lerp(a.y, b.y, t1)); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 奥の脚と腕
+    limb(ctx, legB, [wThigh, wShin], dark, fg); foot(legB[2], false);
+    limb(ctx, armB, [wUp, wFore], dark, fg); hand(armB[2], pose.aB, false);
+    if (kind === 'machine') { lightLines(armB[0], armB[1], Math.floor(d.lines / 2)); lightLines(legB[0], legB[1], Math.floor(d.lines / 2)); }
+
+    // 尾 / 噴射口 (奥)。噴射口は背中の中ほど (肩の装甲や腕の付け根と重ねない)
+    if (kind === 'beast' && d.tail > 0.01) {
+      var tb = add(H, perp, -4);
+      var wag = motion ? Math.sin(t * 3) * 3 : 0;
+      var tc = add(add(tb, perp, -16 * d.tail), { x: 0, y: -1 }, 12 * d.tail);
+      var te = add(add(tb, perp, -28 * d.tail), { x: 0, y: 1 }, 2 + wag);
+      ctx.strokeStyle = fg; ctx.lineWidth = 6.5; ctx.beginPath(); ctx.moveTo(tb.x, tb.y); ctx.quadraticCurveTo(tc.x, tc.y, te.x, te.y); ctx.stroke();
+      ctx.strokeStyle = body; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(tb.x, tb.y); ctx.quadraticCurveTo(tc.x, tc.y, te.x, te.y); ctx.stroke();
+    }
+    var wh = kind === 'beast' ? lerp(5, 6, p) : 5.5, ws = kind === 'beast' ? lerp(6.5, 10, p) : 7;
+    if (kind === 'machine' && d.thruster > 0.01) {
+      for (var k2 = 0; k2 < 2; k2++) {
+        var base = add(add(H, dir, torsoLen * (0.38 + 0.2 * k2)), perp, -(wh + ws) / 2 - 1);
+        var flick = motion ? Math.random() * 4 : 2;
+        var fl = (10 + flick) * d.thruster;
+        var back = add(perp, dir, -0.35);
+        ctx.fillStyle = 'hsl(35 100% 60% / 0.8)';
+        ctx.beginPath(); ctx.moveTo(base.x + dir.x * 2.5, base.y + dir.y * 2.5); ctx.lineTo(base.x - dir.x * 2.5, base.y - dir.y * 2.5); ctx.lineTo(base.x - back.x * fl, base.y - back.y * fl); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = dark; ctx.strokeStyle = fg; ctx.lineWidth = 1.5;
+        ctx.save(); ctx.translate(base.x, base.y); ctx.rotate(rad(pose.lean)); ctx.beginPath(); ctx.rect(-3.5, -3, 4, 6); ctx.fill(); ctx.stroke(); ctx.restore();
+      }
+    }
+
+    // 胴: 腰から肩へ。獣は背中が盛り上がり、肩が広い
+    var hump = kind === 'beast' ? 6 * p : 0;
+    var hb = add(H, perp, -wh), hf = add(H, perp, wh), sb = add(S, perp, -ws), sf = add(S, perp, ws);
+    var mid = add(add(H, dir, torsoLen * 0.55), perp, -(wh + ws) / 2 - hump);
+    ctx.fillStyle = body; ctx.strokeStyle = fg; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(hb.x, hb.y); ctx.quadraticCurveTo(mid.x, mid.y, sb.x, sb.y); ctx.lineTo(sf.x, sf.y); ctx.lineTo(hf.x, hf.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if (kind === 'beast' && p > 0.2) {
+      ctx.fillStyle = pale; ctx.globalAlpha = 0.5 * p;
+      var bf1 = add(H, perp, wh * 0.2), bf2 = add(S, perp, ws * 0.3);
+      ctx.beginPath(); ctx.moveTo(bf1.x, bf1.y); ctx.lineTo(bf2.x, bf2.y); ctx.lineTo(sf.x, sf.y); ctx.lineTo(hf.x, hf.y); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    if (kind === 'machine') {
+      // 肩の装甲 (肩の高さ)、炉心 (胴の上寄り)、排気口 (胴の下寄りの前面)。互いに重ねない
+      ctx.save(); ctx.translate(S.x, S.y); ctx.rotate(rad(pose.lean));
+      ctx.fillStyle = dark; ctx.strokeStyle = fg; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.rect(-ws - d.shoulder, -4, d.shoulder, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.rect(ws, -4, d.shoulder, 7); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      var core = add(H, dir, torsoLen * 0.64);
+      ctx.save(); ctx.shadowColor = bright; ctx.shadowBlur = 18 * d.glow; ctx.fillStyle = bright;
+      ctx.beginPath(); ctx.arc(core.x, core.y, d.coreR, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      if (d.vent > 0.01) {
+        ctx.fillStyle = bright;
+        for (var j = 0; j < 3; j++) {
+          var vp = add(add(H, dir, torsoLen * (0.12 + 0.11 * j)), perp, 2.5);
+          ctx.save(); ctx.translate(vp.x, vp.y); ctx.rotate(rad(pose.lean));
+          ctx.beginPath(); ctx.rect(0, -0.8, 1.5 + 3.5 * d.vent, 1.6); ctx.fill(); ctx.restore();
+        }
+      }
+    }
+
+    // たてがみ: 首の後ろから肩へ。段 3 で逆立つ
+    if (kind === 'beast' && d.mane > 0) {
+      var nb = add(S, dir, 2);
+      var nDir = vu(pose.neck);
+      var nBack = { x: -Math.cos(rad(pose.neck)), y: -Math.sin(rad(pose.neck)) };
+      ctx.fillStyle = dark; ctx.strokeStyle = fg; ctx.lineWidth = 1.4;
+      for (var m = 0; m < d.mane; m++) {
+        var tt = (m + 0.5) / d.mane;
+        var bp = add(nb, nDir, neckLen * tt + 1);
+        var len = (5 + 4 * p) * (1 + 0.8 * d.rage);
+        var tip = add(add(bp, nBack, len), nDir, -2 - 3 * d.rage);
+        var b1 = add(bp, nDir, 2.2), b2 = add(bp, nDir, -2.2);
+        ctx.beginPath(); ctx.moveTo(b1.x, b1.y); ctx.lineTo(tip.x, tip.y); ctx.lineTo(b2.x, b2.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
+
+    // 肩の塊 (腕の付け根)
+    var shR = kind === 'beast' ? lerp(3, 6.5, p) : 3.5;
+    ctx.fillStyle = body; ctx.strokeStyle = fg; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(SF.x, SF.y, shR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // 腕を真上に振り上げる構え (叩きつけ・大技の被弾) では、手前の腕を頭の後ろに描いて顔を隠さない。
+    // 薙ぎ払いは 140 度で止めて顔を背中側へ引くので、ここには入らない (途中で描く順が入れ替わって顔を貫いて見えるのを避ける)
+    var armBehindHead = pose.aF[0] > 150;
+    function frontArm() {
+      limb(ctx, armF, [wUp, wFore], body, fg); hand(armF[2], pose.aF, true);
+      if (kind === 'machine') lightLines(armF[0], armF[1], Math.ceil(d.lines / 2));
+    }
+    if (armBehindHead) frontArm();
+
+    // 頭
+    ctx.save(); ctx.translate(HC.x, HC.y); ctx.rotate(rad(pose.tilt));
+    if (kind === 'beast') {
+      var r = lerp(8, 9, p), mz = lerp(3, 17, d.muzzle);
+      ctx.fillStyle = body; ctx.strokeStyle = fg; ctx.lineWidth = 2.2;
+      if (d.ear > 0.05) {
+        var eh = 11 * d.ear;
+        ctx.beginPath(); ctx.moveTo(-6.5, -4.5); ctx.lineTo(-9.5, -7 - eh); ctx.lineTo(-2.5, -7.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-2.5, -7.5); ctx.lineTo(-4, -9 - eh * 1.1); ctx.lineTo(1.5, -8.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = pale; ctx.globalAlpha = 0.7;
+        ctx.beginPath(); ctx.moveTo(-6, -5.5); ctx.lineTo(-8.3, -7 - eh * 0.75); ctx.lineTo(-3.8, -7.3); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = body;
+      ctx.beginPath(); ctx.moveTo(1, -5); ctx.lineTo(mz, -1.5); ctx.lineTo(mz, 1.5); ctx.lineTo(mz * 0.75, 5.5); ctx.lineTo(0, 6.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = body; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(2, -4); ctx.lineTo(mz * 0.6, -2.4); ctx.moveTo(1.5, 5.5); ctx.lineTo(mz * 0.5, 4.6); ctx.stroke();
+      if (d.muzzle > 0.3) {
+        ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(mz - 1, -0.3, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = fg; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(4, 4); ctx.lineTo(mz - 3, 3.4); ctx.stroke();
+        if (d.muzzle > 0.6) {
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.moveTo(mz - 6, 3.6); ctx.lineTo(mz - 5.2, 6.4); ctx.lineTo(mz - 4.2, 3.5); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(mz - 9.5, 3.9); ctx.lineTo(mz - 8.8, 5.9); ctx.lineTo(mz - 7.9, 3.8); ctx.closePath(); ctx.fill();
+        }
+      }
+      ctx.save();
+      if (d.rage > 0.3) { ctx.shadowColor = 'hsl(50 100% 60%)'; ctx.shadowBlur = 10 * d.rage; }
+      ctx.fillStyle = hsl(lerp(0, 48, d.eyeSlant), 100, lerp(100, 58, d.eyeSlant));
+      ctx.beginPath(); ctx.ellipse(2.8, -3.6, lerp(2.2, 3.2, d.eyeSlant), lerp(2.2, 1.2, d.eyeSlant), rad(-18 * d.eyeSlant), 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(3.6, -3.5, lerp(1.1, 0.7, d.eyeSlant), 0, Math.PI * 2); ctx.fill();
+      if (d.eyeSlant > 0.35) { ctx.strokeStyle = fg; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-1.5, -7.2); ctx.lineTo(5.5, -5.6); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = body; ctx.strokeStyle = fg; ctx.lineWidth = 2.2;
+      ctx.beginPath(); roundRect(ctx, -8, -9, 17, 16, 3); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.strokeStyle = bright; ctx.lineWidth = 2 + 1.5 * d.glow; ctx.shadowColor = bright; ctx.shadowBlur = 8 * d.glow;
+      ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(7.5, -2); ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = fg; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-8, 2.5); ctx.lineTo(9, 2.5); ctx.stroke();
+    }
+    ctx.restore();
+
+    // 手前の脚と腕
+    limb(ctx, legF, [wThigh, wShin], body, fg); foot(legF[2], true);
+    if (kind === 'machine') lightLines(legF[0], legF[1], Math.ceil(d.lines / 2));
+    if (!armBehindHead) frontArm();
+
+    // 攻撃の向きの印 (打点の重みがあるときだけ、肩から向きの先に小さな的)
+    if (pose.aimW > 0.05) {
+      var aimDir = { x: Math.cos(rad(-(aimUp || 0))), y: Math.sin(rad(-(aimUp || 0))) };
+      var tgt = add(SF, aimDir, 60);
+      ctx.strokeStyle = cssVar('--accent'); ctx.globalAlpha = 0.5 * pose.aimW; ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(SF.x, SF.y); ctx.lineTo(tgt.x, tgt.y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(tgt.x, tgt.y, 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  function fit(canvas) {
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var r = canvas.getBoundingClientRect();
+    var W = Math.max(1, Math.round(r.width * dpr)), Hh = Math.max(1, Math.round(r.height * dpr));
+    if (canvas.width !== W || canvas.height !== Hh) { canvas.width = W; canvas.height = Hh; }
+    return { w: W, h: Hh, dpr: dpr };
+  }
+
+  var main = document.getElementById('main');
+  var mctx = main.getContext('2d');
+  function currentPhase(t) {
+    return ui.mode === 'motion' ? (t % LOOP_SEC) / LOOP_SEC : MOTIONS[ui.motion].strike;
+  }
+  function drawMain(t) {
+    var s = fit(main);
+    mctx.clearRect(0, 0, s.w, s.h);
+    mctx.fillStyle = cssVar('--ground');
+    mctx.fillRect(0, s.h * 0.84, s.w, 2 * s.dpr);
+    var scale = (s.h * 0.78) / 100;
+    var pose = poseAt(ui.kind, ui.motion, currentPhase(t), ui.p);
+    drawFigure(mctx, s.w * 0.5, s.h * 0.84, scale, ui.kind, ui.p, pose, t, ui.stepped, true, aimFor(ui.motion));
+  }
+
+  var strip = document.getElementById('strip');
+  var stripTitle = document.getElementById('stripTitle');
+  var thumbs = [];
+  [0, 0.25, 0.5, 0.75, 1].forEach(function (p) {
+    var fig = document.createElement('figure');
+    var c = document.createElement('canvas');
+    var cap = document.createElement('figcaption');
+    fig.appendChild(c); fig.appendChild(cap); strip.appendChild(fig);
+    thumbs.push({ p: p, canvas: c, cap: cap });
+  });
+  function drawThumbs() {
+    var motionMode = ui.mode === 'motion';
+    stripTitle.textContent = motionMode ? '同じ動きを時間で並べる (0 / 25 / 50 / 75 / 100%)' : '同じ打点を進み 0 / 25 / 50 / 75 / 100% で並べる';
+    thumbs.forEach(function (th) {
+      var s = fit(th.canvas);
+      var ctx = th.canvas.getContext('2d');
+      ctx.clearRect(0, 0, s.w, s.h);
+      var scale = (s.h * 0.8) / 100;
+      var pose = motionMode ? poseAt(ui.kind, ui.motion, th.p === 1 ? 0.999 : th.p, ui.p) : poseAt(ui.kind, ui.motion, MOTIONS[ui.motion].strike, th.p);
+      drawFigure(ctx, s.w * 0.5, s.h * 0.88, scale, ui.kind, motionMode ? ui.p : th.p, pose, 0, ui.stepped, false, aimFor(ui.motion));
+      th.cap.textContent = Math.round(th.p * 100) + '%';
+    });
+  }
+
+  var tbody = document.getElementById('params');
+  var stateEl = document.getElementById('state');
+  var aimState = document.getElementById('aimState');
+  function drawTable() {
+    var d = derive(ui.kind, ui.p, ui.stepped);
+    var html = '';
+    LABELS[ui.kind].forEach(function (r) {
+      var isGate = /段/.test(r[1]);
+      html += '<tr><td' + (isGate ? ' class="gate"' : '') + '>' + r[1] + '</td><td class="num">' + Number(d[r[0]]).toFixed(r[2]) + '</td></tr>';
+    });
+    tbody.innerHTML = html;
+    stateEl.textContent = '段 ' + d.stage + ' / 進み ' + Math.round(ui.p * 100) + '%';
+    var fixed = MOTIONS[ui.motion].fixedAim;
+    aimState.textContent = fixed !== undefined ? '下 ' + fixed + '° 固定 (この動きは向きを追わない)' : (ui.aim === 0 ? '水平' : (ui.aim < 0 ? '上 ' + (-ui.aim) + '°' : '下 ' + ui.aim + '°'));
+  }
+
+  function setSeg(groupPrefix, value) {
+    Array.prototype.forEach.call(document.querySelectorAll('[id^="' + groupPrefix + '-"]'), function (b) {
+      b.setAttribute('aria-pressed', b.id === groupPrefix + '-' + value ? 'true' : 'false');
+    });
+  }
+  function refreshStatic() { drawThumbs(); drawTable(); if (reduced) drawMain(0); }
+
+  document.getElementById('kind-beast').addEventListener('click', function () { ui.kind = 'beast'; setSeg('kind', 'beast'); refreshStatic(); });
+  document.getElementById('kind-machine').addEventListener('click', function () { ui.kind = 'machine'; setSeg('kind', 'machine'); refreshStatic(); });
+  ['idle', 'lunge', 'swipe', 'slam', 'hit', 'hitBig'].forEach(function (p) {
+    document.getElementById('pose-' + p).addEventListener('click', function () { ui.motion = p; setSeg('pose', p); refreshStatic(); });
+  });
+  document.getElementById('mode-motion').addEventListener('click', function () { ui.mode = 'motion'; setSeg('mode', 'motion'); refreshStatic(); });
+  document.getElementById('mode-still').addEventListener('click', function () { ui.mode = 'still'; setSeg('mode', 'still'); refreshStatic(); });
+  var slider = document.getElementById('progress');
+  slider.addEventListener('input', function () { ui.p = Number(slider.value) / 100; drawTable(); if (ui.mode === 'motion') drawThumbs(); if (reduced) drawMain(0); });
+  var aim = document.getElementById('aim');
+  aim.addEventListener('input', function () { ui.aim = Number(aim.value); drawTable(); drawThumbs(); if (reduced) drawMain(0); });
+  var stepped = document.getElementById('stepped');
+  stepped.addEventListener('change', function () { ui.stepped = stepped.checked; refreshStatic(); });
+  window.addEventListener('resize', refreshStatic);
+
+  var start = performance.now();
+  function loop(now) {
+    drawMain((now - start) / 1000);
+    if (!reduced) requestAnimationFrame(loop);
+  }
+  refreshStatic();
+  requestAnimationFrame(loop);
+})();
+</script>
