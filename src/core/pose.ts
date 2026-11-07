@@ -30,9 +30,9 @@ export function enemyPose(choreo: Choreo, beat: number, beatSec: number, cfg: Co
   return 'idle';
 }
 
-// shot は laser、slam (v6) は burst と同じ構え
+// shot と sweep (v7) は laser、slam (v6) は burst と同じ構え
 function attackPose(atk: Attack): EnemyPose {
-  return atk.type === 'shot' ? 'laser' : atk.type === 'slam' ? 'burst' : atk.type;
+  return atk.type === 'shot' || atk.type === 'sweep' ? 'laser' : atk.type === 'slam' ? 'burst' : atk.type;
 }
 
 function branchPose(move: NonNullable<Attack['branchMove']>): EnemyPose {

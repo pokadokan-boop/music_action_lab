@@ -256,7 +256,7 @@ describe('resolveAttack (自機狙い)', () => {
     );
     const d = v.filter((x) => x.rule === 'dodgeable');
     expect(d.length).toBeGreaterThanOrEqual(1);
-    expect(d.some((x) => /自機狙い: 予告開始時に \(\d\.\d{3}, \d\.\d{3}\) にいると/.test(x.message))).toBe(true);
+    expect(d.some((x) => /自機狙い: 狙いが決まる拍 [\d.]+ に \(\d\.\d{3}, \d\.\d{3}\) にいると/.test(x.message))).toBe(true);
   });
 });
 

@@ -3,6 +3,7 @@ import type { Config } from '../config';
 import {
   KNOCKBACK_RESIST_DEFAULT,
   activeWindow,
+  aimBeatOf,
   applyBranch,
   attackMotion,
   branchStartBeat,
@@ -100,6 +101,8 @@ export interface SimState {
   // 予告が始まった攻撃を、その瞬間のプレイヤー位置で解決した形 (attackIndex → Attack)。自機狙いはここで狙いが固定され、以後追尾しない。
   // fixed の攻撃も入るが幾何は元と同じ。入力列から決まるので決定性を壊さない
   resolved: Map<number, Attack>;
+  // aimBeat で狙い直し済みの攻撃 (v7 T3)
+  reaimed: Set<number>;
   // 相殺された攻撃 (attackIndex)。以後その当たりは被弾判定と描画で無視する。本体の動きは path どおり続く
   cancelled: Set<number>;
   // 攻撃の結果 (v4 T1)。当たりの窓の終わり + 遅い側の相殺の窓 で確定する
@@ -158,6 +161,7 @@ export function createSim(deps: SimDeps): SimState {
     enemyRecoil: null,
     impactAt: new Map(),
     resolved: new Map(),
+    reaimed: new Set(),
     cancelled: new Set(),
     outcome: new Map(),
     branched: new Set(),
@@ -267,11 +271,18 @@ function startStep(state: SimState, input: InputState, deps: SimDeps): void {
 }
 
 // 予告が始まった (beat >= telegraphBeat) 未解決の攻撃を、この瞬間のプレイヤー位置で解決して固定する。
-// 移動の後に行うので「予告開始時点で見えている位置」を狙う。以後プレイヤーが動いても狙いは変わらない
+// 移動の後に行うので「予告開始時点で見えている位置」を狙う。以後プレイヤーが動いても狙いは変わらない。
+// v7 T3: aimBeat が telegraphBeat より後の攻撃 (連撃の 2 発目以降) は、aimBeat でもう一度その瞬間の位置に狙い直す (元の攻撃から解決し直す)
 function resolveStarted(state: SimState, choreo: Choreo, cfg: Config): void {
   choreo.attacks.forEach((atk, idx) => {
-    if (state.resolved.has(idx) || state.beat < atk.telegraphBeat) return;
-    state.resolved.set(idx, resolveAttack(atk, state.player, cfg, attackMotion(choreo, atk)));
+    if (state.beat < atk.telegraphBeat) return;
+    const motion = attackMotion(choreo, atk);
+    if (!state.resolved.has(idx)) state.resolved.set(idx, resolveAttack(atk, state.player, cfg, motion));
+    const aimBeat = aimBeatOf(atk);
+    if (aimBeat > atk.telegraphBeat && state.beat >= aimBeat && !state.reaimed.has(idx) && !state.branched.has(idx)) {
+      state.reaimed.add(idx);
+      state.resolved.set(idx, resolveAttack(atk, state.player, cfg, motion));
+    }
   });
 }
 

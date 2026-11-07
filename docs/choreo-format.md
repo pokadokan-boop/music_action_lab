@@ -73,6 +73,7 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - `after-order`: `after` がある攻撃は、分岐の開始 (path の最後の拍) が結果の確定 (当たりの窓の終わり + `cancelLateMs`) 以降
 - `after-overlap`: 分岐の終わり (開始 + beats) が次の攻撃の予告開始以前
 - `slam-shape`: slam に `frameHalf` と `laserR` があり、`frameHalf > hitbox.r + laserR` (円の外に帯が残る)
+- `aim-beat` / `approach-shape` / `sweep-shape` / `track-known`: v7 T3 (下の「連撃・踏み込み・薙ぎ払い・声部」)
 
 ## 構え (v4 T3)
 描画は `src/core/pose.ts` が決めた構えの名前だけを見る。敵: 予告開始〜当たりの窓の終わりは攻撃の型 (`laser` / `burst` / `dash`。shot は laser)、分岐で足した区間は `stopped` / `approach` / `retreat`、他は `idle`。自機: 被弾 → 相殺 → 攻撃 → 構える (敵が stopped か approach) → 立つ、の優先順。絵は `src/render/figures.ts` (線と面の人型と雫形の敵。画像ファイルは使わない)
@@ -96,6 +97,15 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - 反動: 自機は吹っ飛びと同じ仕組み (向きは円の中心から外、距離は配分ぶん)。敵は振り付けの位置に乗せる差分 (向きは自機から敵へ、距離 × (1 − 経過 / `recoilDecayBeats` 1 拍))
 - 描画: 予告の色は紫 (黄 = 相殺できる、赤 = uncancelable と区別)。中心の同心円 + 4 隅へ飛ぶ発射装置 + 4 辺の破線 (進むほど濃く) + 帯の薄い塗り。当たりの間は円の塗りと 4 辺の太い線。構えは burst と同じ
 - 要約: 「大技 n 回 (片手軽減 a / 両手相殺 b、ジャスト率 平均 x%)」、phrase 表の相殺列は「両手相殺」「片手軽減」「失敗 (理由)」「-」
+
+## 連撃・踏み込み・薙ぎ払い・声部 (v7 T3。2026-11-07。docs/plan/v7-phase2-enemy.md)
+本人の指摘「今の敵は追尾が弱くて、弾こうとしないと弾けない (動いていると当たらない)。複数攻撃を 1 連の攻撃としてそこだけ追尾をきつくする、踏み込みのある攻撃を入れる」への形。全部省略可。
+- `group`: 連撃の束の名前。同じ名前の攻撃は 1 つの行動 (大技の「予告の音 → 当たりの音」や三連突き)。束の中で hitBeat が最小のものが 1 発目 (`isGroupLead`)
+- `aimBeat` (省略時 `telegraphBeat`): 自機の位置を狙い直す拍。予告は `telegraphBeat` から出て、その時点の自機を暫定で狙い、`aimBeat` でもう一度その瞬間の自機の位置に合わせる (sim の `resolveStarted`。元の攻撃から解決し直す)。以後は追わない。検査 `aim-beat`: `telegraphBeat` ≤ `aimBeat` ≤ 当たりの発生拍で、`telegraphBeat` より後に置けるのは `group` の 2 発目以降だけ (「連撃の中だけ追尾をきつく」をデータの規則にする)。`dodgeable` の走れる距離は `aimBeat` から当たりまでの時間で計算する (狙い直しが遅すぎれば違反になる)
+- `approach`: 踏み込み `{ "beats", "distance", "keep"? }`。当たりの `beats` 拍前の位置から、狙い先へ向かって最大 `distance` 寄る。自機との間に `keep` (省略時 接触距離 × 1.5) を残す。shot / laser / sweep (本体が狙いで動かない型) 用で、dash は path そのものが踏み込み。踏み込みの区間にあった元のキーフレームは捨て、当たりより後のキーフレーム (戻り) はそのまま。`aim: "player"` なら狙い直した自機へ、fixed なら JSON の `target` へ (`applyApproach`)。検査 `approach-shape`: 型、`beats` > 0、`distance` > 0、当たり − `beats` ≥ `telegraphBeat`
+- `track` (省略時 `melody`): 攻撃が乗る声部 (トラック名)。`hit-on-grid` はその声部の音で見る (グリッドの `trackOnsets`)。検査 `track-known`。将来「複数の敵がそれぞれの声部に割り当てられる」拡張の口 (実装する敵は 1 体)
+- `length`: laser の線の長さの上限 (省略時 画面端まで)。短い laser = 突き・刺し。> 0
+- `type: "sweep"`: 薙ぎ払い。発生点 (当たりの発生拍の敵の位置) から長さ `length` の線 (太さ `hitbox.r`) が、`target` の向きを中心に `sweepDeg` の角度 (負なら逆回り) を `activeBeats` かけて回る (`sweepArc`、`hitboxAt`)。`target` 必須 (自機狙いなら置き換わる)。検査 `sweep-shape`: `length` > 0、`sweepDeg` ≠ 0。構えは laser と同じ。来る方向 (相殺の向き) は発生点から自機へ (刃の接線で見ると向きが一瞬で変わり、押す側が合わせられない)。予告は回る範囲の扇の縁と回り始めの線
 
 ## 予告の型ごとの印 (v6 T6。本人の不満「攻撃の判別がつきづらい」)
 - dash: 道の破線は当たりのある区間 (impactBeat 〜 窓の終わり) だけ。構えへ動く間 (予告開始 〜 impactBeat) は少し前の位置に薄い円 (残像) を 2 つ置く。進路の全体は描かない

@@ -7,7 +7,8 @@ import { WORLD, inWorld } from './world';
 
 // slam (v6 T4): 大技。telegraphBeat (1 音目) で飛び上がり発射装置 4 つが円を囲む正方形の 4 隅へ飛び、impactBeat (2 音目) で叩きつけの円と 4 辺のレーザーが同時に出る。
 // 相殺は両手放ちだけ、片手の放ちは軽減 (sim.tryCancel)。逃げ場は円の外かつ枠の内側の帯か、撃たれる前に枠の外 (docs/plan/v6-phase1.md)
-export type AttackType = 'dash' | 'burst' | 'shot' | 'laser' | 'slam';
+// sweep (v7 T3): 薙ぎ払い。発生点から長さ length の線 (太さ hitbox.r) が、target の向きを中心に sweepDeg の角度を activeBeats かけて回る
+export type AttackType = 'dash' | 'burst' | 'shot' | 'laser' | 'slam' | 'sweep';
 
 // 狙い。fixed = データに書いた位置そのまま。player = 予告開始 (telegraphBeat) の瞬間のプレイヤー位置を狙う (v2 T4。追尾はしない)
 export type Aim = 'fixed' | 'player';
@@ -62,6 +63,32 @@ export interface Attack {
   // slam のみ (v6 T4): 円を囲む正方形の半幅と、4 辺のレーザーの太さ (半径)。frameHalf > hitbox.r + laserR (検査 slam-shape)
   frameHalf?: number;
   laserR?: number;
+  // v7 T3 (docs/plan/v7-phase2-enemy.md)
+  // 連撃の束の名前。同じ名前の攻撃は 1 つの行動。束の中で hitBeat が最小のものが 1 発目
+  group?: string;
+  // 自機の位置を狙い直す拍 (省略時 telegraphBeat)。telegraphBeat より後に置けるのは group の 2 発目以降だけ (検査 aim-beat)
+  aimBeat?: number;
+  // 踏み込み: 当たりの beats 拍前から狙い先へ最大 distance 寄る。keep は自機との間に残す距離 (省略時 接触距離 × 1.5)。shot / laser / sweep 用
+  approach?: { beats: number; distance: number; keep?: number };
+  // 攻撃が乗る声部 (トラック名。省略時 melody)
+  track?: string;
+  // laser / sweep の線の長さの上限 (laser で省略時は画面端まで)
+  length?: number;
+  // sweep の回る角度 (度。負なら逆回り)
+  sweepDeg?: number;
+}
+
+export const APPROACH_KEEP_RATIO = 1.5;
+
+// 自機の位置を狙う拍 (v7 T3)。省略時は予告開始
+export function aimBeatOf(attack: Attack): number {
+  return attack.aimBeat ?? attack.telegraphBeat;
+}
+
+// 連撃の 1 発目か (v7 T3): group が無いか、同じ group で自分より hitBeat が小さい攻撃が無い
+export function isGroupLead(choreo: Choreo, attack: Attack): boolean {
+  if (!attack.group) return true;
+  return !choreo.attacks.some((a) => a !== attack && a.group === attack.group && a.hitBeat < attack.hitBeat);
 }
 
 export interface Choreo {
@@ -103,7 +130,11 @@ export type ViolationRule =
   | 'after-order'
   | 'after-overlap'
   | 'chain-order'
-  | 'slam-shape';
+  | 'slam-shape'
+  | 'aim-beat'
+  | 'approach-shape'
+  | 'sweep-shape'
+  | 'track-known';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -315,8 +346,16 @@ export function hitboxAt(attack: Attack, beat: number, beatSec: number, cfg: Con
     case 'laser': {
       const origin = pathPosAt(attack.path, w.startBeat, motion);
       const dir = shotDir(attack, origin);
-      const s = exitDistance(origin, dir, attack.hitbox.r);
+      // length (v7 T3) があれば線をそこで切る (突き・刺し)
+      const s = Math.min(exitDistance(origin, dir, attack.hitbox.r), attack.length ?? Infinity);
       return { kind: 'segment', a: origin, b: { x: origin.x + dir.x * s, y: origin.y + dir.y * s }, r: attack.hitbox.r };
+    }
+    case 'sweep': {
+      // 薙ぎ払い (v7 T3): 狙いの向きを中心に sweepDeg を activeBeats かけて回る線
+      const arc = sweepArc(attack, motion);
+      const u = w.endBeat > w.startBeat ? (beat - w.startBeat) / (w.endBeat - w.startBeat) : 1;
+      const ang = arc.fromRad + (arc.toRad - arc.fromRad) * clamp(u, 0, 1);
+      return { kind: 'segment', a: arc.origin, b: { x: arc.origin.x + Math.cos(ang) * arc.length, y: arc.origin.y + Math.sin(ang) * arc.length }, r: attack.hitbox.r };
     }
     case 'slam': {
       // 円と 4 辺が同時に出て、同時に消える (v6 T4)
@@ -342,6 +381,9 @@ export function incomingDir(attack: Attack, beat: number, playerPos: Vec, beatSe
     }
     case 'laser':
       return shotDir(attack, origin);
+    case 'sweep':
+      // 薙ぎ払いは発生点から自機へ (刃の接線で見ると向きが一瞬で変わり、押す側が合わせられない。docs/plan/v7-phase2-enemy.md)
+      return normalize({ x: playerPos.x - origin.x, y: playerPos.y - origin.y });
     case 'burst':
     case 'shot':
     case 'slam': {
@@ -376,22 +418,35 @@ export function cancelAnchorBeat(attack: Attack): number {
   return impactBeat(attack);
 }
 
-// 予告の線 (shot / laser の射線) の始点と向き先。描画用
+// 予告の線 (shot / laser の射線) の始点と向き先。描画用。laser の length があればそこまで
 export function aimLine(attack: Attack, motion: Motion = 'easeOut'): { origin: Vec; end: Vec } | null {
   if ((attack.type !== 'shot' && attack.type !== 'laser') || !attack.target) return null;
   const origin = pathPosAt(attack.path, impactBeat(attack), motion);
   const dir = shotDir(attack, origin);
-  const s = exitDistance(origin, dir, attack.hitbox.r);
+  const s = Math.min(exitDistance(origin, dir, attack.hitbox.r), attack.type === 'laser' ? (attack.length ?? Infinity) : Infinity);
   return { origin, end: { x: origin.x + dir.x * s, y: origin.y + dir.y * s } };
+}
+
+// 薙ぎ払いの弧 (v7 T3): 発生点、長さ、回り始めと回り終わりの角度 (ラジアン。画面座標なので時計回りが正)。描画と hitboxAt で共用
+export function sweepArc(attack: Attack, motion: Motion = 'easeOut'): { origin: Vec; length: number; fromRad: number; toRad: number } {
+  const origin = pathPosAt(attack.path, impactBeat(attack), motion);
+  const dir = shotDir(attack, origin);
+  const base = Math.atan2(dir.y, dir.x);
+  const half = ((attack.sweepDeg ?? 0) * Math.PI) / 180 / 2;
+  return { origin, length: attack.length ?? 0, fromRad: base - half, toRad: base + half };
 }
 
 // 自機狙い (aim: player) の攻撃を、target (予告開始時のプレイヤー位置) を狙う形に置き換えた Attack を返す。純粋関数。
 // dash / burst は基準点 (dash = 突進の終点、burst = 発生点) が target に重なるよう、telegraphBeat より後のキーフレームを
 // 平行移動する。telegraphBeat 以前の点は変えないので、予告開始時点の敵の位置は飛ばない。移動後の点は画面内に収める。
-// laser / shot は本体を動かさず、狙い先 target を置き換える。fixed はそのまま返す
+// laser / shot / sweep は本体を動かさず、狙い先 target を置き換える。fixed はそのまま返す (踏み込みだけは書いてあれば JSON の target へ)。
+// v7 T3: 踏み込み (approach) があれば、狙い先へ寄るキーフレームを path に足す (applyApproach)
 export function resolveAttack(attack: Attack, target: Vec, cfg: Config, motion: Motion = 'easeOut'): Attack {
-  if ((attack.aim ?? 'fixed') === 'fixed') return attack;
-  if (attack.type === 'laser' || attack.type === 'shot') return { ...attack, target: { x: target.x, y: target.y } };
+  if ((attack.aim ?? 'fixed') === 'fixed') return attack.approach && attack.target ? applyApproach(attack, attack.target, cfg, motion) : attack;
+  if (attack.type === 'laser' || attack.type === 'shot' || attack.type === 'sweep') {
+    const aimed = { ...attack, target: { x: target.x, y: target.y } };
+    return attack.approach ? applyApproach(aimed, target, cfg, motion) : aimed;
+  }
   const anchor = attack.type === 'dash' ? dashEnd(attack) : pathPosAt(attack.path, impactBeat(attack), motion);
   const dx = target.x - anchor.x;
   const dy = target.y - anchor.y;
@@ -401,6 +456,32 @@ export function resolveAttack(attack: Attack, target: Vec, cfg: Config, motion: 
   const path = attack.path.map((p) =>
     p.beat <= attack.telegraphBeat ? p : { beat: p.beat, x: clamp(p.x + dx, lo, hiX), y: clamp(p.y + dy, lo, hiY) },
   );
+  return { ...attack, path };
+}
+
+// 踏み込み (v7 T3): 当たりの approach.beats 拍前の位置から、target へ向かって最大 approach.distance 寄る (自機との間に keep を残す)。
+// 踏み込みの区間にあった元のキーフレームは捨て、当たりより後のキーフレーム (戻り) はそのまま。寄った先は画面内に収める
+export function applyApproach(attack: Attack, target: Vec, cfg: Config, motion: Motion = 'easeOut'): Attack {
+  const ap = attack.approach;
+  if (!ap) return attack;
+  const impact = impactBeat(attack);
+  const startBeat = impact - ap.beats;
+  const start = pathPosAt(attack.path, startBeat, motion);
+  const d = dist(start, target);
+  const keep = ap.keep ?? (cfg.playerRadius + cfg.enemyRadius) * APPROACH_KEEP_RATIO;
+  const move = Math.min(ap.distance, Math.max(0, d - keep));
+  const dir = d > 0 ? { x: (target.x - start.x) / d, y: (target.y - start.y) / d } : { x: 0, y: 0 };
+  const end = {
+    x: clamp(start.x + dir.x * move, cfg.enemyRadius, WORLD.w - cfg.enemyRadius),
+    y: clamp(start.y + dir.y * move, cfg.enemyRadius, WORLD.h - cfg.enemyRadius),
+  };
+  const eps = 1e-9;
+  const path: PathPoint[] = [
+    ...attack.path.filter((p) => p.beat < startBeat - eps),
+    { beat: startBeat, x: start.x, y: start.y },
+    { beat: impact, x: end.x, y: end.y },
+    ...attack.path.filter((p) => p.beat > impact + eps),
+  ];
   return { ...attack, path };
 }
 
@@ -478,12 +559,41 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
       });
     }
     const onGrid = Math.abs(atk.hitBeat / sub - Math.round(atk.hitBeat / sub)) * sub <= tolBeats;
-    const onNote = phrase?.noteBeats.some((nb) => Math.abs(nb - atk.hitBeat) <= tolBeats) ?? false;
-    if (!onGrid && !onNote) {
-      out.push({ attackIndex: i, rule: 'hit-on-grid', message: `hitBeat ${atk.hitBeat} が拍・半拍・フレーズの音に乗っていない` });
+    // 声部 (v7 T3): track が melody 以外ならその声部の音で見る
+    const track = atk.track ?? 'melody';
+    if (atk.track && !grid.trackOnsets[atk.track]) {
+      out.push({ attackIndex: i, rule: 'track-known', message: `声部 ${atk.track} はグリッドに無い (${Object.keys(grid.trackOnsets).join(', ')})` });
     }
-    if ((atk.type === 'shot' || atk.type === 'laser') && !atk.target) {
+    const noteBeats = track === 'melody' ? (phrase?.noteBeats ?? []) : (grid.trackOnsets[track] ?? []);
+    const onNote = noteBeats.some((nb) => Math.abs(nb - atk.hitBeat) <= tolBeats);
+    if (!onGrid && !onNote) {
+      out.push({ attackIndex: i, rule: 'hit-on-grid', message: `hitBeat ${atk.hitBeat} が拍・半拍・${track === 'melody' ? 'フレーズ' : track}の音に乗っていない` });
+    }
+    if ((atk.type === 'shot' || atk.type === 'laser' || atk.type === 'sweep') && !atk.target) {
       out.push({ attackIndex: i, rule: 'shot-target', message: `${atk.type} には target が要る` });
+    }
+    // 狙い直し (v7 T3): telegraphBeat ≤ aimBeat ≤ 当たりの発生拍。telegraphBeat より後は連撃 (group) の 2 発目以降だけ
+    if (atk.aimBeat !== undefined) {
+      if (atk.aimBeat < atk.telegraphBeat - 1e-9 || atk.aimBeat > impactBeat(atk) + 1e-9) {
+        out.push({ attackIndex: i, rule: 'aim-beat', message: `aimBeat ${atk.aimBeat} は telegraphBeat ${atk.telegraphBeat} 〜 当たり ${impactBeat(atk)} の範囲` });
+      } else if (atk.aimBeat > atk.telegraphBeat + 1e-9 && isGroupLead(choreo, atk)) {
+        out.push({ attackIndex: i, rule: 'aim-beat', message: `aimBeat を telegraphBeat より後に置けるのは連撃 (group) の 2 発目以降だけ` });
+      }
+    }
+    // 踏み込み (v7 T3)
+    if (atk.approach) {
+      const ap = atk.approach;
+      const okType = atk.type === 'shot' || atk.type === 'laser' || atk.type === 'sweep';
+      if (!okType || !(ap.beats > 0) || !(ap.distance > 0) || impactBeat(atk) - ap.beats < atk.telegraphBeat - 1e-9) {
+        out.push({ attackIndex: i, rule: 'approach-shape', message: `approach は shot / laser / sweep に、beats > 0、distance > 0、当たり − beats ≥ telegraphBeat で (${atk.type}, ${ap.beats}, ${ap.distance})` });
+      }
+    }
+    // 薙ぎ払い (v7 T3)
+    if (atk.type === 'sweep' && (!(atk.length !== undefined && atk.length > 0) || !atk.sweepDeg)) {
+      out.push({ attackIndex: i, rule: 'sweep-shape', message: `sweep には length > 0 と sweepDeg ≠ 0 が要る (${atk.length}, ${atk.sweepDeg})` });
+    }
+    if (atk.type === 'laser' && atk.length !== undefined && !(atk.length > 0)) {
+      out.push({ attackIndex: i, rule: 'sweep-shape', message: `laser の length は > 0 (${atk.length})` });
     }
     const delay = atk.impactDelayBeats ?? 0;
     if (delay < 0 || delay > IMPACT_DELAY_MAX_BEATS) {
@@ -559,7 +669,7 @@ function checkDodgeable(choreo: Choreo, grid: Grid, acceptance: Acceptance, cfg:
         out.push({
           attackIndex: idx,
           rule: 'dodgeable',
-          message: `自機狙い: 予告開始時に (${r.failedAt.x.toFixed(3)}, ${r.failedAt.y.toFixed(3)}) にいると ${r.reach.toFixed(3)} 以内に安全位置が無い`,
+          message: `自機狙い: 狙いが決まる拍 ${aimBeatOf(atk)} に (${r.failedAt.x.toFixed(3)}, ${r.failedAt.y.toFixed(3)}) にいると ${r.reach.toFixed(3)} 以内に安全位置が無い`,
         });
       }
       safe = r.union;
@@ -607,7 +717,8 @@ function playerAimedSafe(
   cfg: Config,
   motion: Motion,
 ): { union: Vec[]; reach: number; failedAt: Vec | null } {
-  const reach = cfg.playerSpeed * (impactBeat(atk) - atk.telegraphBeat) * grid.beatSec * (1 - acceptance.dodgeTimeMarginRatio);
+  // 走れる時間は狙いが決まる拍 (aimBeat。省略時 telegraphBeat) から当たりまで (v7 T3: 連撃の狙い直しは短い)
+  const reach = cfg.playerSpeed * (impactBeat(atk) - aimBeatOf(atk)) * grid.beatSec * (1 - acceptance.dodgeTimeMarginRatio);
   const union = new Set<Vec>();
   let failedAt: Vec | null = null;
   for (const p of points) {

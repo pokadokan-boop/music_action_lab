@@ -37,6 +37,8 @@ export interface Grid {
   durationSec: number;
   melodyOnsets: number[];
   phrases: Phrase[];
+  // 声部 (トラック名) ごとの音の始まり (拍)。v7 T3: 攻撃を melody 以外の声部に乗せる口 (choreo の track)
+  trackOnsets: Record<string, number[]>;
 }
 
 interface NoteBeat {
@@ -80,6 +82,12 @@ export function buildGrid(midi: MidiLike): Grid {
     notePitches: g.map((n) => n.pitch),
   }));
 
+  const trackOnsets: Record<string, number[]> = {};
+  for (const track of midi.tracks) {
+    if (track.notes.length === 0) continue;
+    trackOnsets[track.name] = unique(track.notes.map((n) => n.ticks / ppq));
+  }
+
   return {
     bpm,
     beatSec,
@@ -88,6 +96,7 @@ export function buildGrid(midi: MidiLike): Grid {
     durationSec: totalBeats * beatSec,
     melodyOnsets: unique(notes.map((n) => n.start)),
     phrases,
+    trackOnsets,
   };
 }
 

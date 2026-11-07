@@ -14,6 +14,7 @@ import {
   leadsChain,
   pathPosAt,
   slamShape,
+  sweepArc,
   type Attack,
   type Choreo,
   type Hitbox,
@@ -384,6 +385,28 @@ function drawTelegraph(
     case 'slam':
       drawSlamCue(ctx, px, pr, atk, impact, progress, ease, motion, weak, strong);
       break;
+    case 'sweep': {
+      // 薙ぎ払い (v7 T3): 回る範囲の扇の縁 (半透明。進むほど濃く) と、回り始めの線
+      const arc = sweepArc(atk, motion);
+      const o = px(arc.origin);
+      const r = pr(arc.length);
+      const from = Math.min(arc.fromRad, arc.toRad);
+      const to = Math.max(arc.fromRad, arc.toRad);
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.25 + 0.5 * progress;
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.arc(o.x, o.y, r, from, to);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.lineWidth = Math.max(2, pr(atk.hitbox.r * 2));
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(o.x + Math.cos(arc.fromRad) * r, o.y + Math.sin(arc.fromRad) * r);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      break;
+    }
     case 'burst':
       break;
   }

@@ -16,14 +16,34 @@ export function makeGrid(bpm = 120, bars = 8): Grid {
       notePitches: [60, 62, 64, 65, 67, 69],
     });
   }
+  const melodyOnsets = phrases.flatMap((p) => p.noteBeats);
   return {
     bpm,
     beatSec: 60 / bpm,
     beatsPerBar,
     totalBeats,
     durationSec: (totalBeats * 60) / bpm,
-    melodyOnsets: phrases.flatMap((p) => p.noteBeats),
+    melodyOnsets,
     phrases,
+    // 声部 (v7 T3): melody と、裏拍に鳴る bass (track の検査用)
+    trackOnsets: { melody: melodyOnsets, bass: phrases.flatMap((p) => [p.startBeat + 0.5, p.startBeat + 2.5]) },
+  };
+}
+
+// 薙ぎ払い (v7 T3): 発生点から長さ 0.2 の線が、狙いの向きを中心に 90 度を 0.5 拍で回る
+export function sweepAttack(over: Partial<Attack> = {}): Attack {
+  return {
+    phrase: 3,
+    type: 'sweep',
+    telegraphBeat: 24,
+    hitBeat: 26,
+    activeBeats: 0.5,
+    path: [{ beat: 24, x: 0.6, y: 0.3 }],
+    hitbox: { shape: 'circle', r: 0.02 },
+    target: { x: 0.3, y: 0.3 },
+    length: 0.2,
+    sweepDeg: 90,
+    ...over,
   };
 }
 
