@@ -17,7 +17,8 @@
 - 振り付けは v6 の 1 本 (曲のメロディの全ての音に攻撃か大技の予告の始まり。14 攻撃。assets/choreo/README.md)。予告は型ごとに形が違う (突進は当たりのある区間だけの道と残像、弾は点線と発射点の輪、レーザーは当たりの太さの帯、大技は 4 隅へ飛ぶ発射装置と枠)。「はじめる」はクリックか Enter (ブラウザの制約で、最初の音の有効化にはクリックかキーが要る)
 - 20 秒で終わり、結果画面に記録の要約が出る。「コピー」して不満ノートに貼る。v6 の要約には命中の内訳 (通常 / 返し / 放ち / 両手放ち)、行動ごとの回数と右手・左手の内訳、溜めの回数、大技の行 (片手軽減 / 両手相殺 / ジャスト率)、小節ごとの「プレイヤーの譜」(1 小節 3 行: 右手・左手・足。16 分 1 マス) が入る
 - 曲候補を聴く: https://pokadokan-boop.github.io/music_action_lab/candidates.html (v7: 2 曲目の候補 4〜6 を像・大技・起伏の形つきで。1 つ選んで番号と理由を一言。docs/decisions/song-choice.md「2 曲目の候補」)
-- シーン (v7): 振り付け 1 本 = 曲 1 つ + 敵 1 体 + 長さ + 敵 HP。assets/choreo/ に 2 本以上あればタイトルで選べ、選択は保存される (既定は最新)。1 曲目 (v6.json) は 20 秒・敵 HP 12 のまま
+- シーン (v7): 振り付け 1 本 = 曲 1 つ + 敵 1 体 + 長さ + 敵 HP。タイトルで選べ、選択は保存される (既定は最新 = 2 曲目)。1 曲目 (v6.json) は 20 秒・敵 HP 12 のまま
+- 2 曲目 (v7。candidate-4、160 BPM、36 秒、敵 HP 40。assets/choreo/README.md): 剣を持つ決闘者。大技は「三連突きからの大上段」(各段の最後の小節。短い音の数だけ突き → 長い音で紫の大上段。大上段は v6 の大技と同じく両手放ちだけで相殺、片手の放ちは軽減)。通常攻撃はその部品: 突き (短いレーザー。連撃の 2 発目以降は当たりの 1 拍前に自機を狙い直すので、歩いているだけでは当たる)、振り下ろし (長めのレーザー)、踏み込み突き (突進)、薙ぎ払い (段 2 から。回る線)、飛ぶ剣 (段 3 だけ。弾)。曲は 8 小節ごとに激しくなり、攻撃も単発 → 3 連 → 4 連と増える
 
 ## 不満を書く
 vault の `音楽アクション/<版> 不満.md` (v6 なら `v6 不満.md`) に書く。1 回の不満につき 4 行以内: 版 / 何が / いつ (phrase 番号か場面) / どう嫌か。好きだった点は `+` を頭に付けて任意で。自由記述でも分解できる (docs/decisions/v2-feedback.md)。
@@ -39,7 +40,8 @@ npm test                 # Vitest (拍グリッド、振り付けの検査、決
 npm run build            # 型チェック + ビルド
 npm run gen:candidates   # 曲候補の再生成
 npx tsx scripts/print-grid.ts assets/midi/candidate-2.mid        # 拍グリッドとフレーズ一覧
-npx tsx scripts/validate-choreo.ts assets/choreo/v6.json         # 振り付けの検査 (自機狙い・等方座標・分岐・連なる攻撃・大技の検査を含む)
+npx tsx scripts/validate-choreo.ts assets/choreo/v7.json         # 振り付けの検査 (自機狙い・等方座標・分岐・連なる攻撃・大技・連撃の狙い直し・踏み込みの検査を含む。v6.json も同じ)
+npm run gen:choreo-v7                                            # 2 曲目の振り付け v7.json を小節の型から生成し直す (scripts/gen-choreo-v7.ts)
 npx tsx scripts/sync-report.ts assets/choreo/v6.json             # 音と動き・当たりのずれを ms で見る
 npm run dev → http://localhost:5173/music_action_lab/sound.html  # 音作りのページ (docs/sound-format.md)
 node scripts/steward/collect.js                                  # 判断者が使うデータ (JSON) を見る

@@ -1,0 +1,2063 @@
+{
+  "id": "v7",
+  "song": "candidate-4",
+  "intent": "2 曲目 (決闘者)。大技「三連突きからの大上段」を軸に、突き (短い laser。連撃は 2 発目以降を 1 拍前に狙い直す) / 振り下ろし / 踏み込み突き (dash) / 薙ぎ払い (sweep) / 飛ぶ剣 (shot。段 3) を派生。各段の最後の小節が大技で、締めの大上段 (heavy) は両手放ちだけで相殺、片手は軽減。右肩上がり: 段 1 単発 → 段 2 連撃 3 → 段 3 連撃 4",
+  "idle": {
+    "amplitude": 0.02
+  },
+  "motion": "snap",
+  "knockbackResist": 0.6,
+  "sceneSeconds": 36,
+  "enemyHp": 40,
+  "attacks": [
+    {
+      "phrase": 0,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 0,
+      "hitBeat": 2,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 0,
+          "x": 0.75,
+          "y": 0.28125
+        },
+        {
+          "beat": 1,
+          "x": 0.6,
+          "y": 0.28125
+        },
+        {
+          "beat": 2,
+          "x": 0.6,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "approach": {
+        "beats": 1,
+        "distance": 0.12
+      }
+    },
+    {
+      "phrase": 1,
+      "type": "dash",
+      "aim": "player",
+      "telegraphBeat": 2,
+      "hitBeat": 4,
+      "activeBeats": 0.5,
+      "path": [
+        {
+          "beat": 3,
+          "x": 0.6,
+          "y": 0.28125
+        },
+        {
+          "beat": 3.5,
+          "x": 0.6,
+          "y": 0.19125
+        },
+        {
+          "beat": 4,
+          "x": 0.64,
+          "y": 0.19125
+        },
+        {
+          "beat": 4.5,
+          "x": 0.3,
+          "y": 0.19125
+        },
+        {
+          "beat": 5,
+          "x": 0.24,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      }
+    },
+    {
+      "phrase": 2,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 6,
+      "hitBeat": 8,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 8,
+          "x": 0.6,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "approach": {
+        "beats": 1,
+        "distance": 0.12
+      }
+    },
+    {
+      "phrase": 2,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 8,
+      "hitBeat": 10,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 10,
+          "x": 0.6,
+          "y": 0.37125
+        },
+        {
+          "beat": 10.25,
+          "x": 0.6,
+          "y": 0.37125
+        },
+        {
+          "beat": 11.5,
+          "x": 0.6,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      }
+    },
+    {
+      "phrase": 3,
+      "type": "dash",
+      "aim": "player",
+      "telegraphBeat": 10,
+      "hitBeat": 12,
+      "activeBeats": 0.5,
+      "path": [
+        {
+          "beat": 11.5,
+          "x": 0.6,
+          "y": 0.28125
+        },
+        {
+          "beat": 12,
+          "x": 0.64,
+          "y": 0.28125
+        },
+        {
+          "beat": 12.5,
+          "x": 0.3,
+          "y": 0.28125
+        },
+        {
+          "beat": 13,
+          "x": 0.24,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      }
+    },
+    {
+      "phrase": 4,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 14,
+      "hitBeat": 16,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 16,
+          "x": 0.6,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "approach": {
+        "beats": 1,
+        "distance": 0.12
+      }
+    },
+    {
+      "phrase": 4,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 16,
+      "hitBeat": 18,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 18,
+          "x": 0.6,
+          "y": 0.19125
+        },
+        {
+          "beat": 18.25,
+          "x": 0.6,
+          "y": 0.19125
+        },
+        {
+          "beat": 19.5,
+          "x": 0.6,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      }
+    },
+    {
+      "phrase": 5,
+      "type": "dash",
+      "aim": "player",
+      "telegraphBeat": 18,
+      "hitBeat": 20,
+      "activeBeats": 0.5,
+      "path": [
+        {
+          "beat": 19.5,
+          "x": 0.6,
+          "y": 0.37125
+        },
+        {
+          "beat": 20,
+          "x": 0.64,
+          "y": 0.37125
+        },
+        {
+          "beat": 20.5,
+          "x": 0.3,
+          "y": 0.37125
+        },
+        {
+          "beat": 21,
+          "x": 0.24,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      }
+    },
+    {
+      "phrase": 6,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 22,
+      "hitBeat": 24,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 24,
+          "x": 0.6,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "approach": {
+        "beats": 1,
+        "distance": 0.12
+      }
+    },
+    {
+      "phrase": 6,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 24,
+      "hitBeat": 26,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 26,
+          "x": 0.6,
+          "y": 0.28125
+        },
+        {
+          "beat": 26.25,
+          "x": 0.6,
+          "y": 0.28125
+        },
+        {
+          "beat": 27.5,
+          "x": 0.6,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      }
+    },
+    {
+      "phrase": 7,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 26,
+      "hitBeat": 28,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 27.5,
+          "x": 0.6,
+          "y": 0.19125
+        },
+        {
+          "beat": 28,
+          "x": 0.46,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-1"
+    },
+    {
+      "phrase": 7,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 27,
+      "hitBeat": 29,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 29,
+          "x": 0.46,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-1",
+      "aimBeat": 28
+    },
+    {
+      "phrase": 7,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 28,
+      "hitBeat": 30,
+      "activeBeats": 0.5,
+      "length": 0.6,
+      "heavy": true,
+      "path": [
+        {
+          "beat": 30,
+          "x": 0.46,
+          "y": 0.19125
+        },
+        {
+          "beat": 30.5,
+          "x": 0.46,
+          "y": 0.19125
+        },
+        {
+          "beat": 31.5,
+          "x": 0.58,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.07
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-1",
+      "aimBeat": 29
+    },
+    {
+      "phrase": 8,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 30,
+      "hitBeat": 32,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 31.5,
+          "x": 0.58,
+          "y": 0.37125
+        },
+        {
+          "beat": 32,
+          "x": 0.44,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-8"
+    },
+    {
+      "phrase": 8,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 31,
+      "hitBeat": 33,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 33,
+          "x": 0.44,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-8",
+      "aimBeat": 32
+    },
+    {
+      "phrase": 8,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 32,
+      "hitBeat": 34,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 34,
+          "x": 0.44,
+          "y": 0.37125
+        },
+        {
+          "beat": 34.25,
+          "x": 0.44,
+          "y": 0.37125
+        },
+        {
+          "beat": 35.5,
+          "x": 0.58,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-8",
+      "aimBeat": 33
+    },
+    {
+      "phrase": 9,
+      "type": "dash",
+      "aim": "player",
+      "telegraphBeat": 34,
+      "hitBeat": 36,
+      "activeBeats": 0.5,
+      "path": [
+        {
+          "beat": 35.5,
+          "x": 0.58,
+          "y": 0.28125
+        },
+        {
+          "beat": 36,
+          "x": 0.62,
+          "y": 0.28125
+        },
+        {
+          "beat": 36.5,
+          "x": 0.3,
+          "y": 0.28125
+        },
+        {
+          "beat": 37,
+          "x": 0.24,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      }
+    },
+    {
+      "phrase": 9,
+      "type": "sweep",
+      "aim": "player",
+      "telegraphBeat": 36,
+      "hitBeat": 38,
+      "activeBeats": 0.5,
+      "length": 0.3,
+      "sweepDeg": 120,
+      "path": [
+        {
+          "beat": 38,
+          "x": 0.24,
+          "y": 0.28125
+        },
+        {
+          "beat": 38.5,
+          "x": 0.24,
+          "y": 0.28125
+        },
+        {
+          "beat": 39.5,
+          "x": 0.58,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "chained": true
+    },
+    {
+      "phrase": 10,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 38,
+      "hitBeat": 40,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 39.5,
+          "x": 0.58,
+          "y": 0.19125
+        },
+        {
+          "beat": 40,
+          "x": 0.44,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-10"
+    },
+    {
+      "phrase": 10,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 39,
+      "hitBeat": 41,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 41,
+          "x": 0.44,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-10",
+      "aimBeat": 40
+    },
+    {
+      "phrase": 10,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 40,
+      "hitBeat": 42,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 42,
+          "x": 0.44,
+          "y": 0.19125
+        },
+        {
+          "beat": 42.25,
+          "x": 0.44,
+          "y": 0.19125
+        },
+        {
+          "beat": 43.5,
+          "x": 0.58,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-10",
+      "aimBeat": 41
+    },
+    {
+      "phrase": 11,
+      "type": "dash",
+      "aim": "player",
+      "telegraphBeat": 42,
+      "hitBeat": 44,
+      "activeBeats": 0.5,
+      "path": [
+        {
+          "beat": 43.5,
+          "x": 0.58,
+          "y": 0.37125
+        },
+        {
+          "beat": 44,
+          "x": 0.62,
+          "y": 0.37125
+        },
+        {
+          "beat": 44.5,
+          "x": 0.3,
+          "y": 0.37125
+        },
+        {
+          "beat": 45,
+          "x": 0.24,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      }
+    },
+    {
+      "phrase": 11,
+      "type": "sweep",
+      "aim": "player",
+      "telegraphBeat": 44,
+      "hitBeat": 46,
+      "activeBeats": 0.5,
+      "length": 0.3,
+      "sweepDeg": 120,
+      "path": [
+        {
+          "beat": 46,
+          "x": 0.24,
+          "y": 0.37125
+        },
+        {
+          "beat": 46.5,
+          "x": 0.24,
+          "y": 0.37125
+        },
+        {
+          "beat": 47.5,
+          "x": 0.58,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "chained": true
+    },
+    {
+      "phrase": 12,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 46,
+      "hitBeat": 48,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 47.5,
+          "x": 0.58,
+          "y": 0.28125
+        },
+        {
+          "beat": 48,
+          "x": 0.44,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-12"
+    },
+    {
+      "phrase": 12,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 47,
+      "hitBeat": 49,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 49,
+          "x": 0.44,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-12",
+      "aimBeat": 48
+    },
+    {
+      "phrase": 12,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 48,
+      "hitBeat": 50,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 50,
+          "x": 0.44,
+          "y": 0.28125
+        },
+        {
+          "beat": 50.25,
+          "x": 0.44,
+          "y": 0.28125
+        },
+        {
+          "beat": 51.5,
+          "x": 0.58,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-12",
+      "aimBeat": 49
+    },
+    {
+      "phrase": 13,
+      "type": "dash",
+      "aim": "player",
+      "telegraphBeat": 50,
+      "hitBeat": 52,
+      "activeBeats": 0.5,
+      "path": [
+        {
+          "beat": 51.5,
+          "x": 0.58,
+          "y": 0.19125
+        },
+        {
+          "beat": 52,
+          "x": 0.62,
+          "y": 0.19125
+        },
+        {
+          "beat": 52.5,
+          "x": 0.3,
+          "y": 0.19125
+        },
+        {
+          "beat": 53,
+          "x": 0.24,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      }
+    },
+    {
+      "phrase": 13,
+      "type": "sweep",
+      "aim": "player",
+      "telegraphBeat": 52,
+      "hitBeat": 54,
+      "activeBeats": 0.5,
+      "length": 0.3,
+      "sweepDeg": 120,
+      "path": [
+        {
+          "beat": 54,
+          "x": 0.24,
+          "y": 0.19125
+        },
+        {
+          "beat": 54.5,
+          "x": 0.24,
+          "y": 0.19125
+        },
+        {
+          "beat": 55.5,
+          "x": 0.58,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "chained": true
+    },
+    {
+      "phrase": 14,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 54,
+      "hitBeat": 56,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 55.5,
+          "x": 0.58,
+          "y": 0.37125
+        },
+        {
+          "beat": 56,
+          "x": 0.44,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-14"
+    },
+    {
+      "phrase": 14,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 55,
+      "hitBeat": 57,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 57,
+          "x": 0.44,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-14",
+      "aimBeat": 56
+    },
+    {
+      "phrase": 14,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 56,
+      "hitBeat": 58,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 58,
+          "x": 0.44,
+          "y": 0.37125
+        },
+        {
+          "beat": 58.25,
+          "x": 0.44,
+          "y": 0.37125
+        },
+        {
+          "beat": 59.5,
+          "x": 0.58,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "combo-14",
+      "aimBeat": 57
+    },
+    {
+      "phrase": 15,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 58,
+      "hitBeat": 60,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 59.5,
+          "x": 0.58,
+          "y": 0.28125
+        },
+        {
+          "beat": 60,
+          "x": 0.44,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-2"
+    },
+    {
+      "phrase": 15,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 58.5,
+      "hitBeat": 60.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 60.5,
+          "x": 0.44,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-2",
+      "aimBeat": 59.5
+    },
+    {
+      "phrase": 15,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 59,
+      "hitBeat": 61,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 61,
+          "x": 0.44,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-2",
+      "aimBeat": 60
+    },
+    {
+      "phrase": 15,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 60,
+      "hitBeat": 62,
+      "activeBeats": 0.5,
+      "length": 0.6,
+      "heavy": true,
+      "path": [
+        {
+          "beat": 62,
+          "x": 0.44,
+          "y": 0.28125
+        },
+        {
+          "beat": 62.5,
+          "x": 0.44,
+          "y": 0.28125
+        },
+        {
+          "beat": 63.5,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.07
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-2",
+      "aimBeat": 61
+    },
+    {
+      "phrase": 16,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 62,
+      "hitBeat": 64,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 63.5,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 64,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-16"
+    },
+    {
+      "phrase": 16,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 62.5,
+      "hitBeat": 64.5,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 64.5,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-16",
+      "aimBeat": 63.5
+    },
+    {
+      "phrase": 16,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 63.5,
+      "hitBeat": 65.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 64.5,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 65,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 65.5,
+          "x": 0.42,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-16",
+      "aimBeat": 64.5
+    },
+    {
+      "phrase": 16,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 64,
+      "hitBeat": 66,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 66,
+          "x": 0.42,
+          "y": 0.19125
+        },
+        {
+          "beat": 66.25,
+          "x": 0.42,
+          "y": 0.19125
+        },
+        {
+          "beat": 67.5,
+          "x": 0.56,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-16",
+      "aimBeat": 65
+    },
+    {
+      "phrase": 17,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 66,
+      "hitBeat": 68,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 67.5,
+          "x": 0.56,
+          "y": 0.37125
+        },
+        {
+          "beat": 68,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-17"
+    },
+    {
+      "phrase": 17,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 67,
+      "hitBeat": 69,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 69,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-17",
+      "aimBeat": 68
+    },
+    {
+      "phrase": 17,
+      "type": "sweep",
+      "aim": "player",
+      "telegraphBeat": 68,
+      "hitBeat": 70,
+      "activeBeats": 0.5,
+      "length": 0.3,
+      "sweepDeg": 150,
+      "path": [
+        {
+          "beat": 70,
+          "x": 0.42,
+          "y": 0.37125
+        },
+        {
+          "beat": 70.5,
+          "x": 0.42,
+          "y": 0.37125
+        },
+        {
+          "beat": 71.5,
+          "x": 0.56,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-17",
+      "aimBeat": 68.5
+    },
+    {
+      "phrase": 18,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 70,
+      "hitBeat": 72,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 71.5,
+          "x": 0.56,
+          "y": 0.28125
+        },
+        {
+          "beat": 72,
+          "x": 0.56,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-18"
+    },
+    {
+      "phrase": 18,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 70.5,
+      "hitBeat": 72.5,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 72.5,
+          "x": 0.56,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-18",
+      "aimBeat": 71.5
+    },
+    {
+      "phrase": 18,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 71.5,
+      "hitBeat": 73.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 72.5,
+          "x": 0.56,
+          "y": 0.28125
+        },
+        {
+          "beat": 73,
+          "x": 0.56,
+          "y": 0.28125
+        },
+        {
+          "beat": 73.5,
+          "x": 0.42,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-18",
+      "aimBeat": 72.5
+    },
+    {
+      "phrase": 18,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 72,
+      "hitBeat": 74,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 74,
+          "x": 0.42,
+          "y": 0.28125
+        },
+        {
+          "beat": 74.25,
+          "x": 0.42,
+          "y": 0.28125
+        },
+        {
+          "beat": 75.5,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-18",
+      "aimBeat": 73
+    },
+    {
+      "phrase": 19,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 74,
+      "hitBeat": 76,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 75.5,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 76,
+          "x": 0.42,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-19"
+    },
+    {
+      "phrase": 19,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 75,
+      "hitBeat": 77,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 77,
+          "x": 0.42,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-19",
+      "aimBeat": 76
+    },
+    {
+      "phrase": 19,
+      "type": "sweep",
+      "aim": "player",
+      "telegraphBeat": 76,
+      "hitBeat": 78,
+      "activeBeats": 0.5,
+      "length": 0.3,
+      "sweepDeg": 150,
+      "path": [
+        {
+          "beat": 78,
+          "x": 0.42,
+          "y": 0.19125
+        },
+        {
+          "beat": 78.5,
+          "x": 0.42,
+          "y": 0.19125
+        },
+        {
+          "beat": 79.5,
+          "x": 0.56,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-19",
+      "aimBeat": 76.5
+    },
+    {
+      "phrase": 20,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 78,
+      "hitBeat": 80,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 79.5,
+          "x": 0.56,
+          "y": 0.37125
+        },
+        {
+          "beat": 80,
+          "x": 0.56,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-20"
+    },
+    {
+      "phrase": 20,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 78.5,
+      "hitBeat": 80.5,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 80.5,
+          "x": 0.56,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-20",
+      "aimBeat": 79.5
+    },
+    {
+      "phrase": 20,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 79.5,
+      "hitBeat": 81.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 80.5,
+          "x": 0.56,
+          "y": 0.37125
+        },
+        {
+          "beat": 81,
+          "x": 0.56,
+          "y": 0.37125
+        },
+        {
+          "beat": 81.5,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-20",
+      "aimBeat": 80.5
+    },
+    {
+      "phrase": 20,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 80,
+      "hitBeat": 82,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 82,
+          "x": 0.42,
+          "y": 0.37125
+        },
+        {
+          "beat": 82.25,
+          "x": 0.42,
+          "y": 0.37125
+        },
+        {
+          "beat": 83.5,
+          "x": 0.56,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-20",
+      "aimBeat": 81
+    },
+    {
+      "phrase": 21,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 82,
+      "hitBeat": 84,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 83.5,
+          "x": 0.56,
+          "y": 0.28125
+        },
+        {
+          "beat": 84,
+          "x": 0.42,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-21"
+    },
+    {
+      "phrase": 21,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 83,
+      "hitBeat": 85,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 85,
+          "x": 0.42,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-21",
+      "aimBeat": 84
+    },
+    {
+      "phrase": 21,
+      "type": "sweep",
+      "aim": "player",
+      "telegraphBeat": 84,
+      "hitBeat": 86,
+      "activeBeats": 0.5,
+      "length": 0.3,
+      "sweepDeg": 150,
+      "path": [
+        {
+          "beat": 86,
+          "x": 0.42,
+          "y": 0.28125
+        },
+        {
+          "beat": 86.5,
+          "x": 0.42,
+          "y": 0.28125
+        },
+        {
+          "beat": 87.5,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.03
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rush-21",
+      "aimBeat": 84.5
+    },
+    {
+      "phrase": 22,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 86,
+      "hitBeat": 88,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 87.5,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 88,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-22"
+    },
+    {
+      "phrase": 22,
+      "type": "shot",
+      "aim": "player",
+      "telegraphBeat": 86.5,
+      "hitBeat": 88.5,
+      "activeBeats": 0,
+      "path": [
+        {
+          "beat": 88.5,
+          "x": 0.56,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.02
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-22",
+      "aimBeat": 87.5
+    },
+    {
+      "phrase": 22,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 87.5,
+      "hitBeat": 89.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 88.5,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 89,
+          "x": 0.56,
+          "y": 0.19125
+        },
+        {
+          "beat": 89.5,
+          "x": 0.42,
+          "y": 0.19125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-22",
+      "aimBeat": 88.5
+    },
+    {
+      "phrase": 22,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 88,
+      "hitBeat": 90,
+      "activeBeats": 0.25,
+      "length": 0.45,
+      "path": [
+        {
+          "beat": 90,
+          "x": 0.42,
+          "y": 0.19125
+        },
+        {
+          "beat": 90.25,
+          "x": 0.42,
+          "y": 0.19125
+        },
+        {
+          "beat": 91.5,
+          "x": 0.56,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.045
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "rain-22",
+      "aimBeat": 89
+    },
+    {
+      "phrase": 23,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 90,
+      "hitBeat": 92,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 91.5,
+          "x": 0.56,
+          "y": 0.37125
+        },
+        {
+          "beat": 92,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-3"
+    },
+    {
+      "phrase": 23,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 90.5,
+      "hitBeat": 92.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 92.5,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-3",
+      "aimBeat": 91.5
+    },
+    {
+      "phrase": 23,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 91,
+      "hitBeat": 93,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 93,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-3",
+      "aimBeat": 92
+    },
+    {
+      "phrase": 23,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 91.5,
+      "hitBeat": 93.5,
+      "activeBeats": 0.25,
+      "length": 0.32,
+      "path": [
+        {
+          "beat": 93.5,
+          "x": 0.42,
+          "y": 0.37125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.025
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-3",
+      "aimBeat": 92.5
+    },
+    {
+      "phrase": 23,
+      "type": "laser",
+      "aim": "player",
+      "telegraphBeat": 92,
+      "hitBeat": 94,
+      "activeBeats": 0.5,
+      "length": 0.6,
+      "heavy": true,
+      "path": [
+        {
+          "beat": 94,
+          "x": 0.42,
+          "y": 0.37125
+        },
+        {
+          "beat": 94.5,
+          "x": 0.42,
+          "y": 0.37125
+        },
+        {
+          "beat": 95.5,
+          "x": 0.75,
+          "y": 0.28125
+        }
+      ],
+      "hitbox": {
+        "shape": "circle",
+        "r": 0.07
+      },
+      "target": {
+        "x": 0.25,
+        "y": 0.28125
+      },
+      "group": "finisher-3",
+      "aimBeat": 93
+    }
+  ]
+}

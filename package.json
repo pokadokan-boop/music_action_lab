@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "gen:candidates": "tsx scripts/gen-candidates.ts"
+    "gen:candidates": "tsx scripts/gen-candidates.ts",
+    "gen:choreo-v7": "tsx scripts/gen-choreo-v7.ts"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28"

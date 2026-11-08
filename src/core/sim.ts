@@ -12,6 +12,7 @@ import {
   hitboxAt,
   impactBeat,
   incomingDir,
+  isHeavy,
   primaryHit,
   resolveAttack,
   touches,
@@ -481,8 +482,9 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, ha
 
   for (const [idx, atk] of choreo.attacks.entries()) {
     if (atk.uncancelable || state.cancelled.has(idx)) continue;
-    // 大技は放ちだけが対象 (通常攻撃と返しは cancel-miss も記録しない)
-    if (atk.type === 'slam' && !strong) continue;
+    // 大技 (slam か heavy。v7 T4) は放ちだけが対象 (通常攻撃と返しは cancel-miss も記録しない)
+    const heavy = isHeavy(atk);
+    if (heavy && !strong) continue;
     const motion = attackMotion(choreo, atk);
     const w = activeWindow(atk, grid.beatSec, cfg, motion);
     // 押下の拍は固定ステップの倍数で、窓の端と一致しうるので浮動小数の誤差ぶんを足す
@@ -503,7 +505,7 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, ha
       continue;
     }
     // 大技を片手の放ちで: 軽減だけ (相殺しない)。既に軽減済みなら何もしない
-    if (atk.type === 'slam' && !double) {
+    if (heavy && !double) {
       if (!state.mitigated.has(idx)) {
         state.mitigated.add(idx);
         state.log.push({ t: state.t, beat: b, kind: 'mitigate', attackIndex: idx, phrase: atk.phrase, hand });
@@ -518,7 +520,7 @@ function tryCancel(state: SimState, aim: Vec, deps: SimDeps, strong: boolean, ha
     const main = primaryHit(shape);
     const pos = main.kind === 'circle' ? { x: main.x, y: main.y } : closestPointOnSegment(state.player, main.a, main.b);
     state.lastCancel = { attackIndex: idx, pos, hitbox: shape };
-    if (atk.type === 'slam') {
+    if (heavy) {
       // 両手相殺 (v6 T5): ジャスト率 j は当たりの発生拍を基準に。敵に damage.release × 2 × j、反動の総量を R と j で配分
       const j = justRate(b, impactBeat(atk), early, late);
       const split = splitRecoil(cfg.slam.recoil, j, deps.choreo.knockbackResist ?? KNOCKBACK_RESIST_DEFAULT);
@@ -601,8 +603,9 @@ function checkDamage(state: SimState, deps: SimDeps): void {
     // 相殺された当たりは消えている (本体の動きだけ続く)
     if (state.damagedBy.has(idx) || state.cancelled.has(idx)) return;
     if (touches(state.player, c, cfg.playerRadius)) {
-      // 大技 (v6 T5): 被ダメ cfg.slam.damage、片手で軽減済みなら ×mitigateRatio。円の中心から外へ吹っ飛ぶ (入力を受けない)
-      const slam = atk.type === 'slam';
+      // 大技 (v6 T5。v7 T4 で heavy の laser / sweep も): 被ダメ cfg.slam.damage、片手で軽減済みなら ×mitigateRatio。
+      // 吹っ飛びは円なら中心から外、線分なら最寄り点から外 (線の上なら射線の向き)。その間は入力を受けない
+      const slam = isHeavy(atk);
       const mitigated = slam && state.mitigated.has(idx);
       const ratio = mitigated ? cfg.slam.mitigateRatio : 1;
       const dmg = slam ? cfg.slam.damage * ratio : 1;
@@ -614,8 +617,15 @@ function checkDamage(state: SimState, deps: SimDeps): void {
       state.log.push({ t: state.t, beat: state.beat, kind: 'damage', attackIndex: idx, phrase: atk.phrase, ...(slam ? { damage: dmg, mitigated } : {}) });
       if (slam) {
         const main = primaryHit(c);
-        const center = main.kind === 'circle' ? main : state.enemy;
-        state.knockback = { startBeat: state.beat, dir: awayFrom(state.player, center), distance: cfg.slam.knockback * ratio };
+        let dir: Vec;
+        if (main.kind === 'circle') {
+          dir = awayFrom(state.player, main);
+        } else {
+          const near = closestPointOnSegment(state.player, main.a, main.b);
+          const away = normalize({ x: state.player.x - near.x, y: state.player.y - near.y });
+          dir = away.x === 0 && away.y === 0 ? normalize({ x: main.b.x - main.a.x, y: main.b.y - main.a.y }) : away;
+        }
+        state.knockback = { startBeat: state.beat, dir, distance: cfg.slam.knockback * ratio };
         state.stepping = null;
       }
       breakCharge(state);

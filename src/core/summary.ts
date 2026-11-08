@@ -1,5 +1,5 @@
 // 結果画面の要約。記録 (GameLog) と振り付け・グリッドから、人間が不満を書くときに参照する文章を作る
-import type { Choreo } from './choreo';
+import { isHeavy, type Choreo } from './choreo';
 import type { Grid } from './grid';
 import { CANCEL_MISS_LABEL, HAND_LABEL, OUTCOME_LABEL, type GameLog, type Hand, type LogEvent, type SummaryMeta } from './log';
 
@@ -24,7 +24,7 @@ export function buildSummary(log: GameLog, choreo: Choreo, grid: Grid, meta: Sum
       return !oc || !oc.outcome ? '-' : `${OUTCOME_LABEL[oc.outcome]}${oc.branch && oc.branch !== 'normal' ? ` (${BRANCH_LABEL[oc.branch]})` : ''}`;
     });
     const cancels = perAttack((i) =>
-      choreo.attacks[i].type === 'slam'
+      isHeavy(choreo.attacks[i])
         ? slamColumn(ofAttack('cancel', i).length, ofAttack('mitigate', i).length, ofAttack('cancel-miss', i))
         : cancelColumn(ofAttack('cancel', i).length, ofAttack('cancel-miss', i)),
     );
@@ -35,9 +35,9 @@ export function buildSummary(log: GameLog, choreo: Choreo, grid: Grid, meta: Sum
 
 const BRANCH_LABEL = { normal: '通常', stop: '止まる', approach: '寄る', retreat: '離れる' } as const;
 
-// 大技の行 (v6 T5): 振り付けに slam があるときだけ。片手軽減は相殺されなかったものだけ数える。ジャスト率は両手相殺の平均
+// 大技の行 (v6 T5): 振り付けに大技 (slam か heavy。v7 T4) があるときだけ。片手軽減は相殺されなかったものだけ数える。ジャスト率は両手相殺の平均
 function slamLine(log: GameLog, choreo: Choreo): string[] {
-  const slams = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => a.type === 'slam');
+  const slams = choreo.attacks.map((a, i) => ({ a, i })).filter(({ a }) => isHeavy(a));
   if (slams.length === 0) return [];
   const cancels = log.events.filter((e) => e.kind === 'cancel' && slams.some(({ i }) => i === e.attackIndex));
   const cancelledIdx = new Set(cancels.map((e) => e.attackIndex));

@@ -11,6 +11,7 @@ import {
   hitboxAt,
   impactBeat,
   incomingDir,
+  isHeavy,
   leadsChain,
   pathPosAt,
   slamShape,
@@ -317,8 +318,8 @@ function drawTelegraph(
   const ip = px(impact);
   const maxR = atk.type === 'burst' || atk.type === 'slam' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
   const ease = easeFor(motion);
-  const weak = atk.type === 'slam' ? COLOR.telegraphDouble : atk.uncancelable ? COLOR.telegraphDanger : COLOR.telegraph;
-  const strong = atk.type === 'slam' ? COLOR.telegraphDoubleStrong : atk.uncancelable ? COLOR.telegraphDangerStrong : COLOR.telegraphStrong;
+  const weak = isHeavy(atk) ? COLOR.telegraphDouble : atk.uncancelable ? COLOR.telegraphDanger : COLOR.telegraph;
+  const strong = isHeavy(atk) ? COLOR.telegraphDoubleStrong : atk.uncancelable ? COLOR.telegraphDangerStrong : COLOR.telegraphStrong;
 
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = weak;

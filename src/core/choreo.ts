@@ -76,6 +76,14 @@ export interface Attack {
   length?: number;
   // sweep の回る角度 (度。負なら逆回り)
   sweepDeg?: number;
+  // 大技の相殺規則 (v7 T4): true なら slam と同じく、両手放ちだけで相殺でき、片手の放ちは軽減、被弾はダメージ 2 と吹っ飛び。
+  // laser / sweep / slam にだけ付けられる (検査 heavy-shape)。slam は常に大技 (isHeavy)
+  heavy?: boolean;
+}
+
+// 大技か (v7 T4): slam か、heavy の付いた laser / sweep。相殺・被弾・色・要約の分岐はこれで見る
+export function isHeavy(attack: Attack): boolean {
+  return attack.type === 'slam' || attack.heavy === true;
 }
 
 export const APPROACH_KEEP_RATIO = 1.5;
@@ -134,7 +142,8 @@ export type ViolationRule =
   | 'aim-beat'
   | 'approach-shape'
   | 'sweep-shape'
-  | 'track-known';
+  | 'track-known'
+  | 'heavy-shape';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -594,6 +603,10 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
     }
     if (atk.type === 'laser' && atk.length !== undefined && !(atk.length > 0)) {
       out.push({ attackIndex: i, rule: 'sweep-shape', message: `laser の length は > 0 (${atk.length})` });
+    }
+    // 大技の印 (v7 T4): heavy は laser / sweep / slam にだけ。dash と shot の相殺は本体や弾の形で見ていて、両手放ちの「叩き落とす」感じに合わない
+    if (atk.heavy && atk.type !== 'laser' && atk.type !== 'sweep' && atk.type !== 'slam') {
+      out.push({ attackIndex: i, rule: 'heavy-shape', message: `heavy を付けられるのは laser / sweep / slam だけ (${atk.type})` });
     }
     const delay = atk.impactDelayBeats ?? 0;
     if (delay < 0 || delay > IMPACT_DELAY_MAX_BEATS) {
