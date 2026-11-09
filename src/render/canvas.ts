@@ -22,9 +22,11 @@ import {
   type Motion,
 } from '../core/choreo';
 import type { Grid } from '../core/grid';
-import { currentAttack, enemyPose, playerPose } from '../core/pose';
+import { currentAttack, enemyMotion, enemyPose, playerPose } from '../core/pose';
 import { HANDS, armedHands, effectiveChoreo, type SimState } from '../core/sim';
+import { stageAt } from '../core/stage';
 import { easeOut, normalize, type Vec } from '../core/vec';
+import { drawDuelist } from './duelist';
 import { drawEnemy, drawPlayer } from './figures';
 
 export interface Viewport {
@@ -106,11 +108,19 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
     if (h) drawHitbox(ctx, px, pr, h);
   }
 
-  // 敵: 構えは core が決める。拍の頭で明るく、イージングアウトで戻る。命中の瞬間は白
+  // 敵: 構えは core が決める。拍の頭で明るく、イージングアウトで戻る。命中の瞬間は白。
+  // 姿は振り付けの figure で選ぶ (v7 T5): duelist は動きの位相 (enemyMotion) と曲の段 (stageAt) も受け取る
   const e = px(state.enemy);
   const ePose = enemyPose(choreo, beat, grid.beatSec, cfg);
   const eDir = enemyDir(choreo, state, grid.beatSec, cfg);
-  drawEnemy(ctx, e, pr(cfg.enemyRadius), ePose, eDir, pulse, mix(COLOR.enemy, '#ffffff', pulse * 0.35), flash.enemyHit > 0);
+  const eColor = mix(COLOR.enemy, '#ffffff', pulse * 0.35);
+  if (choreo.figure === 'duelist') {
+    const motion = enemyMotion(choreo, beat, grid.beatSec, cfg);
+    const idle = ePose === 'stopped' || ePose === 'approach' || ePose === 'retreat' ? 'low' : 'guard';
+    drawDuelist(ctx, e, pr(cfg.enemyRadius), motion, eDir, pulse, eColor, flash.enemyHit > 0, idle, stageAt(beat, grid.beatsPerBar));
+  } else {
+    drawEnemy(ctx, e, pr(cfg.enemyRadius), ePose, eDir, pulse, eColor, flash.enemyHit > 0);
+  }
 
   // プレイヤー: 構えは core が決める。向きは攻撃の向きがあればその側、無ければ敵のいる側。
   // ステップ中と溜め状態は sim の状態をそのまま読む (v5)

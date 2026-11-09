@@ -10,6 +10,13 @@ import { WORLD, inWorld } from './world';
 // sweep (v7 T3): 薙ぎ払い。発生点から長さ length の線 (太さ hitbox.r) が、target の向きを中心に sweepDeg の角度を activeBeats かけて回る
 export type AttackType = 'dash' | 'burst' | 'shot' | 'laser' | 'slam' | 'sweep';
 
+// 敵の姿 (v7 T5): teardrop = 1 体目の雫形 (省略時)、duelist = 2 体目の決闘者 (src/render/duelist.ts)
+export type EnemyFigure = 'teardrop' | 'duelist';
+
+// 姿の動きの名前 (v7 T5)。攻撃の型から決まる既定を Attack.move で上書きできる (短い laser = 突き、長い laser = 振り下ろし、など)。
+// 絵の側 (figures / duelist) はこの名前で鍵フレームの組を選ぶ
+export type EnemyMove = 'thrust' | 'chop' | 'heavyChop' | 'sweep' | 'dash' | 'shot' | 'slam' | 'burst';
+
 // 狙い。fixed = データに書いた位置そのまま。player = 予告開始 (telegraphBeat) の瞬間のプレイヤー位置を狙う (v2 T4。追尾はしない)
 export type Aim = 'fixed' | 'player';
 
@@ -79,6 +86,27 @@ export interface Attack {
   // 大技の相殺規則 (v7 T4): true なら slam と同じく、両手放ちだけで相殺でき、片手の放ちは軽減、被弾はダメージ 2 と吹っ飛び。
   // laser / sweep / slam にだけ付けられる (検査 heavy-shape)。slam は常に大技 (isHeavy)
   heavy?: boolean;
+  // 姿の動きの名前 (v7 T5)。省略時は型から (moveOf)
+  move?: EnemyMove;
+}
+
+// 攻撃の動きの名前 (v7 T5): 書いてあればそれ、無ければ型から。laser は長さ 0.4 未満を突き、以上を振り下ろし (heavy なら大上段)
+export function moveOf(attack: Attack): EnemyMove {
+  if (attack.move) return attack.move;
+  switch (attack.type) {
+    case 'laser':
+      return attack.heavy ? 'heavyChop' : (attack.length ?? Infinity) < 0.4 ? 'thrust' : 'chop';
+    case 'sweep':
+      return 'sweep';
+    case 'dash':
+      return 'dash';
+    case 'shot':
+      return 'shot';
+    case 'slam':
+      return 'slam';
+    case 'burst':
+      return 'burst';
+  }
 }
 
 // 大技か (v7 T4): slam か、heavy の付いた laser / sweep。相殺・被弾・色・要約の分岐はこれで見る
@@ -112,6 +140,8 @@ export interface Choreo {
   // 1 曲目 (v6.json) は書かないので v6.1 と同じ記録になる
   sceneSeconds?: number;
   enemyHp?: number;
+  // 敵の姿 (v7 T5)。省略時 teardrop (1 体目)
+  figure?: EnemyFigure;
   attacks: Attack[];
 }
 

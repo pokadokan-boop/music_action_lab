@@ -1,5 +1,5 @@
 // 構え (v4 T3)。描画はここで決めた名前だけを見る。絵は src/render/figures.ts
-import { activeWindow, attackMotion, type Attack, type Choreo } from './choreo';
+import { activeWindow, attackMotion, impactBeat, moveOf, type Attack, type Choreo, type EnemyMove } from './choreo';
 import type { Config } from '../config';
 
 export type EnemyPose = 'idle' | 'laser' | 'burst' | 'dash' | 'stopped' | 'approach' | 'retreat';
@@ -28,6 +28,44 @@ export function enemyPose(choreo: Choreo, beat: number, beatSec: number, cfg: Co
     if (beat >= atk.branchFromBeat && beat <= last) return branchPose(atk.branchMove);
   }
   return 'idle';
+}
+
+// 動きの位相 (v7 T5)。姿が鍵フレームを補間するための値。move は動きの名前、attack はその攻撃 (無ければ null)。
+// pre は予告開始 → 当たりの発生で 0 → 1 (予備動作)、post は当たりの発生 → 当たりの窓の終わり + RECOVER_BEATS で 0 → 1 (打点 → 余韻 → 構え)。
+// 今まさに来ている攻撃 (currentAttack) があればそれ、無ければ窓が終わって RECOVER_BEATS 以内の攻撃 (余韻)。どちらも無ければ move null
+export const RECOVER_BEATS = 0.5;
+
+export interface EnemyMotion {
+  move: EnemyMove | null;
+  attack: Attack | null;
+  pre: number;
+  post: number;
+}
+
+export function enemyMotion(choreo: Choreo, beat: number, beatSec: number, cfg: Config): EnemyMotion {
+  const current = currentAttack(choreo, beat, beatSec, cfg);
+  if (current) return motionOf(choreo, current, beat, beatSec, cfg);
+  let best: { atk: Attack; end: number } | null = null;
+  for (const atk of choreo.attacks) {
+    const w = activeWindow(atk, beatSec, cfg, attackMotion(choreo, atk));
+    if (beat < w.endBeat || beat > w.endBeat + RECOVER_BEATS) continue;
+    if (!best || w.endBeat > best.end) best = { atk, end: w.endBeat };
+  }
+  return best ? motionOf(choreo, best.atk, beat, beatSec, cfg) : { move: null, attack: null, pre: 0, post: 0 };
+}
+
+function motionOf(choreo: Choreo, atk: Attack, beat: number, beatSec: number, cfg: Config): EnemyMotion {
+  const w = activeWindow(atk, beatSec, cfg, attackMotion(choreo, atk));
+  const impact = impactBeat(atk);
+  const preSpan = impact - atk.telegraphBeat;
+  const postSpan = w.endBeat + RECOVER_BEATS - impact;
+  const pre = preSpan > 0 ? clamp01((beat - atk.telegraphBeat) / preSpan) : 1;
+  const post = beat < impact ? 0 : postSpan > 0 ? clamp01((beat - impact) / postSpan) : 1;
+  return { move: moveOf(atk), attack: atk, pre, post };
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
 // shot と sweep (v7) は laser、slam (v6) は burst と同じ構え

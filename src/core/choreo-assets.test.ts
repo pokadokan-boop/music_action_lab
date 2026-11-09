@@ -68,6 +68,10 @@ describe('振り付けデータ', () => {
     expect(choreo.sceneSeconds).toBe(36);
     expect(choreo.enemyHp).toBe(40);
     expect(choreo.knockbackResist).toBe(0.6);
+    // 姿 (T5): 決闘者。動きの名前は全部書いてある
+    expect(choreo.figure).toBe('duelist');
+    expect(choreo.attacks.every((a) => a.move !== undefined)).toBe(true);
+    expect(new Set(choreo.attacks.map((a) => a.move))).toEqual(new Set(['thrust', 'chop', 'heavyChop', 'sweep', 'dash', 'shot']));
   });
 
   it.each(files)('%s は合否条件を満たす', (file) => {

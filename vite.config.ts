@@ -9,6 +9,7 @@ export default defineConfig({
         candidates: 'candidates.html',
         measure: 'measure.html',
         sound: 'sound.html',
+        figure: 'figure.html',
       },
     },
   },

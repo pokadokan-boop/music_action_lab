@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>敵の姿 (決闘者)</title>
+    <style>
+      html, body { margin: 0; background: #101014; color: #ddd; font-family: sans-serif; }
+      #app { padding: 12px 16px; }
+      #app p { margin: 4px 0 8px; font-size: 13px; color: #aaa; }
+      .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; margin: 6px 0; }
+      .row input[type="range"] { width: 220px; }
+      .row button { font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid #555; background: #222; color: #ddd; cursor: pointer; }
+      .row button[aria-pressed="true"] { background: #3a7; border-color: #3a7; color: #fff; }
+      canvas { display: block; width: 100%; max-width: 1400px; background: #101014; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <p>2 体目の敵 (決闘者) の確認用ページ。行 = 段 1 / 2 / 3 (進み 100%)、列 = 動き。ゲームと同じ描画関数 (src/render/duelist.ts) で描く。ゲームからは呼ばない。</p>
+      <div class="row" id="controls"></div>
+      <canvas id="sheet" width="1400" height="900"></canvas>
+    </div>
+    <script type="module" src="/src/figure.ts"></script>
+  </body>
+</html>

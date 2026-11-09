@@ -9,6 +9,7 @@
   "knockbackResist": 0.6,
   "sceneSeconds": 36,
   "enemyHp": 40,
+  "figure": "duelist",
   "attacks": [
     {
       "phrase": 0,
@@ -18,6 +19,7 @@
       "hitBeat": 2,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 0,
@@ -55,6 +57,7 @@
       "telegraphBeat": 2,
       "hitBeat": 4,
       "activeBeats": 0.5,
+      "move": "dash",
       "path": [
         {
           "beat": 3,
@@ -95,6 +98,7 @@
       "hitBeat": 8,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 8,
@@ -123,6 +127,7 @@
       "hitBeat": 10,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 10,
@@ -156,6 +161,7 @@
       "telegraphBeat": 10,
       "hitBeat": 12,
       "activeBeats": 0.5,
+      "move": "dash",
       "path": [
         {
           "beat": 11.5,
@@ -191,6 +197,7 @@
       "hitBeat": 16,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 16,
@@ -219,6 +226,7 @@
       "hitBeat": 18,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 18,
@@ -252,6 +260,7 @@
       "telegraphBeat": 18,
       "hitBeat": 20,
       "activeBeats": 0.5,
+      "move": "dash",
       "path": [
         {
           "beat": 19.5,
@@ -287,6 +296,7 @@
       "hitBeat": 24,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 24,
@@ -315,6 +325,7 @@
       "hitBeat": 26,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 26,
@@ -349,6 +360,7 @@
       "hitBeat": 28,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 27.5,
@@ -379,6 +391,7 @@
       "hitBeat": 29,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 29,
@@ -406,6 +419,7 @@
       "activeBeats": 0.5,
       "length": 0.6,
       "heavy": true,
+      "move": "heavyChop",
       "path": [
         {
           "beat": 30,
@@ -442,6 +456,7 @@
       "hitBeat": 32,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 31.5,
@@ -472,6 +487,7 @@
       "hitBeat": 33,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 33,
@@ -498,6 +514,7 @@
       "hitBeat": 34,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 34,
@@ -533,6 +550,7 @@
       "telegraphBeat": 34,
       "hitBeat": 36,
       "activeBeats": 0.5,
+      "move": "dash",
       "path": [
         {
           "beat": 35.5,
@@ -569,6 +587,7 @@
       "activeBeats": 0.5,
       "length": 0.3,
       "sweepDeg": 120,
+      "move": "sweep",
       "path": [
         {
           "beat": 38,
@@ -604,6 +623,7 @@
       "hitBeat": 40,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 39.5,
@@ -634,6 +654,7 @@
       "hitBeat": 41,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 41,
@@ -660,6 +681,7 @@
       "hitBeat": 42,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 42,
@@ -695,6 +717,7 @@
       "telegraphBeat": 42,
       "hitBeat": 44,
       "activeBeats": 0.5,
+      "move": "dash",
       "path": [
         {
           "beat": 43.5,
@@ -731,6 +754,7 @@
       "activeBeats": 0.5,
       "length": 0.3,
       "sweepDeg": 120,
+      "move": "sweep",
       "path": [
         {
           "beat": 46,
@@ -766,6 +790,7 @@
       "hitBeat": 48,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 47.5,
@@ -796,6 +821,7 @@
       "hitBeat": 49,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 49,
@@ -822,6 +848,7 @@
       "hitBeat": 50,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 50,
@@ -857,6 +884,7 @@
       "telegraphBeat": 50,
       "hitBeat": 52,
       "activeBeats": 0.5,
+      "move": "dash",
       "path": [
         {
           "beat": 51.5,
@@ -893,6 +921,7 @@
       "activeBeats": 0.5,
       "length": 0.3,
       "sweepDeg": 120,
+      "move": "sweep",
       "path": [
         {
           "beat": 54,
@@ -928,6 +957,7 @@
       "hitBeat": 56,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 55.5,
@@ -958,6 +988,7 @@
       "hitBeat": 57,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 57,
@@ -984,6 +1015,7 @@
       "hitBeat": 58,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 58,
@@ -1020,6 +1052,7 @@
       "hitBeat": 60,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 59.5,
@@ -1050,6 +1083,7 @@
       "hitBeat": 60.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 60.5,
@@ -1076,6 +1110,7 @@
       "hitBeat": 61,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 61,
@@ -1103,6 +1138,7 @@
       "activeBeats": 0.5,
       "length": 0.6,
       "heavy": true,
+      "move": "heavyChop",
       "path": [
         {
           "beat": 62,
@@ -1138,6 +1174,7 @@
       "telegraphBeat": 62,
       "hitBeat": 64,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 63.5,
@@ -1167,6 +1204,7 @@
       "telegraphBeat": 62.5,
       "hitBeat": 64.5,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 64.5,
@@ -1193,6 +1231,7 @@
       "hitBeat": 65.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 64.5,
@@ -1229,6 +1268,7 @@
       "hitBeat": 66,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 66,
@@ -1265,6 +1305,7 @@
       "hitBeat": 68,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 67.5,
@@ -1295,6 +1336,7 @@
       "hitBeat": 69,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 69,
@@ -1322,6 +1364,7 @@
       "activeBeats": 0.5,
       "length": 0.3,
       "sweepDeg": 150,
+      "move": "sweep",
       "path": [
         {
           "beat": 70,
@@ -1357,6 +1400,7 @@
       "telegraphBeat": 70,
       "hitBeat": 72,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 71.5,
@@ -1386,6 +1430,7 @@
       "telegraphBeat": 70.5,
       "hitBeat": 72.5,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 72.5,
@@ -1412,6 +1457,7 @@
       "hitBeat": 73.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 72.5,
@@ -1448,6 +1494,7 @@
       "hitBeat": 74,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 74,
@@ -1484,6 +1531,7 @@
       "hitBeat": 76,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 75.5,
@@ -1514,6 +1562,7 @@
       "hitBeat": 77,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 77,
@@ -1541,6 +1590,7 @@
       "activeBeats": 0.5,
       "length": 0.3,
       "sweepDeg": 150,
+      "move": "sweep",
       "path": [
         {
           "beat": 78,
@@ -1576,6 +1626,7 @@
       "telegraphBeat": 78,
       "hitBeat": 80,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 79.5,
@@ -1605,6 +1656,7 @@
       "telegraphBeat": 78.5,
       "hitBeat": 80.5,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 80.5,
@@ -1631,6 +1683,7 @@
       "hitBeat": 81.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 80.5,
@@ -1667,6 +1720,7 @@
       "hitBeat": 82,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 82,
@@ -1703,6 +1757,7 @@
       "hitBeat": 84,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 83.5,
@@ -1733,6 +1788,7 @@
       "hitBeat": 85,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 85,
@@ -1760,6 +1816,7 @@
       "activeBeats": 0.5,
       "length": 0.3,
       "sweepDeg": 150,
+      "move": "sweep",
       "path": [
         {
           "beat": 86,
@@ -1795,6 +1852,7 @@
       "telegraphBeat": 86,
       "hitBeat": 88,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 87.5,
@@ -1824,6 +1882,7 @@
       "telegraphBeat": 86.5,
       "hitBeat": 88.5,
       "activeBeats": 0,
+      "move": "shot",
       "path": [
         {
           "beat": 88.5,
@@ -1850,6 +1909,7 @@
       "hitBeat": 89.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 88.5,
@@ -1886,6 +1946,7 @@
       "hitBeat": 90,
       "activeBeats": 0.25,
       "length": 0.45,
+      "move": "chop",
       "path": [
         {
           "beat": 90,
@@ -1922,6 +1983,7 @@
       "hitBeat": 92,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 91.5,
@@ -1952,6 +2014,7 @@
       "hitBeat": 92.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 92.5,
@@ -1978,6 +2041,7 @@
       "hitBeat": 93,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 93,
@@ -2004,6 +2068,7 @@
       "hitBeat": 93.5,
       "activeBeats": 0.25,
       "length": 0.32,
+      "move": "thrust",
       "path": [
         {
           "beat": 93.5,
@@ -2031,6 +2096,7 @@
       "activeBeats": 0.5,
       "length": 0.6,
       "heavy": true,
+      "move": "heavyChop",
       "path": [
         {
           "beat": 94,

@@ -78,6 +78,7 @@ function thrust(phrase: number, hit: number, path: PathPoint[], over: Partial<At
     hitBeat: hit,
     activeBeats: THRUST.active,
     length: THRUST.length,
+    move: 'thrust',
     path,
     hitbox: { shape: 'circle', r: THRUST.r },
     target: TARGET,
@@ -97,6 +98,7 @@ function chop(phrase: number, hit: number, path: PathPoint[], heavy: boolean, ov
     activeBeats: f.active,
     length: f.length,
     ...(heavy ? { heavy: true } : {}),
+    move: heavy ? 'heavyChop' : 'chop',
     path,
     hitbox: { shape: 'circle', r: f.r },
     target: TARGET,
@@ -115,6 +117,7 @@ function sweep(phrase: number, hit: number, path: PathPoint[], deg: number, over
     activeBeats: SWEEP.active,
     length: SWEEP.length,
     sweepDeg: deg,
+    move: 'sweep',
     path,
     hitbox: { shape: 'circle', r: SWEEP.r },
     target: TARGET,
@@ -131,6 +134,7 @@ function shot(phrase: number, hit: number, path: PathPoint[], over: Partial<Atta
     telegraphBeat: hit - LEAD,
     hitBeat: hit,
     activeBeats: 0,
+    move: 'shot',
     path,
     hitbox: { shape: 'circle', r: SHOT_R },
     target: TARGET,
@@ -150,6 +154,7 @@ function dash(phrase: number, hit: number, prev: Prev, g: Vec): { attack: Attack
     telegraphBeat: hit - LEAD,
     hitBeat: hit,
     activeBeats: 0.5,
+    move: 'dash',
     path: [...from(prev, hit - 0.5, g), pt(hit, back), pt(hit + 0.5, anchor), pt(hit + 1, over)],
     hitbox: { shape: 'circle', r: DASH_R },
   };
@@ -258,6 +263,7 @@ const choreo: Choreo = {
   knockbackResist: 0.6,
   sceneSeconds: 36,
   enemyHp: 40,
+  figure: 'duelist',
   attacks,
 };
 
