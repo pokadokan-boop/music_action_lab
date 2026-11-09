@@ -6,7 +6,6 @@ import {
   activeWindow,
   aimLine,
   attackMotion,
-  cancelAnchorBeat,
   easeFor,
   hitboxAt,
   impactBeat,
@@ -16,6 +15,7 @@ import {
   pathPosAt,
   slamShape,
   sweepArc,
+  telegraphAnchor,
   type Attack,
   type Choreo,
   type Hitbox,
@@ -99,7 +99,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
 
   drawBeatTicks(ctx, vp, grid, beat);
 
-  for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, cfg, attackMotion(choreo, atk), leadsChain(choreo, atk));
+  for (const atk of choreo.attacks) drawTelegraph(ctx, px, pr, atk, beat, grid.beatSec, cfg, attackMotion(choreo, atk), leadsChain(choreo, atk));
 
   for (const [idx, atk] of choreo.attacks.entries()) {
     // 相殺された当たりは消えている (sim.checkDamage と同じ)。本体は path どおり動き続ける
@@ -304,7 +304,7 @@ function drawBeatTicks(ctx: CanvasRenderingContext2D, vp: Viewport, grid: Grid, 
 }
 
 // 予告: 拍の数に合わせた補助線。当たり点に同心円を予告拍数ぶん置き、中心 → 外側へ 1 拍ごとに動く輪を描く。
-// 輪が外側に届く瞬間 = 相殺の基準 (cancelAnchorBeat。dash は自機に届く瞬間)。
+// 輪が外側に届く瞬間 = その攻撃が自機の位置に届く瞬間 (telegraphAnchor。dash は突進の終点、shot は着点に弾が届く拍。v7.1)。
 // 色は相殺できる攻撃が黄、uncancelable が赤 (v3 T4)、大技 (slam) が紫 (v6 T4)。chainLead (同じフレーズに続く攻撃がある。v5 T6) なら動く輪を二重にする。
 // 型ごとの印 (v6 T6。本人: 攻撃の判別がつきづらい): dash は当たりのある区間だけの道と、構えへ動く間の残像。shot は細かい点線と発射点の小さな輪。
 // laser は当たりの太さの帯。slam は 4 隅へ飛ぶ発射装置と 4 辺の枠と、逃げ場の帯 (円の外・枠の内側) の薄い塗り
@@ -314,17 +314,17 @@ function drawTelegraph(
   pr: (r: number) => number,
   atk: Attack,
   beat: number,
+  beatSec: number,
   cfg: Config,
   motion: Motion,
   chainLead = false,
 ): void {
-  const anchor = cancelAnchorBeat(atk);
+  const { beat: anchor, pos: impact } = telegraphAnchor(atk, beatSec, cfg, motion);
   if (beat < atk.telegraphBeat || beat >= anchor) return;
   const lead = anchor - atk.telegraphBeat;
   const elapsed = beat - atk.telegraphBeat;
   const progress = Math.max(0, Math.min(1, elapsed / lead));
   const rings = Math.max(1, Math.round(lead));
-  const impact = pathPosAt(atk.path, anchor, motion);
   const ip = px(impact);
   const maxR = atk.type === 'burst' || atk.type === 'slam' ? atk.hitbox.r : atk.type === 'dash' ? cfg.enemyRadius * 2.2 : cfg.shotRadius * 3;
   const ease = easeFor(motion);
@@ -360,7 +360,7 @@ function drawTelegraph(
       drawDashCue(ctx, px, pr, atk, beat, cfg, motion);
       break;
     case 'shot': {
-      // 細かい点線の射線と、発射点の小さな輪
+      // 細かい点線の射線と、発射点の小さな輪 (波紋は着点に出る。v7.1)
       const line = aimLine(atk, motion);
       if (!line) break;
       const origin = px(line.origin);

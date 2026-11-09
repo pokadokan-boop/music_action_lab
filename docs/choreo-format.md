@@ -110,7 +110,7 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - `type: "sweep"`: 薙ぎ払い。発生点 (当たりの発生拍の敵の位置) から長さ `length` の線 (太さ `hitbox.r`) が、`target` の向きを中心に `sweepDeg` の角度 (負なら逆回り) を `activeBeats` かけて回る (`sweepArc`、`hitboxAt`)。`target` 必須 (自機狙いなら置き換わる)。検査 `sweep-shape`: `length` > 0、`sweepDeg` ≠ 0。構えは laser と同じ。来る方向 (相殺の向き) は発生点から自機へ (刃の接線で見ると向きが一瞬で変わり、押す側が合わせられない)。予告は回る範囲の扇の縁と回り始めの線
 
 ## 大技の印 `heavy` (v7 T4。2026-11-09。docs/plan/v7-phase2-enemy.md「T4」)
-- `heavy` (省略時 false): true なら slam と同じ大技の規則になる。相殺は両手放ちだけ (片手の放ちは被ダメと吹っ飛びを `cfg.slam.mitigateRatio` 倍に軽減)、通常攻撃と返しでは対象にならず cancel-miss も記録しない、被弾は `cfg.slam.damage` (2) と吹っ飛び (円なら中心から外、線分なら最寄り点から外、線の上なら射線の向き)。予告と当たりの色は紫。要約の「大技 n 回」の行と phrase 表の列も heavy を数える。`isHeavy(atk)` = slam か heavy
+- `heavy` (省略時 false): true なら slam と同じ大技の規則になる。相殺は両手放ちだけ (片手の放ちは被ダメと吹っ飛びを `cfg.slam.mitigateRatio` 倍に軽減)、通常攻撃と返しでは対象にならず cancel-miss も記録しない、被弾は `cfg.slam.damage` (2) と吹っ飛び (円なら中心から外、線分なら射線の向き = 敵から遠ざかる。最寄り点から外にすると線の上で向きが誤差任せになった)。予告と当たりの色は紫。要約の「大技 n 回」の行と phrase 表の列も heavy を数える。`isHeavy(atk)` = slam か heavy
 - 付けられるのは laser / sweep / slam (検査 `heavy-shape`)。dash と shot の相殺は本体や弾の形で見ていて、両手放ちの「叩き落とす」感じに合わないため
 - 使いどころ: v7 の大上段 (長さ 0.6、太さ r 0.07 の laser)。slam の円ほど逃げ場を狭めないので、1 拍前の狙い直しと組み合わせて「歩いていれば当たらない」を無くし、両手放ちの見せ場にする
 
@@ -126,4 +126,4 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 
 ## 予告の型ごとの印 (v6 T6。本人の不満「攻撃の判別がつきづらい」)
 - dash: 道の破線は当たりのある区間 (impactBeat 〜 窓の終わり) だけ。構えへ動く間 (予告開始 〜 impactBeat) は少し前の位置に薄い円 (残像) を 2 つ置く。進路の全体は描かない
-- shot: 細かい点線の射線と、発射点の小さな輪。laser: 当たりの太さの帯 (半透明、進むほど濃く)。burst: 同心円だけ。slam: 上
+- shot: 細かい点線の射線と、発射点の小さな輪。波紋 (同心円と動く輪) は着点 (狙った自機の位置) に出て、弾がそこへ届く拍 (発射 + 距離 / 弾の速さ) で収束する (v7.1。それまでは発射点に出て発射の拍で収束していて、dash の「自機の位置で届く瞬間に収束」と意味が逆だった。`telegraphAnchor`)。laser: 当たりの太さの帯 (半透明、進むほど濃く)。burst: 同心円だけ。slam: 上

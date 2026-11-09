@@ -104,8 +104,9 @@ requestAnimationFrame(draw);
 // ---- 場面の静止画 (v7 T5): ?beat=28.6,30.1 のように拍を指定すると、2 曲目 (v7.json) をその拍まで進めた実際のゲーム画面を上から順に描く。
 // 自機は動かさない (px / py で世界座標の開始位置を変えられる。既定は開始位置)。スクリーンショットで動きと予告を確かめるためのもの
 import acceptance from '../acceptance.json';
-import choreoV7 from '../assets/choreo/v7.json';
-import midiUrl from '../assets/midi/candidate-4.mid?url';
+// 振り付けは ?choreo=v6 のように id で選べる (省略時 v7)。曲は振り付けの song から
+const choreos = import.meta.glob<Choreo>('../assets/choreo/*.json', { eager: true, import: 'default' });
+const midiUrls = import.meta.glob<string>('../assets/midi/*.mid', { eager: true, query: '?url', import: 'default' });
 import { makeConfig } from './config';
 import type { Choreo } from './core/choreo';
 import { sceneDeps } from './core/scene';
@@ -113,9 +114,10 @@ import { createSim, step, type InputState } from './core/sim';
 import { render, type FlashState } from './render/canvas';
 import { loadSong } from './song';
 
-async function renderScenes(beats: number[], px: number | null, py: number | null): Promise<void> {
-  const choreo = choreoV7 as Choreo;
-  const loaded = await loadSong(midiUrl);
+async function renderScenes(beats: number[], px: number | null, py: number | null, choreoId: string): Promise<void> {
+  const choreo = Object.values(choreos).find((c) => c.id === choreoId);
+  if (!choreo) throw new Error(`振り付け ${choreoId} が無い (${Object.values(choreos).map((c) => c.id).join(', ')})`);
+  const loaded = await loadSong(midiUrls[`../assets/midi/${choreo.song}.mid`]);
   const cfg = makeConfig();
   const deps = sceneDeps(choreo, loaded.grid, cfg, acceptance);
   const stay: InputState = { move: { x: 0, y: 0 }, attackPressed: false };
@@ -158,7 +160,7 @@ if (params.has('beat')) {
   controls.textContent = '場面の静止画 (?beat=28.6,30.1 の拍まで v7.json を進めた実際の画面。自機は動かない)';
   const beats = params.get('beat')!.split(',').map(Number).filter((b) => Number.isFinite(b));
   const num = (k: string) => (params.has(k) ? Number(params.get(k)) : null);
-  renderScenes(beats, num('px'), num('py')).catch((e) => {
+  renderScenes(beats, num('px'), num('py'), params.get('choreo') ?? 'v7').catch((e) => {
     controls.textContent = `描けない: ${(e as Error).message}`;
   });
 }

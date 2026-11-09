@@ -464,6 +464,20 @@ export function cancelAnchorBeat(attack: Attack): number {
   return impactBeat(attack);
 }
 
+// 予告の輪 (波紋) を置く位置と収束する拍 (v7.1。描画用)。輪が外側に届く瞬間 = その攻撃が自機の位置に届く瞬間、に揃える。
+// shot は着点 (狙った位置 target) に置き、弾がそこへ届く拍 (発射 + 距離 / 速さ) で収束する (v7 までは発射点に置いて発射の拍で収束していて、
+// dash (自機の位置で届く瞬間に収束) と意味が逆だった。本人 2026-11-09「波紋の予告の出る位置が逆」)。他は cancelAnchorBeat の拍とその時の位置
+export function telegraphAnchor(attack: Attack, beatSec: number, cfg: Config, motion: Motion = 'easeOut'): { beat: number; pos: Vec } {
+  if (attack.type === 'shot') {
+    const start = impactBeat(attack);
+    const origin = pathPosAt(attack.path, start, motion);
+    const target = attack.target ?? origin;
+    return { beat: start + dist(origin, target) / cfg.shotSpeed / beatSec, pos: { x: target.x, y: target.y } };
+  }
+  const beat = cancelAnchorBeat(attack);
+  return { beat, pos: pathPosAt(attack.path, beat, motion) };
+}
+
 // 予告の線 (shot / laser の射線) の始点と向き先。描画用。laser の length があればそこまで
 export function aimLine(attack: Attack, motion: Motion = 'easeOut'): { origin: Vec; end: Vec } | null {
   if ((attack.type !== 'shot' && attack.type !== 'laser') || !attack.target) return null;

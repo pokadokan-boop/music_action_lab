@@ -616,7 +616,7 @@ function checkDamage(state: SimState, deps: SimDeps): void {
     if (state.damagedBy.has(idx) || state.cancelled.has(idx)) return;
     if (touches(state.player, c, cfg.playerRadius)) {
       // 大技 (v6 T5。v7 T4 で heavy の laser / sweep も): 被ダメ cfg.slam.damage、片手で軽減済みなら ×mitigateRatio。
-      // 吹っ飛びは円なら中心から外、線分なら最寄り点から外 (線の上なら射線の向き)。その間は入力を受けない
+      // 吹っ飛びは円なら中心から外、線分なら射線の向き (敵から遠ざかる)。その間は入力を受けない
       const slam = isHeavy(atk);
       const mitigated = slam && state.mitigated.has(idx);
       const ratio = mitigated ? cfg.slam.mitigateRatio : 1;
@@ -633,9 +633,10 @@ function checkDamage(state: SimState, deps: SimDeps): void {
         if (main.kind === 'circle') {
           dir = awayFrom(state.player, main);
         } else {
-          const near = closestPointOnSegment(state.player, main.a, main.b);
-          const away = normalize({ x: state.player.x - near.x, y: state.player.y - near.y });
-          dir = away.x === 0 && away.y === 0 ? normalize({ x: main.b.x - main.a.x, y: main.b.y - main.a.y }) : away;
+          // 線分 (大上段) は射線の向き = 敵から遠ざかる向きへ (v7.1 の見直し: 最寄り点から外へだと、線の上にいるときに
+          // ほぼ零のベクトルの正規化で向きが誤差任せになり、敵の方へ飛ばされることがあった)
+          const along = normalize({ x: main.b.x - main.a.x, y: main.b.y - main.a.y });
+          dir = along.x === 0 && along.y === 0 ? awayFrom(state.player, state.enemy) : along;
         }
         state.knockback = { startBeat: state.beat, dir, distance: cfg.slam.knockback * ratio };
         state.stepping = null;

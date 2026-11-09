@@ -136,3 +136,23 @@ describe('声部 (track)', () => {
     expect(grid.trackOnsets.bass).toContain(26.5);
   });
 });
+
+// v7.1: 予告の波紋の位置と収束の拍 (telegraphAnchor)
+import { telegraphAnchor, cancelAnchorBeat as anchorBeatOf } from './choreo';
+import { dashAttack as dashFx, shotAttack as shotFx } from './test-fixtures';
+
+describe('telegraphAnchor (v7.1。本人「弾の波紋の位置が逆」)', () => {
+  const g = makeGrid();
+  it('shot は着点 (target) に出て、発射 + 距離 / 弾の速さ の拍で収束する。dash / laser は cancelAnchorBeat の拍とその位置', () => {
+    const shot = shotFx({ target: { x: 0.2, y: 0.3 } });
+    const a = telegraphAnchor(shot, g.beatSec, config);
+    expect(a.pos).toEqual({ x: 0.2, y: 0.3 });
+    const origin = { x: 0.8, y: 0.3 };
+    expect(a.beat).toBeCloseTo(26 + Math.hypot(origin.x - 0.2, origin.y - 0.3) / config.shotSpeed / g.beatSec, 9);
+    expect(a.beat).toBeGreaterThan(26);
+    const dash = dashFx();
+    const d = telegraphAnchor(dash, g.beatSec, config);
+    expect(d.beat).toBe(anchorBeatOf(dash));
+    expect(d.pos).toEqual({ x: 0.2, y: 0.5 });
+  });
+});
