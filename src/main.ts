@@ -78,7 +78,7 @@ function playSfx(action: SoundAction, cls: BeatClass): void {
 
 // 要約の先頭行に出す音の出どころ (v6): 既定か、音作りのページで保存した自作か
 function describeSound(): string {
-  return sameBank(soundBank, DEFAULT_SOUND_BANK) ? '音色 既定 (v6)' : '音色 自作 (sound.html)';
+  return sameBank(soundBank, DEFAULT_SOUND_BANK) ? '音色 既定 (v7)' : '音色 自作 (sound.html)';
 }
 
 function enterTitle(): void {

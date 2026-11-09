@@ -1,6 +1,6 @@
 // プレイヤーの音の仕様 (v6 T7。docs/sound-format.md)。行動ごとに最大 4 層 (osc / fm / noise / pluck) を重ねる。
 // このファイルは純粋 (DOM・Web Audio に触らない): 型、既定値、範囲、正規化、長さ。鳴らすのは synth.ts、器は sound.html (src/sound.ts)。
-// 本人が音作りのページで値を作り、JSON を assets/sound/v6.json に入れる (docs/plan/v6-phase1.md「音」)
+// 本人が音作りのページで値を作り、JSON を assets/sound/v7.json に入れる (docs/plan/v6-phase1.md「音」。v7.1 で既定を電子音にした)
 
 // 音の名前。normal は拍の分類 (表 / 裏 / 外) で 3 つ。double = 両手放ち。charge は持続音 (溜め中)
 export type SoundName = 'step' | 'normalOn' | 'normalOff' | 'normalMiss' | 'riposte' | 'release' | 'double' | 'cancel' | 'charge';

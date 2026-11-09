@@ -88,6 +88,12 @@ export interface Attack {
   heavy?: boolean;
   // 姿の動きの名前 (v7 T5)。省略時は型から (moveOf)
   move?: EnemyMove;
+  // v7.1: 自機狙い (dash / burst / slam) で動かすキーフレームを hitBeat より後に限る (省略時は telegraphBeat より後)。
+  // 予告から出発までの構えの位置は固定され、出発点が固定・着点が自機になる。前の攻撃の終点から構える path (v7) で、予告の瞬間に敵が跳ばないため
+  windupFixed?: boolean;
+  // v7.1: 同じ group の直前の攻撃の (解決済みの) path の終点に、この攻撃の path の最初の点を合わせて平行移動する (当たりの窓の終わりまでの点。戻りは動かさない)。
+  // 突進の後に、着地した場所から薙ぎ払う、など。group の 2 発目以降だけ (検査 follow-shape)。sim が解決のたびに applyFollow で当てる
+  followPrev?: boolean;
 }
 
 // 攻撃の動きの名前 (v7 T5): 書いてあればそれ、無ければ型から。laser は長さ 0.4 未満を突き、以上を振り下ろし (heavy なら大上段)
@@ -173,7 +179,8 @@ export type ViolationRule =
   | 'approach-shape'
   | 'sweep-shape'
   | 'track-known'
-  | 'heavy-shape';
+  | 'heavy-shape'
+  | 'follow-shape';
 
 // impactDelayBeats の上限。これを超えると「音に乗っている」と言えない (acceptance.json へ移す候補)
 export const IMPACT_DELAY_MAX_BEATS = 0.25;
@@ -492,10 +499,39 @@ export function resolveAttack(attack: Attack, target: Vec, cfg: Config, motion: 
   const lo = cfg.enemyRadius;
   const hiX = WORLD.w - cfg.enemyRadius;
   const hiY = WORLD.h - cfg.enemyRadius;
+  // v7.1: windupFixed なら出発 (hitBeat) までの点は動かさない
+  const fixedUntil = attack.windupFixed ? attack.hitBeat : attack.telegraphBeat;
   const path = attack.path.map((p) =>
-    p.beat <= attack.telegraphBeat ? p : { beat: p.beat, x: clamp(p.x + dx, lo, hiX), y: clamp(p.y + dy, lo, hiY) },
+    p.beat <= fixedUntil + 1e-9 ? p : { beat: p.beat, x: clamp(p.x + dx, lo, hiX), y: clamp(p.y + dy, lo, hiY) },
   );
   return { ...attack, path };
+}
+
+// 前の攻撃の終点に続く (v7.1): path の最初の点が prevEnd に重なるよう、当たりの窓の終わりまでの点を平行移動する。
+// それより後の点 (次の構えへの戻り) は動かさないので、着地した場所から振って元の構えへ戻る。画面内に収める
+export function applyFollow(attack: Attack, prevEnd: Vec, beatSec: number, cfg: Config, motion: Motion = 'easeOut'): Attack {
+  if (attack.path.length === 0) return attack;
+  const first = attack.path[0];
+  const dx = prevEnd.x - first.x;
+  const dy = prevEnd.y - first.y;
+  const until = activeWindow(attack, beatSec, cfg, motion).endBeat;
+  const lo = cfg.enemyRadius;
+  const path = attack.path.map((p) =>
+    p.beat <= until + 1e-9 ? { beat: p.beat, x: clamp(p.x + dx, lo, WORLD.w - lo), y: clamp(p.y + dy, lo, WORLD.h - lo) } : p,
+  );
+  return { ...attack, path };
+}
+
+// 同じ group の直前の攻撃 (hitBeat が自分より小さい中で最大) の添字。無ければ -1
+export function prevInGroup(choreo: Choreo, index: number): number {
+  const me = choreo.attacks[index];
+  if (!me.group) return -1;
+  let best = -1;
+  choreo.attacks.forEach((a, i) => {
+    if (i === index || a.group !== me.group || a.hitBeat >= me.hitBeat) return;
+    if (best < 0 || a.hitBeat > choreo.attacks[best].hitBeat) best = i;
+  });
+  return best;
 }
 
 // 踏み込み (v7 T3): 当たりの approach.beats 拍前の位置から、target へ向かって最大 approach.distance 寄る (自機との間に keep を残す)。
@@ -637,6 +673,10 @@ export function validateChoreo(choreo: Choreo, grid: Grid, acceptance: Acceptanc
     // 大技の印 (v7 T4): heavy は laser / sweep / slam にだけ。dash と shot の相殺は本体や弾の形で見ていて、両手放ちの「叩き落とす」感じに合わない
     if (atk.heavy && atk.type !== 'laser' && atk.type !== 'sweep' && atk.type !== 'slam') {
       out.push({ attackIndex: i, rule: 'heavy-shape', message: `heavy を付けられるのは laser / sweep / slam だけ (${atk.type})` });
+    }
+    // 前の攻撃の終点に続く (v7.1): 連撃 (group) の 2 発目以降だけ
+    if (atk.followPrev && prevInGroup(choreo, i) < 0) {
+      out.push({ attackIndex: i, rule: 'follow-shape', message: 'followPrev は group の 2 発目以降だけ (直前の攻撃が要る)' });
     }
     const delay = atk.impactDelayBeats ?? 0;
     if (delay < 0 || delay > IMPACT_DELAY_MAX_BEATS) {

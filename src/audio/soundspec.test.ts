@@ -1,4 +1,4 @@
-// 音の仕様 (soundspec.ts) の正規化と既定の音 (assets/sound/v6.json) を確かめる。鳴らす側 (synth.ts) は Web Audio が要るので node では見ない
+// 音の仕様 (soundspec.ts) の正規化と既定の音 (assets/sound/v7.json。v7.1 で電子音に) を確かめる。鳴らす側 (synth.ts) は Web Audio が要るので node では見ない
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +16,7 @@ import {
 } from './soundspec';
 
 const root = resolve(__dirname, '..', '..');
-const raw: unknown = JSON.parse(readFileSync(resolve(root, 'assets', 'sound', 'v6.json'), 'utf8'));
+const raw: unknown = JSON.parse(readFileSync(resolve(root, 'assets', 'sound', 'v7.json'), 'utf8'));
 
 describe('normalizeLayer', () => {
   it('無い項目は既定値、範囲外は端に、知らない項目は捨てる、知らない種類は既定の種類', () => {
@@ -51,7 +51,7 @@ describe('normalizeSound / normalizeBank', () => {
   });
 });
 
-describe('既定の音 assets/sound/v6.json', () => {
+describe('既定の音 assets/sound/v7.json', () => {
   const bank = normalizeBank(raw);
 
   it('9 つの音が全て層を持ち、正規化しても値が変わらない (範囲内の値で書いてある)', () => {
@@ -59,13 +59,20 @@ describe('既定の音 assets/sound/v6.json', () => {
     expect(sameBank(bank, normalizeBank(bank))).toBe(true);
   });
 
-  it('通常・ステップ・返し・相殺は v5 の撥弦の値 (長さ・減衰・明るさ・音量) を 1 層で保つ', () => {
-    expect(bank.sounds.normalOn.layers[0]).toMatchObject({ type: 'pluck', decay: 0.25, pluckDecay: 0.99, pluckBrightness: 0.5, gain: 0.3 });
-    expect(bank.sounds.normalOff.layers[0]).toMatchObject({ type: 'pluck', decay: 0.3, pluckDecay: 0.985 });
-    expect(bank.sounds.normalMiss.layers[0]).toMatchObject({ type: 'pluck', decay: 0.35, pluckDecay: 0.94, pluckBrightness: 0.3 });
-    expect(bank.sounds.step.layers[0]).toMatchObject({ type: 'pluck', decay: 0.08, pluckDecay: 0.9, pluckBrightness: 0.25, gain: 0.25 });
-    expect(bank.sounds.riposte.layers[0]).toMatchObject({ type: 'pluck', decay: 0.15, pluckBrightness: 0.8 });
-    expect(bank.sounds.cancel.layers[0]).toMatchObject({ type: 'pluck', decay: 0.5, pluckDecay: 0.993, pluckBrightness: 0.7, gain: 0.35 });
+  it('通常・ステップ・返し・相殺は電子音 (撥弦を使わない。v7.1: 本人「攻撃音を電子音系に」)。表は矩形波の上がる滑り、裏は鋸歯でこもる、外は下がる滑り、返しは FM、短い (0.2 秒以内)', () => {
+    for (const name of ['step', 'normalOn', 'normalOff', 'normalMiss', 'riposte', 'cancel'] as const) {
+      expect(bank.sounds[name].layers.some((l) => l.type === 'pluck'), name).toBe(false);
+    }
+    expect(bank.sounds.normalOn.layers[0]).toMatchObject({ type: 'osc', wave: 'square' });
+    expect(bank.sounds.normalOn.layers[0].sweepFrom).toBeGreaterThan(1);
+    expect(bank.sounds.normalOff.layers[0]).toMatchObject({ type: 'osc', wave: 'sawtooth' });
+    expect(bank.sounds.normalOff.layers[0].lowpass).toBeLessThan(bank.sounds.normalOn.layers[0].lowpass);
+    expect(bank.sounds.normalMiss.layers[0].sweepFrom).toBeLessThan(1);
+    expect(bank.sounds.riposte.layers[0].type).toBe('fm');
+    expect(bank.sounds.cancel.layers[0].type).toBe('fm');
+    for (const name of ['step', 'normalOn', 'normalOff', 'normalMiss', 'riposte'] as const) {
+      expect(soundDuration(bank.sounds[name]), name).toBeLessThanOrEqual(0.2);
+    }
   });
 
   it('放ちと両手放ちは本人の言葉のとおり: 歪んだ鋸歯 + 中音域 (約 800 Hz) の下がるレーザー風 + 低い「ドン」+ 高い「スカン」で、長さは 0.4 秒以内', () => {

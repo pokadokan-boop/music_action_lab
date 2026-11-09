@@ -142,11 +142,12 @@ function shot(phrase: number, hit: number, path: PathPoint[], over: Partial<Atta
   };
 }
 
-// 踏み込み突き: dash。prev から構え g に移り、hit の 0.5 拍前から少し引き、hit で出発、hit + 0.5 で自機 (狙いの基準)、hit + 1 で行き過ぎる
-function dash(phrase: number, hit: number, prev: Prev, g: Vec): { attack: Attack; over: Vec } {
+// 踏み込み突き: dash。prev から構え g に移り、hit の 0.5 拍前から少し引き、hit で出発、hit + 0.5 で自機 (狙いの基準)、hit + 1 で行き過ぎる。
+// windupFixed: 出発までの点は自機狙いで動かさない (v7.1。予告の瞬間に敵が跳んでいた)
+function dash(phrase: number, hit: number, prev: Prev, g: Vec, over: Partial<Attack> = {}): { attack: Attack; over: Vec } {
   const back = { x: g.x + 0.04, y: g.y };
   const anchor = { x: 0.3, y: g.y };
-  const over = { x: 0.24, y: g.y };
+  const overshoot = { x: 0.24, y: g.y };
   const attack: Attack = {
     phrase,
     type: 'dash',
@@ -155,10 +156,12 @@ function dash(phrase: number, hit: number, prev: Prev, g: Vec): { attack: Attack
     hitBeat: hit,
     activeBeats: 0.5,
     move: 'dash',
-    path: [...from(prev, hit - 0.5, g), pt(hit, back), pt(hit + 0.5, anchor), pt(hit + 1, over)],
+    windupFixed: true,
+    path: [...from(prev, hit - 0.5, g), pt(hit, back), pt(hit + 0.5, anchor), pt(hit + 1, overshoot)],
     hitbox: { shape: 'circle', r: DASH_R },
+    ...over,
   };
-  return { attack, over };
+  return { attack, over: overshoot };
 }
 
 const attacks: Attack[] = [];
@@ -219,10 +222,11 @@ for (let bar = 0; bar < 24; bar++) {
       attacks.push(chop(bar, t + 2, finishPath(l, t + 2, CHOP.active, returnBeat, gNext), false, { group, aimBeat: t + 2 - REAIM }));
       prev = { beat: returnBeat, pos: gNext };
     } else {
-      // 踏み込み突き (dash) → 薙ぎ払い 120 度 (dash の行き過ぎた先から) → 次の構えへ
-      const d = dash(bar, t, prev, g);
+      // 踏み込み突き (dash) → 薙ぎ払い 120 度 (着地した場所から。followPrev で dash の実際の終点に続く) → 次の構えへ
+      const group = `lunge-${bar}`;
+      const d = dash(bar, t, prev, g, { group });
       attacks.push(d.attack);
-      attacks.push(sweep(bar, t + 2, finishPath(d.over, t + 2, SWEEP.active, returnBeat, gNext), 120, { chained: true }));
+      attacks.push(sweep(bar, t + 2, finishPath(d.over, t + 2, SWEEP.active, returnBeat, gNext), 120, { chained: true, group, followPrev: true }));
       prev = { beat: returnBeat, pos: gNext };
     }
     continue;

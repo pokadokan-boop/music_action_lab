@@ -5,6 +5,8 @@ import {
   activeWindow,
   aimBeatOf,
   applyBranch,
+  applyFollow,
+  prevInGroup,
   attackMotion,
   branchStartBeat,
   contactBeat,
@@ -202,7 +204,7 @@ export function step(state: SimState, input: InputState, dt: number, deps: SimDe
   state.beat = state.t / grid.beatSec;
 
   movePlayer(state, input, dt, cfg, grid.beatSec);
-  resolveStarted(state, choreo, cfg);
+  resolveStarted(state, choreo, cfg, grid.beatSec);
   settleOutcomes(state, deps);
   applyBranches(state, deps);
 
@@ -274,15 +276,25 @@ function startStep(state: SimState, input: InputState, deps: SimDeps): void {
 // 予告が始まった (beat >= telegraphBeat) 未解決の攻撃を、この瞬間のプレイヤー位置で解決して固定する。
 // 移動の後に行うので「予告開始時点で見えている位置」を狙う。以後プレイヤーが動いても狙いは変わらない。
 // v7 T3: aimBeat が telegraphBeat より後の攻撃 (連撃の 2 発目以降) は、aimBeat でもう一度その瞬間の位置に狙い直す (元の攻撃から解決し直す)
-function resolveStarted(state: SimState, choreo: Choreo, cfg: Config): void {
+// v7.1: followPrev の攻撃は、解決のたびに同じ group の直前の攻撃 (解決済み) の終点へ path を合わせる (applyFollow)
+function resolveStarted(state: SimState, choreo: Choreo, cfg: Config, beatSec: number): void {
   choreo.attacks.forEach((atk, idx) => {
     if (state.beat < atk.telegraphBeat) return;
     const motion = attackMotion(choreo, atk);
-    if (!state.resolved.has(idx)) state.resolved.set(idx, resolveAttack(atk, state.player, cfg, motion));
+    const resolve = () => {
+      const r = resolveAttack(atk, state.player, cfg, motion);
+      if (!atk.followPrev) return r;
+      const pi = prevInGroup(choreo, idx);
+      if (pi < 0) return r;
+      const prev = state.resolved.get(pi) ?? choreo.attacks[pi];
+      const end = prev.path[prev.path.length - 1];
+      return applyFollow(r, { x: end.x, y: end.y }, beatSec, cfg, motion);
+    };
+    if (!state.resolved.has(idx)) state.resolved.set(idx, resolve());
     const aimBeat = aimBeatOf(atk);
     if (aimBeat > atk.telegraphBeat && state.beat >= aimBeat && !state.reaimed.has(idx) && !state.branched.has(idx)) {
       state.reaimed.add(idx);
-      state.resolved.set(idx, resolveAttack(atk, state.player, cfg, motion));
+      state.resolved.set(idx, resolve());
     }
   });
 }

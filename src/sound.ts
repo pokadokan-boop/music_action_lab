@@ -1,5 +1,5 @@
 // 音作りのページ (v6 T8。docs/sound-format.md)。行動ごとの音を層のつまみで作り、鳴らし、曲の 1 小節と重ね、波形を見て、JSON で出し入れする。
-// 「この音をゲームに使う」で localStorage に保存すると、ゲーム (index.html) が開始時に読んで使う。本人が作った JSON は assets/sound/v6.json に入れて公開する。
+// 「この音をゲームに使う」で localStorage に保存すると、ゲーム (index.html) が開始時に読んで使う。本人が作った JSON は assets/sound/v7.json に入れて公開する。
 // 合成は src/audio/synth.ts (ゲームと同じ)。波形は OfflineAudioContext で同じ合成器を動かして描く
 import { AudioEngine, DEFAULT_SOUND_BANK, midiToHz, type SfxKind } from './audio/engine';
 import { chargeRange, pitchFor } from './audio/pitch';
@@ -126,10 +126,10 @@ function main(app: HTMLElement): void {
     el('p', {
       className: 'muted',
       textContent:
-        '行動ごとの音を層 (最大 4) で作る。鳴らして、曲の 1 小節と重ねて、波形を見て、JSON で出し入れする。「この音をゲームに使う」で保存すると、ゲームが次の開始から使う (要約の先頭行に「音色 自作」と出る)。作った JSON は不満ノートに貼るか vault に置けば、Claude が assets/sound/v6.json に入れて公開する。',
+        '行動ごとの音を層 (最大 4) で作る。鳴らして、曲の 1 小節と重ねて、波形を見て、JSON で出し入れする。「この音をゲームに使う」で保存すると、ゲームが次の開始から使う (要約の先頭行に「音色 自作」と出る)。作った JSON は不満ノートに貼るか vault に置けば、Claude が assets/sound/v7.json に入れて公開する。',
     }),
   );
-  const status = el('p', { className: 'hint', textContent: saved ? '保存された自作の音を読み込んだ' : '既定の音 (assets/sound/v6.json)' });
+  const status = el('p', { className: 'hint', textContent: saved ? '保存された自作の音を読み込んだ' : '既定の音 (assets/sound/v7.json)' });
   app.append(status);
 
   const names = el('div', { className: 'names' });

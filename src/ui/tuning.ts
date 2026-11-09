@@ -7,7 +7,7 @@ import { defaultTuning, type Tuning } from '../config';
 export const TUNING_KEY = 'mal.tuning';
 // 音高の案 (v5 T4) の保存先。調整パネルの項目ではなく別の選択
 export const PITCH_RULE_KEY = 'mal.pitchRule';
-// 自作の音 (v6 T8) の保存先。音作りのページ (sound.html) が書き、ゲームが読む。無ければ既定 (assets/sound/v6.json)
+// 自作の音 (v6 T8) の保存先。音作りのページ (sound.html) が書き、ゲームが読む。無ければ既定 (assets/sound/v7.json)
 export const SOUND_BANK_KEY = 'mal.soundBank';
 
 // 保存された自作の音。無い・壊れているときは null (既定を使う)。欠けた音は fallback で埋める

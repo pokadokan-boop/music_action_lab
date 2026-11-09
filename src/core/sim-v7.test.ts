@@ -68,3 +68,80 @@ describe('踏み込み (sim)', () => {
     expect(state.enemy.x).toBeLessThan(0.9);
   });
 });
+
+// v7.1 (docs/decisions/v7-feedback.md): 突進の予備動作を固定 (windupFixed) と、前の攻撃の終点に続く (followPrev)
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { Midi } from '@tonejs/midi';
+import { applyFollow, prevInGroup, resolveAttack, validateChoreo, type Choreo } from './choreo';
+import { buildGrid } from './grid';
+import { dashAttack, sweepAttack } from './test-fixtures';
+
+describe('windupFixed と followPrev (純粋関数)', () => {
+  it('windupFixed: 出発 (hitBeat) までの点は動かず、着点以降だけ自機へ平行移動する。無ければ予告の後の点が全部動く (v6 のまま)', () => {
+    const base = dashAttack({ aim: 'player', path: [{ beat: 8, x: 0.75, y: 0.28 }, { beat: 9.5, x: 0.6, y: 0.28 }, { beat: 10, x: 0.64, y: 0.28 }, { beat: 10.5, x: 0.3, y: 0.28 }, { beat: 11, x: 0.24, y: 0.28 }] });
+    const target = { x: 0.3, y: 0.1 };
+    const loose = resolveAttack(base, target, config);
+    expect(loose.path[1].y).toBeCloseTo(0.1, 9); // 9.5 の構えの点も動く
+    const fixed = resolveAttack({ ...base, windupFixed: true }, target, config);
+    expect(fixed.path[1]).toEqual({ beat: 9.5, x: 0.6, y: 0.28 });
+    expect(fixed.path[2]).toEqual({ beat: 10, x: 0.64, y: 0.28 });
+    expect(fixed.path[3].y).toBeCloseTo(0.1, 9);
+    expect(fixed.path[4].x).toBeCloseTo(0.24, 9);
+  });
+
+  it('applyFollow: 最初の点を前の終点に合わせ、当たりの窓の終わりまでの点を動かし、戻りの点は動かさない', () => {
+    const sw = sweepAttack({ path: [{ beat: 26, x: 0.24, y: 0.28 }, { beat: 26.5, x: 0.24, y: 0.28 }, { beat: 27.5, x: 0.6, y: 0.28 }] });
+    const r = applyFollow(sw, { x: 0.1, y: 0.4 }, grid.beatSec, config);
+    expect(r.path[0]).toEqual({ beat: 26, x: 0.1, y: 0.4 });
+    expect(r.path[1].x).toBeCloseTo(0.1, 9);
+    expect(r.path[2]).toEqual({ beat: 27.5, x: 0.6, y: 0.28 });
+  });
+
+  it('prevInGroup と検査 follow-shape: group の 2 発目以降だけ', () => {
+    const a = dashAttack({ group: 'g' });
+    const b = sweepAttack({ group: 'g', followPrev: true });
+    const choreo = makeChoreo([a, b]);
+    expect(prevInGroup(choreo, 1)).toBe(0);
+    expect(prevInGroup(choreo, 0)).toBe(-1);
+    expect(validateChoreo(choreo, grid, acceptance, config).filter((v) => v.rule === 'follow-shape')).toEqual([]);
+    const bad = validateChoreo(makeChoreo([sweepAttack({ group: 'g', followPrev: true })]), grid, acceptance, config).filter((v) => v.rule === 'follow-shape');
+    expect(bad).toHaveLength(1);
+  });
+});
+
+describe('v7.json の小節 9: 突進 (36) → 薙ぎ払い (38) が着地した場所から出る (sim)', () => {
+  const root = resolve(__dirname, '..', '..');
+  const choreo = JSON.parse(readFileSync(resolve(root, 'assets', 'choreo', 'v7.json'), 'utf8')) as Choreo;
+  const real = buildGrid(new Midi(readFileSync(resolve(root, 'assets', 'midi', `${choreo.song}.mid`))));
+  const cfg = { ...config, playerHp: 99 };
+  const deps: SimDeps = { choreo, grid: real, cfg, acceptance };
+  const dashIdx = choreo.attacks.findIndex((a) => a.type === 'dash' && a.hitBeat === 36);
+  const sweepIdx = choreo.attacks.findIndex((a) => a.type === 'sweep' && a.hitBeat === 38);
+
+  it('予告 (34) の瞬間に敵の位置が跳ばず、薙ぎ払いの発生点は突進の終点に一致し、戻り先は構えのまま', () => {
+    expect(choreo.attacks[dashIdx].windupFixed).toBe(true);
+    expect(choreo.attacks[sweepIdx].followPrev).toBe(true);
+    const state = createSim(deps);
+    // 自機を上へ寄せておく (狙いが開始位置からずれる)
+    runUntil(state, deps, 33.9, { move: { x: 0, y: -1 }, attackPressed: false });
+    const before = { ...state.enemy };
+    runUntil(state, deps, 34.1);
+    // 予告開始の前後で敵は跳ばない (idle の上下 0.02 以内)
+    expect(Math.abs(state.enemy.x - before.x)).toBeLessThan(0.01);
+    expect(Math.abs(state.enemy.y - before.y)).toBeLessThan(0.03);
+    runUntil(state, deps, 36.05);
+    const eff = effectiveChoreo(state, deps.choreo);
+    const dashEnd = eff.attacks[dashIdx].path.at(-1)!;
+    const sw = eff.attacks[sweepIdx];
+    expect(sw.path[0].x).toBeCloseTo(dashEnd.x, 9);
+    expect(sw.path[0].y).toBeCloseTo(dashEnd.y, 9);
+    // 戻り先 (最後の点) は JSON のまま
+    expect(sw.path.at(-1)).toEqual(choreo.attacks[sweepIdx].path.at(-1));
+    // 着地 (37) から薙ぎ払い (38) まで敵はその場にいる
+    runUntil(state, deps, 37.2);
+    const p1 = { ...state.enemy };
+    runUntil(state, deps, 37.9);
+    expect(Math.abs(state.enemy.x - p1.x)).toBeLessThan(0.01);
+  });
+});

@@ -75,6 +75,7 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - `slam-shape`: slam に `frameHalf` と `laserR` があり、`frameHalf > hitbox.r + laserR` (円の外に帯が残る)
 - `aim-beat` / `approach-shape` / `sweep-shape` / `track-known`: v7 T3 (下の「連撃・踏み込み・薙ぎ払い・声部」)
 - `heavy-shape`: `heavy` は laser / sweep / slam にだけ (下の「大技の印 heavy」)
+- `follow-shape`: `followPrev` は group の 2 発目以降だけ (下の「予備動作の固定と、前の攻撃の終点に続く」)
 
 ## 構え (v4 T3)
 描画は `src/core/pose.ts` が決めた構えの名前だけを見る。敵: 予告開始〜当たりの窓の終わりは攻撃の型 (`laser` / `burst` / `dash`。shot は laser)、分岐で足した区間は `stopped` / `approach` / `retreat`、他は `idle`。自機: 被弾 → 相殺 → 攻撃 → 構える (敵が stopped か approach) → 立つ、の優先順。絵は `src/render/figures.ts` (線と面の人型と雫形の敵。画像ファイルは使わない)
@@ -118,6 +119,10 @@ acceptance.json の値を読む。違反は `Violation { attackIndex, rule, mess
 - 攻撃の `move` (省略時は型から。`moveOf`): 姿が鍵フレームの組を選ぶための動きの名前。`thrust` (突き) / `chop` (振り下ろし) / `heavyChop` (大上段) / `sweep` / `dash` / `shot` / `slam` / `burst`。既定は laser の長さ 0.4 未満 = thrust、以上 = chop、heavy なら heavyChop、他は型の名前
 - 位相 (`enemyMotion`、src/core/pose.ts): 予告開始 → 当たりの発生で `pre` 0 → 1、当たりの発生 → 当たりの窓の終わり + 0.5 拍で `post` 0 → 1。姿はこの 2 つで鍵フレーム (構え → 予備 → 打点 → 余韻 → 構え) を補間する。鍵フレームの時刻が予告の拍と当たりの拍に乗るのはこのため。今来ている攻撃が無ければ、窓が終わって 0.5 拍以内の攻撃 (余韻)。どれも無ければ構え
 - 段 (`stageAt`、src/core/stage.ts): 8 小節で 1 段、3 段。段の切り替わりは小節の頭に揃う。段の中の進みは小節の進みで線形。姿の形態変化 (部品は段で一気に、大きさと光は進みで連続) に使う
+
+## 予備動作の固定と、前の攻撃の終点に続く (v7.1。2026-11-09。docs/decisions/v7-feedback.md 不満 1)
+- `windupFixed` (省略時 false): 自機狙い (dash / burst / slam) で平行移動するキーフレームを `hitBeat` より後に限る (省略時は `telegraphBeat` より後の全部)。予告から出発までの構えの位置が固定され、出発点が固定・着点が自機になる。前の攻撃の終点から構える path (v7) で、予告の瞬間に敵が跳ばないため。v6.json は付けない (v6.1 の記録を変えない)
+- `followPrev` (省略時 false): 同じ `group` の直前の攻撃 (hitBeat が自分より小さい中で最大。`prevInGroup`) の、解決済みの path の終点に、この攻撃の path の最初の点を合わせて平行移動する (`applyFollow`)。動かすのは当たりの窓の終わりまでの点で、それより後 (次の構えへの戻り) は動かさない。sim が解決のたび (予告開始と狙い直し) に当てる。突進の後に着地した場所から薙ぎ払う、など。検査 `follow-shape`。`dodgeable` は JSON の位置で見る (approach と同じ割り切り)
 
 ## 予告の型ごとの印 (v6 T6。本人の不満「攻撃の判別がつきづらい」)
 - dash: 道の破線は当たりのある区間 (impactBeat 〜 窓の終わり) だけ。構えへ動く間 (予告開始 〜 impactBeat) は少し前の位置に薄い円 (残像) を 2 つ置く。進路の全体は描かない

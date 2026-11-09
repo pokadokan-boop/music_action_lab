@@ -58,6 +58,7 @@
       "hitBeat": 4,
       "activeBeats": 0.5,
       "move": "dash",
+      "windupFixed": true,
       "path": [
         {
           "beat": 3,
@@ -162,6 +163,7 @@
       "hitBeat": 12,
       "activeBeats": 0.5,
       "move": "dash",
+      "windupFixed": true,
       "path": [
         {
           "beat": 11.5,
@@ -261,6 +263,7 @@
       "hitBeat": 20,
       "activeBeats": 0.5,
       "move": "dash",
+      "windupFixed": true,
       "path": [
         {
           "beat": 19.5,
@@ -551,6 +554,7 @@
       "hitBeat": 36,
       "activeBeats": 0.5,
       "move": "dash",
+      "windupFixed": true,
       "path": [
         {
           "beat": 35.5,
@@ -576,7 +580,8 @@
       "hitbox": {
         "shape": "circle",
         "r": 0.03
-      }
+      },
+      "group": "lunge-9"
     },
     {
       "phrase": 9,
@@ -613,7 +618,9 @@
         "x": 0.25,
         "y": 0.28125
       },
-      "chained": true
+      "chained": true,
+      "group": "lunge-9",
+      "followPrev": true
     },
     {
       "phrase": 10,
@@ -718,6 +725,7 @@
       "hitBeat": 44,
       "activeBeats": 0.5,
       "move": "dash",
+      "windupFixed": true,
       "path": [
         {
           "beat": 43.5,
@@ -743,7 +751,8 @@
       "hitbox": {
         "shape": "circle",
         "r": 0.03
-      }
+      },
+      "group": "lunge-11"
     },
     {
       "phrase": 11,
@@ -780,7 +789,9 @@
         "x": 0.25,
         "y": 0.28125
       },
-      "chained": true
+      "chained": true,
+      "group": "lunge-11",
+      "followPrev": true
     },
     {
       "phrase": 12,
@@ -885,6 +896,7 @@
       "hitBeat": 52,
       "activeBeats": 0.5,
       "move": "dash",
+      "windupFixed": true,
       "path": [
         {
           "beat": 51.5,
@@ -910,7 +922,8 @@
       "hitbox": {
         "shape": "circle",
         "r": 0.03
-      }
+      },
+      "group": "lunge-13"
     },
     {
       "phrase": 13,
@@ -947,7 +960,9 @@
         "x": 0.25,
         "y": 0.28125
       },
-      "chained": true
+      "chained": true,
+      "group": "lunge-13",
+      "followPrev": true
     },
     {
       "phrase": 14,

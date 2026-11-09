@@ -1,10 +1,10 @@
 // Web Audio を直接使う再生エンジン。AudioContext.currentTime をゲーム全体の時計の正にする。
 // 曲は start() で全ノートを絶対時刻に予約する (20 秒・数百音なので lookahead 分割は要らない)。
 // 音色は拍とタイミングが分かる最低限。melody = 矩形波、bass = 三角波、drums = ノイズと短いサイン。
-// プレイヤーの音は音の仕様 (assets/sound/v6.json、src/audio/soundspec.ts) を synth.ts で鳴らす (v6 T7)。
+// プレイヤーの音は音の仕様 (assets/sound/v7.json、src/audio/soundspec.ts) を synth.ts で鳴らす (v6 T7。v7.1 で既定を電子音に)。
 // v5 までの撥弦 (pluck.ts) は仕様の 1 層 (type pluck) として残る。曲の 3 声と別の系統 (docs/concept.md「曲と音の役割」)
 
-import defaultBankJson from '../../assets/sound/v6.json';
+import defaultBankJson from '../../assets/sound/v7.json';
 import { midiToHz, type PluckKind, type PluckSpec } from './pluck';
 import { normalizeBank, type SoundBank, type SoundName } from './soundspec';
 import { playSound, startSustained, type Sustained } from './synth';
@@ -61,7 +61,7 @@ export class AudioEngine {
   private active: AudioScheduledSourceNode[] = [];
   // 鳴っている溜めの持続音 (1 つだけ。手で区別しない)
   private charge: Sustained | null = null;
-  // プレイヤーの音の仕様。既定は assets/sound/v6.json、本人が音作りのページで作ったものに差し替えられる (setBank)
+  // プレイヤーの音の仕様。既定は assets/sound/v7.json、本人が音作りのページで作ったものに差し替えられる (setBank)
   private bank: SoundBank;
 
   constructor(ctx?: BaseAudioContext, bank: SoundBank = DEFAULT_SOUND_BANK) {
