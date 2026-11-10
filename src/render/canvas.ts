@@ -26,7 +26,7 @@ import { currentAttack, enemyMotion, enemyPose, playerPose } from '../core/pose'
 import { HANDS, armedHands, effectiveChoreo, type SimState } from '../core/sim';
 import { stageAt } from '../core/stage';
 import { easeOut, normalize, type Vec } from '../core/vec';
-import { drawDuelist } from './duelist';
+import { drawDuelist, drawFlyingSword } from './duelist';
 import { drawEnemy, drawPlayer } from './figures';
 
 export interface Viewport {
@@ -105,7 +105,14 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
     // 相殺された当たりは消えている (sim.checkDamage と同じ)。本体は path どおり動き続ける
     if (state.cancelled.has(idx)) continue;
     const h = hitboxAt(atk, beat, grid.beatSec, cfg, attackMotion(choreo, atk));
-    if (h) drawHitbox(ctx, px, pr, h);
+    if (!h) continue;
+    drawHitbox(ctx, px, pr, h);
+    // 決闘者の飛ぶ剣 (v7.2): 弾の当たりの円に、進む向きへ浮遊剣と同じ形の剣を重ねる (円は判定どおり描いたまま)
+    if (choreo.figure === 'duelist' && atk.type === 'shot' && h.kind === 'circle') {
+      const origin = pathPosAt(atk.path, impactBeat(atk), attackMotion(choreo, atk));
+      const st = stageAt(beat, grid.beatsPerBar);
+      drawFlyingSword(ctx, px(h), { x: h.x - origin.x, y: h.y - origin.y }, pr(cfg.enemyRadius), st.stage >= 2 ? 0.6 : 0);
+    }
   }
 
   // 敵: 構えは core が決める。拍の頭で明るく、イージングアウトで戻る。命中の瞬間は白。
@@ -117,7 +124,7 @@ export function render(ctx: CanvasRenderingContext2D, vp: Viewport, state: SimSt
   if (choreo.figure === 'duelist') {
     const motion = enemyMotion(choreo, beat, grid.beatSec, cfg);
     const idle = ePose === 'stopped' || ePose === 'approach' || ePose === 'retreat' ? 'low' : 'guard';
-    drawDuelist(ctx, e, pr(cfg.enemyRadius), motion, eDir, pulse, eColor, flash.enemyHit > 0, idle, stageAt(beat, grid.beatsPerBar));
+    drawDuelist(ctx, e, pr(cfg.enemyRadius), motion, eDir, pulse, eColor, flash.enemyHit > 0, idle, stageAt(beat, grid.beatsPerBar), beat);
   } else {
     drawEnemy(ctx, e, pr(cfg.enemyRadius), ePose, eDir, pulse, eColor, flash.enemyHit > 0);
   }

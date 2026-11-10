@@ -92,7 +92,7 @@ function draw(now: number): void {
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
-      drawDuelist(ctx, { x: cx, y: cy }, r, motion, dir, pulse, ENEMY, false, 'guard', st);
+      drawDuelist(ctx, { x: cx, y: cy }, r, motion, dir, pulse, ENEMY, false, 'guard', st, phase * 2);
       ctx.fillStyle = '#8a8a8a';
       ctx.fillText(`段 ${row + 1} / ${MOVE_LABEL[String(move)]}${move ? ` pre ${motion.pre.toFixed(2)} post ${motion.post.toFixed(2)}` : ''}`, cx, cy + rh * 0.4);
     }
